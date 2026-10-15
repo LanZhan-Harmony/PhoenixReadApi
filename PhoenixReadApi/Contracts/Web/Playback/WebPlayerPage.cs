@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Serialization;
 
-namespace PhoenixReadApi.Contracts.Web.Playback;
+namespace PhoenixReadApi.Internal.Contracts.Web.Playback;
 
 internal sealed class WebPlayerPageDto
 {

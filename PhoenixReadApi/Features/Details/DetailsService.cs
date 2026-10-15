@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using PhoenixReadApi.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.Web;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
@@ -205,7 +205,7 @@ internal sealed class DetailsService : PhoenixFeatureService
             {
                 Id = "hongguo:" + seriesId,
                 SourceId = seriesId,
-                Source = PhoenixReadApiClient.SourceName,
+                Source = PhoenixReadApi.SourceName,
                 Title = title,
                 Name = title,
                 Channel = "红果",
@@ -238,7 +238,7 @@ internal sealed class DetailsService : PhoenixFeatureService
         new()
         {
             Id = $"hongguo:{seriesId}:{videoId}",
-            Source = PhoenixReadApiClient.SourceName,
+            Source = PhoenixReadApi.SourceName,
             Title = $"第{episode}集",
             VideoUrl = "hongguo-cenc://" + videoId,
             Episode = episode,

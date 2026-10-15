@@ -1,7 +1,7 @@
 using System.Numerics;
 using System.Text;
 
-namespace PhoenixReadApi;
+namespace PhoenixReadApi.Internal.Infrastructure.Crypto;
 
 /// <summary>在加密处理层解码红果 CENC 内容密钥。</summary>
 internal static class ContentKeyDecoder
@@ -108,4 +108,3 @@ internal static class ContentKeyDecoder
         return -1;
     }
 }
-

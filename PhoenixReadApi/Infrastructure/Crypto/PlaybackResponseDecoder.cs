@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace PhoenixReadApi;
+namespace PhoenixReadApi.Internal.Infrastructure.Crypto;
 
 /// <summary>解码可选的备用播放响应封装。</summary>
 internal static class PlaybackResponseDecoder

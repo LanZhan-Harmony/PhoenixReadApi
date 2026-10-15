@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Serialization;
 
-namespace PhoenixReadApi.Contracts.App.Danmaku;
+namespace PhoenixReadApi.Internal.Contracts.App.Danmaku;
 
 internal sealed class AppDanmakuData
 {

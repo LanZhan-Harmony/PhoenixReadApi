@@ -1,6 +1,6 @@
 using System.Buffers;
 
-namespace PhoenixReadApi;
+namespace PhoenixReadApi.Internal.Infrastructure.Crypto;
 
 /// <summary>解码标准 Base64 和 URL 安全格式的红果 Base64 值。</summary>
 internal static class Base64Decoder

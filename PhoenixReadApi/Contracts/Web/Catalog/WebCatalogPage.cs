@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
-using PhoenixReadApi.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Serialization;
 
-namespace PhoenixReadApi.Contracts.Web.Catalog;
+namespace PhoenixReadApi.Internal.Contracts.Web.Catalog;
 
 internal sealed class WebCategoryPageDto
 {

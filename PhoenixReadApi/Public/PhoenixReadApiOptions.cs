@@ -1,3 +1,5 @@
+using PhoenixReadApi.Internal.Infrastructure.Crypto;
+
 namespace PhoenixReadApi;
 
 /// <summary>PhoenixReadApiClient 的配置选项。</summary>
