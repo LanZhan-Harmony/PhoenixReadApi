@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PhoenixReadApi.Sample/PhoenixReadApi.Sample.csproj" />
+  <Project Path="PhoenixReadApi/PhoenixReadApi.csproj" />
+</Solution>
