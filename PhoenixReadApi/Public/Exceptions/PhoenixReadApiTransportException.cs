@@ -1,6 +1,6 @@
 namespace PhoenixReadApi;
 
-/// <summary>Thrown when the request could not be sent or timed out.</summary>
+/// <summary>当请求无法发送或发生超时时抛出此异常。</summary>
 public class PhoenixReadApiTransportException(
     string message,
     string? endpoint = null,

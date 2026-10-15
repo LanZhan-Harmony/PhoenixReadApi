@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace PhoenixReadApi.Internal.Infrastructure.Web;
 
-/// <summary>Normalizes provider date labels and timestamps.</summary>
+/// <summary>规范化红果接口返回的日期标签和时间戳。</summary>
 internal static partial class DateNormalizer
 {
     internal static string Normalize(string value)

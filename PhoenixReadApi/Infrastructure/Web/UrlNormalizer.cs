@@ -2,7 +2,7 @@ using System.Net;
 
 namespace PhoenixReadApi.Internal.Infrastructure.Web;
 
-/// <summary>Normalizes and validates media URLs at the web boundary.</summary>
+/// <summary>在网页接口层规范化并校验媒体 URL。</summary>
 internal static class UrlNormalizer
 {
     internal static string NormalizeMediaUrl(string? raw, Uri page)

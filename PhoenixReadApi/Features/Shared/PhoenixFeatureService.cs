@@ -7,8 +7,8 @@ using PhoenixReadApi.Internal.Serialization;
 namespace PhoenixReadApi.Internal.Features.Shared;
 
 /// <summary>
-/// Common boundary helpers for feature services. It contains no feature state or public API
-/// forwarding; it only exposes the normalized runtime dependencies and shared validation rules.
+/// 功能服务的通用辅助方法。此类不保存功能状态，也不负责转发公共 API
+/// 只提供统一的运行时依赖和共享校验规则。
 /// </summary>
 internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
 {

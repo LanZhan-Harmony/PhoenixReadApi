@@ -2,63 +2,62 @@ using System.Text.Json.Serialization;
 
 namespace PhoenixReadApi;
 
-/// <summary>A drama returned by the catalog or search endpoints.</summary>
+/// <summary>剧库或搜索接口返回的剧集信息。</summary>
 public class Drama
 {
-    /// <summary>Provider-independent identifier.</summary>
+    /// <summary>跨数据源通用的剧集 ID。</summary>
     public string Id { get; init; } = string.Empty;
 
-    /// <summary>Stable provider source name.</summary>
+    /// <summary>固定的数据源名称。</summary>
     public string Source { get; init; } = "hongguo";
 
-    /// <summary>Identifier assigned by the provider.</summary>
+    /// <summary>红果接口分配的 ID。</summary>
     public string SourceId { get; init; } = string.Empty;
 
-    /// <summary>Drama title.</summary>
+    /// <summary>剧集标题。</summary>
     public string Title { get; init; } = string.Empty;
 
-    /// <summary>Drama name.</summary>
+    /// <summary>剧集名称。</summary>
     public string Name { get; init; } = string.Empty;
 
-    /// <summary>Drama description.</summary>
+    /// <summary>剧集简介。</summary>
     public string Description { get; init; } = string.Empty;
 
-    /// <summary>Cover image URL.</summary>
+    /// <summary>封面图片 URL。</summary>
     public string CoverUrl { get; init; } = string.Empty;
 
-    /// <summary>Provider category.</summary>
+    /// <summary>红果接口返回的分类。</summary>
     public string Category { get; init; } = string.Empty;
 
-    /// <summary>Display channel.</summary>
+    /// <summary>展示渠道。</summary>
     public string Channel { get; init; } = "红果";
 
-    /// <summary>Provider remark.</summary>
+    /// <summary>红果接口返回的备注。</summary>
     public string Remark { get; init; } = string.Empty;
 
-    /// <summary>Provider score.</summary>
+    /// <summary>红果接口返回的评分。</summary>
     public string Score { get; init; } = string.Empty;
 
-    /// <summary>Provider view count.</summary>
+    /// <summary>红果接口返回的播放量。</summary>
     public string Views { get; init; } = string.Empty;
 
-    /// <summary>Provider heat value.</summary>
+    /// <summary>红果接口返回的热度值。</summary>
     public string Heat { get; init; } = string.Empty;
 
-    /// <summary>First visible date.</summary>
+    /// <summary>首次展示日期。</summary>
     public string OnlineDate { get; init; } = string.Empty;
 
-    /// <summary>Number of episodes.</summary>
+    /// <summary>分集数量。</summary>
     public int EpisodeCount { get; init; }
 
-    /// <summary>Release status.</summary>
+    /// <summary>更新状态。</summary>
     public string ReleaseStatus { get; init; } = string.Empty;
 
-    /// <summary>Provider tags.</summary>
+    /// <summary>红果接口返回的标签。</summary>
     public IReadOnlyList<string> Tags { get; init; } = [];
 
-    /// <summary>Returns the best available display title.</summary>
-    // Keep this computed convenience property out of JSON if an application chooses to
-    // serialize a public model with its own context.
+    /// <summary>返回最适合展示的标题。</summary>
+    // 如果应用使用自己的上下文序列化公共模型，请将此计算属性排除在 JSON 之外。
     [JsonIgnore]
     public string DisplayTitle =>
         string.IsNullOrWhiteSpace(Title)

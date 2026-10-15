@@ -1,18 +1,18 @@
 namespace PhoenixReadApi;
 
-/// <summary>A page returned by the App recommendation endpoint.</summary>
+/// <summary>App 推荐接口返回的一页结果。</summary>
 public class RecommendationPage
 {
-    /// <summary>Recommendation items.</summary>
+    /// <summary>推荐条目。</summary>
     public IReadOnlyList<Drama> Items { get; init; } = [];
 
-    /// <summary>Next provider pagination offset.</summary>
+    /// <summary>下一页的分页偏移量（由红果接口返回）。</summary>
     public int NextOffset { get; init; }
 
-    /// <summary>Provider pagination session.</summary>
+    /// <summary>红果接口分页会话标识。</summary>
     public string SessionId { get; init; } = string.Empty;
 
-    /// <summary>Whether another page is available.</summary>
+    /// <summary>是否还有下一页。</summary>
     public bool HasMore { get; init; }
 }
 

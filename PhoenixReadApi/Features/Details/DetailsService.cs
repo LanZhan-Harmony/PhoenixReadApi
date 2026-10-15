@@ -10,7 +10,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Details;
 
-/// <summary>Loads details, validates episode ownership and caches completed results.</summary>
+/// <summary>加载详情、校验分集归属，并缓存已完成的结果。</summary>
 internal sealed class DetailsService : PhoenixFeatureService
 {
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(5);

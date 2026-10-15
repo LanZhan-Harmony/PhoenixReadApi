@@ -46,10 +46,10 @@ internal partial class SourceGenerationContext : JsonSerializerContext { }
 internal static class JsonAotSerializer
 {
     /// <summary>
-    /// Serializes an object to a JSON string.
+    /// 将对象序列化为 JSON 字符串。
     /// </summary>
-    /// <param name="value">The object to serialize</param>
-    /// <returns>The serialized JSON string</returns>
+    /// <param name="value">要序列化的对象</param>
+    /// <returns>序列化后的 JSON 字符串</returns>
     internal static string Serialize<T>(T value)
     {
         if (
@@ -96,11 +96,11 @@ internal static class JsonAotSerializer
     }
 
     /// <summary>
-    /// Deserializes a JSON string to the specified type.
+    /// 将 JSON 字符串反序列化为指定类型。
     /// </summary>
-    /// <typeparam name="T">The target type</typeparam>
-    /// <param name="value">The JSON string</param>
-    /// <returns>The deserialized object</returns>
+    /// <typeparam name="T">目标类型</typeparam>
+    /// <param name="value">JSON 字符串</param>
+    /// <returns>反序列化后的对象</returns>
     internal static T? Deserialize<T>(string value)
     {
         if (

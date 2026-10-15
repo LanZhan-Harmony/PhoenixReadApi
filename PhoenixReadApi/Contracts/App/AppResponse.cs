@@ -3,7 +3,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Contracts.App;
 
-/// <summary>Common envelope returned by Phoenix App endpoints.</summary>
+/// <summary>红果 App 接口返回的通用响应封装。</summary>
 internal sealed class AppResponse<T>
 {
     [JsonPropertyName("code")]

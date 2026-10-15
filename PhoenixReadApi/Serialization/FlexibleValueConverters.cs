@@ -7,7 +7,7 @@ using PhoenixReadApi.Internal.Contracts.App;
 
 namespace PhoenixReadApi.Internal.Serialization;
 
-/// <summary>Converts provider values that may be represented as strings or JSON scalars.</summary>
+/// <summary>转换红果接口可能以字符串或 JSON 标量值返回的数据。</summary>
 internal sealed class FlexibleStringConverter : JsonConverter<string?>
 {
     public override string? Read(
@@ -37,7 +37,7 @@ internal sealed class FlexibleStringConverter : JsonConverter<string?>
     ) => writer.WriteStringValue(value);
 }
 
-/// <summary>Converts an integer that may be returned as a JSON number or string.</summary>
+/// <summary>转换可能以 JSON 数字或字符串形式返回的整数。</summary>
 internal sealed class FlexibleIntConverter : JsonConverter<int>
 {
     public override int Read(
@@ -72,7 +72,7 @@ internal sealed class FlexibleIntConverter : JsonConverter<int>
     }
 }
 
-/// <summary>Converts a long that may be returned as a JSON number or string.</summary>
+/// <summary>转换可能以 JSON 数字或字符串形式返回的 Int64 值。</summary>
 internal sealed class FlexibleLongConverter : JsonConverter<long>
 {
     public override long Read(
@@ -107,7 +107,7 @@ internal sealed class FlexibleLongConverter : JsonConverter<long>
     }
 }
 
-/// <summary>Converts a floating point value that may be returned as a string.</summary>
+/// <summary>转换可能以字符串形式返回的浮点值。</summary>
 internal sealed class FlexibleDoubleConverter : JsonConverter<double>
 {
     public override double Read(
@@ -145,7 +145,7 @@ internal sealed class FlexibleDoubleConverter : JsonConverter<double>
     }
 }
 
-/// <summary>Reads the video model whether the provider sends an object or JSON text.</summary>
+/// <summary>读取视频模型，兼容对象和 JSON 文本两种返回格式。</summary>
 internal sealed class VideoModelConverter : JsonConverter<JsonElement>
 {
     public override JsonElement Read(
@@ -184,7 +184,7 @@ internal sealed class VideoModelConverter : JsonConverter<JsonElement>
     ) => value.WriteTo(writer);
 }
 
-/// <summary>Reads video_model as an object or a JSON string into its App DTO.</summary>
+/// <summary>读取 video_model，兼容对象和 JSON 字符串格式，并转换为对应的 App DTO。</summary>
 internal sealed class VideoModelDtoConverter : JsonConverter<AppPlaybackModel>
 {
     public override AppPlaybackModel? Read(
@@ -227,7 +227,7 @@ internal sealed class VideoModelDtoConverter : JsonConverter<AppPlaybackModel>
     ) => JsonAotSerializer.Serialize(writer, value);
 }
 
-/// <summary>Reads a video variant collection represented as an array or keyed object.</summary>
+/// <summary>读取以数组或键值对象表示的视频版本集合。</summary>
 internal sealed class VideoVariantListConverter : JsonConverter<List<JsonElement>>
 {
     public override List<JsonElement> Read(
@@ -266,7 +266,7 @@ internal sealed class VideoVariantListConverter : JsonConverter<List<JsonElement
     }
 }
 
-/// <summary>Reads App episode records whether video_list is an array or keyed object.</summary>
+/// <summary>读取 App 分集记录，兼容数组和键值对象两种 video_list 格式。</summary>
 internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<AppVideoDto>>
 {
     public override IReadOnlyList<AppVideoDto> Read(
@@ -310,7 +310,7 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<A
     }
 }
 
-/// <summary>Reads catalog video_data whether it is an array or keyed object.</summary>
+/// <summary>读取剧库的 video_data，兼容数组和键值对象两种格式。</summary>
 internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<AppDramaDto>>
 {
     public override IReadOnlyList<AppDramaDto> Read(
@@ -355,7 +355,7 @@ internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<A
     }
 }
 
-/// <summary>Reads a provider string or string array as a stable list.</summary>
+/// <summary>将红果接口返回的字符串或字符串数组统一转换为列表。</summary>
 internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<string>>
 {
     public override IReadOnlyList<string> Read(
@@ -415,7 +415,7 @@ internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<
     }
 }
 
-/// <summary>Reads media variants represented as an array or keyed object.</summary>
+/// <summary>读取以数组或键值对象表示的媒体版本。</summary>
 internal sealed class FlexibleMediaVariantListConverter
     : JsonConverter<IReadOnlyList<AppMediaVariantDto>>
 {
@@ -463,7 +463,7 @@ internal sealed class FlexibleMediaVariantListConverter
     }
 }
 
-/// <summary>Reads category schema values that are sometimes nested JSON text.</summary>
+/// <summary>读取分类结构值，兼容其中嵌套 JSON 文本的情况。</summary>
 internal sealed class CategorySchemaConverter : JsonConverter<List<string>>
 {
     public override List<string> Read(

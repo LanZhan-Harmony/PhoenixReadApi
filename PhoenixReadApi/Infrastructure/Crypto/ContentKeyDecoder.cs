@@ -3,7 +3,7 @@ using System.Text;
 
 namespace PhoenixReadApi;
 
-/// <summary>Decodes Phoenix CENC content keys at the crypto boundary.</summary>
+/// <summary>在加密处理层解码红果 CENC 内容密钥。</summary>
 internal static class ContentKeyDecoder
 {
     internal static byte[] Decode(string value)

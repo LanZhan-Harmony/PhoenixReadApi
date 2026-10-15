@@ -1,18 +1,18 @@
 namespace PhoenixReadApi;
 
-/// <summary>Catalog response with fallback diagnostics.</summary>
+/// <summary>包含兜底诊断信息的剧库结果。</summary>
 public class CatalogResult
 {
-    /// <summary>Catalog items.</summary>
+    /// <summary>剧库结果条目。</summary>
     public IReadOnlyList<Drama> Items { get; init; } = [];
 
-    /// <summary>Requested catalog category.</summary>
+    /// <summary>本次请求的剧库分类。</summary>
     public PhoenixReadApiCategory Category { get; init; }
 
-    /// <summary>Whether the web catalog fallback was used.</summary>
+    /// <summary>是否使用了网页剧库接口兜底。</summary>
     public bool UsedWebFallback { get; init; }
 
-    /// <summary>Non-fatal diagnostics.</summary>
+    /// <summary>非致命诊断信息。</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 

@@ -1,6 +1,6 @@
 namespace PhoenixReadApi.Internal.Infrastructure.Http;
 
-/// <summary>Reads bounded response bodies without buffering untrusted sizes.</summary>
+/// <summary>按大小限制读取响应正文，避免缓存超大或不受信任的数据。</summary>
 internal static class ResponseReader
 {
     internal static async Task<byte[]> ReadBytesAsync(

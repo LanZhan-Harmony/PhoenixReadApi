@@ -3,7 +3,7 @@ using System.Text;
 
 namespace PhoenixReadApi.Internal.Infrastructure.Http;
 
-/// <summary>Fetches bounded Phoenix HTML pages and applies the shared retry policy.</summary>
+/// <summary>获取大小受限的红果 HTML 页面，并应用共享重试策略。</summary>
 internal sealed class PhoenixReadWebTransport
 {
     private readonly PhoenixReadHttpTransport _http;

@@ -1,6 +1,6 @@
 namespace PhoenixReadApi;
 
-/// <summary>Thrown when Phoenix returns a provider-level error code.</summary>
+/// <summary>当红果接口返回业务错误码时抛出此异常。</summary>
 public class PhoenixReadApiProviderException(
     string message,
     string? endpoint = null,
@@ -19,8 +19,8 @@ public class PhoenixReadApiProviderException(
         innerException
     ) { }
 
-/// <summary>Thrown when the provider rejects the current authentication/device.</summary>
-/// <remarks>Creates an authentication or device rejection exception.</remarks>
+/// <summary>当红果接口拒绝当前设备或身份验证信息时抛出此异常。</summary>
+/// <remarks>身份验证信息或设备被拒绝时使用的异常类型。</remarks>
 public sealed class PhoenixReadApiAuthenticationException(
     string message,
     string? endpoint = null,

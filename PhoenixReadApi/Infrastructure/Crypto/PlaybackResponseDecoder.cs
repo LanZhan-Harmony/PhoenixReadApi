@@ -4,7 +4,7 @@ using System.Text;
 
 namespace PhoenixReadApi;
 
-/// <summary>Decodes the optional backup playback response envelope.</summary>
+/// <summary>解码可选的备用播放响应封装。</summary>
 internal static class PlaybackResponseDecoder
 {
     internal static byte[] Decode(string body)

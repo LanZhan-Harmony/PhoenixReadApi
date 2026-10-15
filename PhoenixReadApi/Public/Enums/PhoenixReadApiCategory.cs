@@ -1,20 +1,20 @@
 namespace PhoenixReadApi;
 
-/// <summary>Categories exposed by the Phoenix short-drama service.</summary>
+/// <summary>红果短剧服务提供的分类。</summary>
 public enum PhoenixReadApiCategory
 {
-    /// <summary>All App categories supported by the service.</summary>
+    /// <summary>服务支持的全部 App 分类。</summary>
     All,
 
-    /// <summary>Real Drama.</summary>
+    /// <summary>真人剧。</summary>
     RealDrama,
 
-    /// <summary>Comic Drama.</summary>
+    /// <summary>漫剧。</summary>
     ComicDrama,
 
-    /// <summary>AI Drama.</summary>
+    /// <summary>AI 剧。</summary>
     AiDrama,
 
-    /// <summary>Web Comic.</summary>
+    /// <summary>动漫。</summary>
     Comic,
 }

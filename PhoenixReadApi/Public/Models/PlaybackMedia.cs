@@ -1,24 +1,24 @@
 namespace PhoenixReadApi;
 
-/// <summary>A playable media address and its optional CENC key.</summary>
+/// <summary>可播放的媒体地址，以及可选的 CENC 密钥。</summary>
 public class PlaybackMedia
 {
-    /// <summary>Playable media URL.</summary>
+    /// <summary>可播放媒体 URL。</summary>
     public string Url { get; init; } = string.Empty;
 
-    /// <summary>Referer required by the provider.</summary>
+    /// <summary>红果接口要求的 Referer。</summary>
     public string Referer { get; init; } = string.Empty;
 
-    /// <summary>Media duration.</summary>
+    /// <summary>媒体时长。</summary>
     public TimeSpan Duration { get; init; }
 
-    /// <summary>Quality score parsed from the provider label.</summary>
+    /// <summary>从红果接口标签解析出的清晰度分数。</summary>
     public int Quality { get; init; }
 
-    /// <summary>Optional CENC decryption key.</summary>
+    /// <summary>可选的 CENC 解密密钥。</summary>
     public string DecryptionKey { get; init; } = string.Empty;
 
-    /// <summary>Available media variants.</summary>
+    /// <summary>可用的媒体版本。</summary>
     public IReadOnlyList<MediaVariant> Variants { get; init; } = [];
 }
 

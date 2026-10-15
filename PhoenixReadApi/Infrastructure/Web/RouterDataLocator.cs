@@ -3,7 +3,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Infrastructure.Web;
 
-/// <summary>Locates dynamic loader keys without exposing route naming to feature code.</summary>
+/// <summary>定位动态加载器键，避免功能代码直接依赖路由名称。</summary>
 internal static class RouterDataLocator
 {
     internal static JsonElement Find(JsonDocument? document, params string[] names)

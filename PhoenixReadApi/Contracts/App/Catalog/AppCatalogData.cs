@@ -22,7 +22,7 @@ internal sealed class AppCatalogData
     public string? SessionId { get; init; }
 }
 
-/// <summary>Shared provider drama fields used by catalog, detail and recommendation payloads.</summary>
+/// <summary>剧库、详情和推荐响应共用的红果剧集字段。</summary>
 internal sealed class AppDramaDto
 {
     [JsonPropertyName("video_data")]

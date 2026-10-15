@@ -2,11 +2,11 @@ using System.Net;
 
 namespace PhoenixReadApi;
 
-/// <summary>Base exception for a rejected, unavailable or malformed Phoenix response.</summary>
+/// <summary>红果响应被拒绝、不可用或格式错误时使用的基础异常类型。</summary>
 /// <remarks>
-/// The original endpoint and integer status-code properties are kept for source compatibility.
-/// New code can use <see cref="Operation"/>, <see cref="RequestUri"/>,
-/// <see cref="ProviderCode"/> and <see cref="IsTransient"/> to decide how to handle a failure.
+/// 为保持源代码兼容性，继续保留原有的接口和整数状态码属性。
+/// 新代码可以使用 <see cref="Operation"/>、<see cref="RequestUri"/>、
+/// <see cref="ProviderCode"/> 和 <see cref="IsTransient"/> 判断如何处理失败。
 /// </remarks>
 public class PhoenixReadApiException(
     string message,
@@ -19,7 +19,7 @@ public class PhoenixReadApiException(
     Exception? innerException = null
 ) : Exception(message, innerException)
 {
-    /// <summary>Creates an API exception using the legacy endpoint/status-code shape.</summary>
+    /// <summary>使用旧版接口和状态码参数创建 API 异常。</summary>
     public PhoenixReadApiException(
         string message,
         string? endpoint = null,
@@ -37,27 +37,27 @@ public class PhoenixReadApiException(
             innerException
         ) { }
 
-    /// <summary>The logical operation that failed.</summary>
+    /// <summary>失败的逻辑操作名称。</summary>
     public string Operation { get; } = string.IsNullOrWhiteSpace(operation) ? "unknown" : operation;
 
-    /// <summary>The logical endpoint that failed.</summary>
+    /// <summary>发生失败的逻辑接口。</summary>
     public string? Endpoint { get; } = endpoint;
 
-    /// <summary>The request URI, when a request was created.</summary>
+    /// <summary>发起请求时使用的 URI。</summary>
     public Uri? RequestUri { get; } = requestUri;
 
-    /// <summary>The HTTP status code, when a response was received.</summary>
+    /// <summary>收到响应时的 HTTP 状态码。</summary>
     public int? StatusCode { get; } = statusCode;
 
-    /// <summary>The provider-specific error code, when one was returned.</summary>
+    /// <summary>红果接口返回的错误码。</summary>
     public string? ProviderCode { get; } = providerCode;
 
-    /// <summary>Gets whether retrying the operation is normally safe.</summary>
+    /// <summary>获取该操作是否通常可以安全重试。</summary>
     public bool IsTransient { get; } = isTransient;
 
-    /// <summary>Gets the status code as a framework enum when available.</summary>
+    /// <summary>状态码可用时，以框架枚举返回该状态码。</summary>
     public HttpStatusCode? HttpStatusCode => StatusCode is { } value ? (HttpStatusCode)value : null;
 
-    /// <summary>Alias for <see cref="HttpStatusCode"/> for callers preferring a short name.</summary>
+    /// <summary>为需要简短名称的调用方提供的 <see cref="HttpStatusCode"/> 别名。</summary>
     public HttpStatusCode? Status => HttpStatusCode;
 }
