@@ -11,7 +11,7 @@ using PhoenixReadApi.Internal.Infrastructure.Web;
 
 namespace PhoenixReadApi.Internal.Features.Catalog;
 
-/// <summary>Coordinates catalog sources, pagination state, merging and web fallback.</summary>
+/// <summary>协调剧库数据源、分页状态、结果合并和网页兜底。</summary>
 internal sealed class CatalogService : PhoenixFeatureService
 {
     private const int CatalogPageSize = 18;

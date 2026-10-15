@@ -1,47 +1,47 @@
 namespace PhoenixReadApi;
 
-/// <summary>Options used by PhoenixReadApiClient.</summary>
+/// <summary>PhoenixReadApiClient 的配置选项。</summary>
 public class PhoenixReadApiOptions
 {
-    /// <summary>The Phoenix web site base address.</summary>
+    /// <summary>红果网站的基础地址。</summary>
     public Uri WebBaseUri { get; init; } = new("https://hongguoduanju.com/", UriKind.Absolute);
 
-    /// <summary>The Phoenix App API base address.</summary>
+    /// <summary>红果 App API 的基础地址。</summary>
     public Uri AppBaseUri { get; init; } =
         new("https://api5-normal-sinfonlineb.fqnovel.com/", UriKind.Absolute);
 
-    /// <summary>The optional backup playback endpoint.</summary>
+    /// <summary>可选的备用播放接口。</summary>
     public Uri PlaybackApiUri { get; init; } =
         new("https://djapi.999888456.xyz/api/hongguo/play", UriKind.Absolute);
 
-    /// <summary>Maximum number of catalog pages requested for a category.</summary>
+    /// <summary>每个分类最多请求的剧库页数。</summary>
     public int MaxPagesPerCategory { get; init; } = 50;
 
-    /// <summary>Number of attempts for transient App requests.</summary>
+    /// <summary>App 请求遇到临时性错误时的最大重试次数。</summary>
     public int RetryCount { get; init; } = 2;
 
-    /// <summary>Per-request timeout. Cancellation tokens remain authoritative.</summary>
+    /// <summary>单次请求的超时时间；如果传入取消令牌，则以取消令牌为准。</summary>
     public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(20);
 
-    /// <summary>Maximum response size accepted by regular endpoints.</summary>
+    /// <summary>常规接口允许接收的最大响应体大小。</summary>
     public int MaxResponseBytes { get; init; } = 8 * 1024 * 1024;
 
-    /// <summary>Whether catalog, detail and playback calls may use web fallbacks.</summary>
+    /// <summary>剧库、详情和播放请求是否允许使用网页接口兜底。</summary>
     public bool EnableWebFallback { get; init; } = true;
 
-    /// <summary>Whether playback may use the public backup endpoint.</summary>
+    /// <summary>播放是否允许使用公共备用接口兜底。</summary>
     public bool EnablePlaybackApiFallback { get; init; } = true;
 
-    /// <summary>Whether search may spend a bounded budget filling missing season numbers.</summary>
+    /// <summary>搜索时是否允许在限定请求预算内补齐缺失的季数。</summary>
     public bool CompleteSearchSeasons { get; init; } = true;
 
-    /// <summary>Optional persisted numeric device identifier used for App requests.</summary>
+    /// <summary>用于 App 请求的可选持久化设备 ID（数字字符串）。</summary>
     public string? DeviceId { get; init; }
 
-    /// <summary>Optional persisted numeric install identifier used for App requests.</summary>
+    /// <summary>用于 App 请求的可选持久化安装 ID（数字字符串）。</summary>
     public string? InstallId { get; init; }
 
-    /// <summary>Application user agent sent to Phoenix endpoints.</summary>
+    /// <summary>发送给红果接口的应用 User-Agent。</summary>
     public string UserAgent { get; init; } =
         "com.phoenix.read/73532 (Linux; U; Android 16; zh_CN; 25053RT47C; Build/BP2A.250605.031.A3; Cronet/TTNetVersion:04657795 2026-01-23 QuicVersion:c67e9834 2025-09-08)";
 

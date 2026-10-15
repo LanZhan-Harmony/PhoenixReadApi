@@ -1,6 +1,6 @@
 namespace PhoenixReadApi;
 
-/// <summary>Thrown when an HTTP response has an unsuccessful status code.</summary>
+/// <summary>当 HTTP 响应状态码表示失败时抛出此异常。</summary>
 public class PhoenixReadApiHttpException(
     string message,
     string? endpoint = null,

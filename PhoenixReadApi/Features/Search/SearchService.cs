@@ -14,11 +14,11 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Search;
 
-/// <summary>Owns search, suggestions, season completion and recommendation pagination.</summary>
+/// <summary>负责搜索、联想、季数补齐和推荐分页。</summary>
 internal sealed partial class SearchService : PhoenixFeatureService
 {
-    private const int SearchSuggestionCount = 50;
-    private const int MaxSuggestions = 10;
+    private const int SearchSuggestionCount = 5;
+    private const int MaxSuggestions = 5;
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan SuggestionCacheLifetime = TimeSpan.FromMinutes(2);
     private readonly Lock _stateLock = new();

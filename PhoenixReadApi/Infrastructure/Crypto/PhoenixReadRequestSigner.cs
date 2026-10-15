@@ -8,7 +8,7 @@ using System.Text;
 
 namespace PhoenixReadApi;
 
-/// <summary>Application request signing boundary.</summary>
+/// <summary>应用请求签名处理。</summary>
 internal static class PhoenixReadRequestSigner
 {
     private static readonly byte[] RequestKey =

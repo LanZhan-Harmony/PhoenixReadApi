@@ -1,6 +1,6 @@
 namespace PhoenixReadApi.Internal.Infrastructure.Http;
 
-/// <summary>Owns timeout and bounded body reading for all Phoenix HTTP calls.</summary>
+/// <summary>统一负责红果 HTTP 调用的超时控制和响应正文读取。</summary>
 internal sealed class PhoenixReadHttpTransport
 {
     private readonly HttpClient _httpClient;

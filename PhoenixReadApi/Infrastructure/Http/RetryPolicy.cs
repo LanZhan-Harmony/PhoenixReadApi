@@ -1,6 +1,6 @@
 namespace PhoenixReadApi.Internal.Infrastructure.Http;
 
-/// <summary>Small bounded retry policy shared by App and web transports.</summary>
+/// <summary>App 和网页传输共用的有限次数重试策略。</summary>
 internal static class RetryPolicy
 {
     internal static async Task<T> ExecuteAsync<T>(

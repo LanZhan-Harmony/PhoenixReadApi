@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace PhoenixReadApi.Internal.Infrastructure.Web;
 
-/// <summary>Extracts the JSON object assigned to a Phoenix page's router data variable.</summary>
+/// <summary>提取红果页面路由数据变量中的 JSON 对象。</summary>
 internal static partial class RouterDataExtractor
 {
     internal static JsonDocument? Parse(string html)

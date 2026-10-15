@@ -1,6 +1,6 @@
 namespace PhoenixReadApi;
 
-/// <summary>Thrown when a response cannot be deserialized into its contract.</summary>
+/// <summary>当响应无法按照约定类型完成反序列化时抛出此异常。</summary>
 public class PhoenixReadApiDeserializationException(
     string message,
     string? endpoint = null,

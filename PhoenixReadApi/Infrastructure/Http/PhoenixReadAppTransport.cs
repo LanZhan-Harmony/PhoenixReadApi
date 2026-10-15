@@ -6,7 +6,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Infrastructure.Http;
 
-/// <summary>Builds, signs and deserializes Phoenix App requests.</summary>
+/// <summary>构建并签名红果 App 请求，然后反序列化响应。</summary>
 internal sealed class PhoenixReadAppTransport
 {
     private readonly PhoenixReadHttpTransport _http;
@@ -35,8 +35,8 @@ internal sealed class PhoenixReadAppTransport
     }
 
     /// <summary>
-    /// Compatibility boundary for endpoints that have not yet migrated to a typed contract.
-    /// The document never leaves this transport in the preferred typed path.
+    /// 尚未迁移到类型化契约的接口所使用的兼容层。
+    /// 在首选的类型化路径中，原始 JSON 不会离开此传输层。
     /// </summary>
     internal Task<JsonDocument> PostDocumentAsync<TRequest>(
         HttpMethod method,

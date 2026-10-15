@@ -1,21 +1,21 @@
 namespace PhoenixReadApi;
 
-/// <summary>A bounded danmaku time window.</summary>
+/// <summary>指定时间范围内的弹幕窗口。</summary>
 public class DanmakuPage
 {
-    /// <summary>Episode identifier.</summary>
+    /// <summary>分集 ID。</summary>
     public string EpisodeId { get; init; } = string.Empty;
 
-    /// <summary>Comments in the requested time window.</summary>
+    /// <summary>请求时间范围内的弹幕。</summary>
     public IReadOnlyList<DanmakuItem> Items { get; init; } = [];
 
-    /// <summary>Start of the requested window in milliseconds.</summary>
+    /// <summary>请求时间范围的起点（毫秒）。</summary>
     public long StartMs { get; init; }
 
-    /// <summary>Next window position in milliseconds.</summary>
+    /// <summary>下一次请求的起点（毫秒）。</summary>
     public long NextMs { get; init; }
 
-    /// <summary>Total comments reported by the provider.</summary>
+    /// <summary>红果接口返回的弹幕总数。</summary>
     public long Total { get; init; }
 }
 

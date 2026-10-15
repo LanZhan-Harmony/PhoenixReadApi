@@ -2,14 +2,14 @@ using System.Buffers;
 
 namespace PhoenixReadApi;
 
-/// <summary>Decodes standard and URL-safe provider base64 values.</summary>
+/// <summary>解码标准 Base64 和 URL 安全格式的红果 Base64 值。</summary>
 internal static class Base64Decoder
 {
     internal static byte[] Decode(string value)
     {
         ReadOnlySpan<char> span = value.AsSpan().Trim();
 
-        // 快速路径：标准 Base64，长度是 4 的倍数，且不含 URL-safe 字符
+        // 快速路径：处理长度为 4 的倍数且不含 URL 安全字符的标准 Base64
         if (span.Length % 4 == 0 && span.IndexOf('-') < 0 && span.IndexOf('_') < 0)
         {
             int padding = 0;
@@ -33,7 +33,7 @@ internal static class Base64Decoder
             throw new FormatException("Invalid Base64 string.");
         }
 
-        // Fallback：处理 Base64URL 和缺少 padding
+        // 兜底路径：处理 Base64URL 以及缺少填充符的情况
         int len = span.Length;
         int mod = len % 4;
         int paddingNeeded = mod == 0 ? 0 : 4 - mod;

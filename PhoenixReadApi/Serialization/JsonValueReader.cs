@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace PhoenixReadApi.Internal.Serialization;
 
-/// <summary>Reads scalar and collection values at a provider contract boundary.</summary>
+/// <summary>在红果接口契约层读取标量值和集合值。</summary>
 internal static partial class JsonValueReader
 {
     private static readonly char[] Separators = [',', '/', '，', '、'];

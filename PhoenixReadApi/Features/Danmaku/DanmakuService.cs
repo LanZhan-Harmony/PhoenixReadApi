@@ -8,7 +8,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Danmaku;
 
-/// <summary>Loads and sanitizes bounded App danmaku windows.</summary>
+/// <summary>加载并清理指定时间范围内的 App 弹幕。</summary>
 internal sealed class DanmakuService : PhoenixFeatureService
 {
     private const int MaxDanmakuDurationMs = 24 * 60 * 60 * 1000;

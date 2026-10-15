@@ -13,17 +13,17 @@ indent_style = space
 
 # 将 else 语句放在新行上
 csharp_new_line_before_else = true
-# 要求 lambdas、方法、控制块、类型、属性和访问器的大括号在新行上（也称为 "Allman" 样式）
+# 要求 lambda 表达式、方法、控制块、类型、属性和访问器的大括号单独换行（也称为“Allman”样式）
 csharp_new_line_before_open_brace = all
 
-# 格式设置 - 组织 using 选项
+# 格式设置 - using 指令组织选项
 
-# 按字母顺序对 System.* using 指令进行排序，并将其放在其他 usings 之前
+# 按字母顺序排列 System.* using 指令，并将其放在其他 using 指令之前
 dotnet_sort_system_directives_first = true
 
 # 格式设置 - 间距选项
 
-# 要求在类型转换（cast）和值之间没有空格
+# 要求类型转换和值之间不留空格
 csharp_space_after_cast = false
 # 要求在类型声明中基类或接口的冒号前有一个空格
 csharp_space_after_colon_in_inheritance_clause = true
@@ -98,7 +98,7 @@ csharp_style_var_for_built_in_types = true:warning
 
 # 样式 - 修饰符选项
 
-# 首选声明可访问性修饰符，公共接口成员除外。目前这与 always 没有区别，但作为 C# 引入默认接口方法时的未来保障。
+# 首选声明可访问性修饰符，公共接口成员除外。目前这与 always 选项没有区别，但可作为 C# 引入默认接口方法时的兼容保障。
 dotnet_style_require_accessibility_modifiers = for_non_interface_members:suggestion
 
 # 样式 - 修饰符偏好
@@ -150,7 +150,7 @@ dotnet_style_prefer_conditional_expression_over_return = true:silent
 # 样式 - 不必要的代码规则
 csharp_style_unused_value_assignment_preference = discard_variable:warning
 
-#### Naming styles ####
+#### 命名样式 ####
 
 # 命名规则
 

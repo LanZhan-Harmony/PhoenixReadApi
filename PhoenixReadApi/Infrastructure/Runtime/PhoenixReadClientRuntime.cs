@@ -3,8 +3,8 @@ using PhoenixReadApi.Internal.Infrastructure.Http;
 namespace PhoenixReadApi.Internal.Infrastructure.Runtime;
 
 /// <summary>
-/// Shared process state for one client instance. Feature services depend on this runtime
-/// instead of depending on the public facade, which keeps transport ownership in one place.
+/// 单个客户端实例的共享运行时状态。各功能服务都依赖此运行时
+/// 而不直接依赖公共客户端入口，以便集中管理传输层。
 /// </summary>
 internal sealed class PhoenixReadClientRuntime : IDisposable
 {

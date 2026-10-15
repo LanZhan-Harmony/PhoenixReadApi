@@ -6,7 +6,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Shared;
 
-/// <summary>Maps provider drama records to the stable public model.</summary>
+/// <summary>将红果接口返回的剧集记录映射为稳定的公共模型。</summary>
 internal static class DramaMapper
 {
     private static readonly char[] separator = [',', '/', '，', '、'];
@@ -139,7 +139,7 @@ internal static class DramaMapper
             }
             catch (JsonException)
             {
-                // Optional tags must not invalidate an otherwise usable drama.
+                // 可选标签解析失败时，不应影响其他字段有效的剧集。
             }
         }
 

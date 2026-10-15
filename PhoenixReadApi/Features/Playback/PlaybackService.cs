@@ -10,7 +10,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Playback;
 
-/// <summary>Resolves media through App, web and optional backup providers.</summary>
+/// <summary>通过 App、网页和可选备用接口解析媒体。</summary>
 internal sealed class PlaybackService : PhoenixFeatureService
 {
     internal PlaybackService(PhoenixReadClientRuntime runtime)
