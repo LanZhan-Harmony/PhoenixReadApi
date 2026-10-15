@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
-using PhoenixReadApi.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Infrastructure.Web;
 using PhoenixReadApi.Internal.Serialization;
 
@@ -169,7 +169,7 @@ internal static class DramaMapper
         return new Drama
         {
             Id = "hongguo:" + sourceId,
-            Source = PhoenixReadApiClient.SourceName,
+            Source = PhoenixReadApi.SourceName,
             SourceId = sourceId,
             Title = title,
             Name = title,

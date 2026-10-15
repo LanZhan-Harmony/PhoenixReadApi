@@ -1,7 +1,7 @@
 using System.Text.Json;
-using PhoenixReadApi.Contracts.App.Comment;
-using PhoenixReadApi.Contracts.App.Danmaku;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Comment;
+using PhoenixReadApi.Internal.Contracts.App.Danmaku;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;

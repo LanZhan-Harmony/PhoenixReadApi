@@ -1,16 +1,16 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using PhoenixReadApi.Contracts.App.Catalog;
-using PhoenixReadApi.Contracts.App.Comment;
-using PhoenixReadApi.Contracts.App.Danmaku;
-using PhoenixReadApi.Contracts.App.Playback;
-using PhoenixReadApi.Contracts.Web.Catalog;
-using PhoenixReadApi.Contracts.Web.Playback;
-using PhoenixReadApi.Contracts.Web.Search;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.App.Comment;
+using PhoenixReadApi.Internal.Contracts.App.Danmaku;
+using PhoenixReadApi.Internal.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.App.Search;
 using PhoenixReadApi.Internal.Contracts.Web;
+using PhoenixReadApi.Internal.Contracts.Web.Catalog;
+using PhoenixReadApi.Internal.Contracts.Web.Playback;
+using PhoenixReadApi.Internal.Contracts.Web.Search;
 
 namespace PhoenixReadApi.Internal.Serialization;
 

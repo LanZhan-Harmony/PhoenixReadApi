@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace PhoenixReadApi;
+namespace PhoenixReadApi.Internal.Infrastructure.Crypto;
 
 /// <summary>应用请求签名处理。</summary>
 internal static class PhoenixReadRequestSigner

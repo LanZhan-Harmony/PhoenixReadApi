@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Serialization;
 
-namespace PhoenixReadApi.Contracts.App.Catalog;
+namespace PhoenixReadApi.Internal.Contracts.App.Catalog;
 
 internal sealed class AppCatalogData
 {

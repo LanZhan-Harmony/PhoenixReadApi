@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace PhoenixReadApi.Contracts.App.Playback;
+namespace PhoenixReadApi.Internal.Contracts.App.Playback;
 
 internal sealed class AppMediaBusinessParam
 {

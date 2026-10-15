@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 
-namespace PhoenixReadApi;
+namespace PhoenixReadApi.Internal.Infrastructure.Crypto;
 
 internal static class DeviceIdGenerator
 {

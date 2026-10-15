@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace PhoenixReadApi.Contracts.App.Comment;
+namespace PhoenixReadApi.Internal.Contracts.App.Comment;
 
 internal sealed class AppCommentPayload
 {

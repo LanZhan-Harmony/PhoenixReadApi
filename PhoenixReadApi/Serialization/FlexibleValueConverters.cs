@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using PhoenixReadApi.Contracts.App.Catalog;
-using PhoenixReadApi.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.App.Playback;
 
 namespace PhoenixReadApi.Internal.Serialization;
 
