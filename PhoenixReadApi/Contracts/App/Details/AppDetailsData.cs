@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Serialization;
 
@@ -9,7 +8,6 @@ internal sealed class AppDetailsData
 {
     [JsonPropertyName("video_data")]
     public DramaDto VideoData { get; init; } = new();
-
 }
 
 internal sealed class AppVideoDto

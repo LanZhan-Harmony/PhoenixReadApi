@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Infrastructure.Web;
 using PhoenixReadApi.Internal.Serialization;
@@ -21,12 +20,7 @@ internal static class DramaMapper
             return new Drama();
         }
 
-        var title = JsonValueReader.First(
-            data.SeriesTitle,
-            data.SeriesName,
-            data.Title,
-            sourceId
-        );
+        var title = JsonValueReader.First(data.SeriesTitle, data.SeriesName, data.Title, sourceId);
         var remark = JsonValueReader.First(data.EpisodeRemark);
         List<string> tags = DtoTags(data);
         var genre = JsonValueReader.First(
@@ -60,7 +54,7 @@ internal static class DramaMapper
             Views = JsonValueReader.First(data.SeriesPlayCount, data.PlayCount),
             Heat = DtoHeat(data),
             OnlineDate = DtoOnlineDate(data, now ?? DateTimeOffset.Now),
-            Actors = DtoActors(data.Celebrities),
+            Credits = DtoCredits(data.MainCreatorUsers, data.Celebrities),
         };
     }
 
@@ -163,7 +157,7 @@ internal static class DramaMapper
         )
             ? parsedCount
             : 0;
-        List<DramaActor> actors = JsonActors(data);
+        List<DramaCredit> credits = JsonCredits(data);
         return new Drama
         {
             Id = sourceId,
@@ -179,11 +173,11 @@ internal static class DramaMapper
             Views = JsonValueReader.String(data, "series_play_cnt", "play_cnt"),
             Heat = Heat(data),
             OnlineDate = OnlineDate(data, DateTimeOffset.Now),
-            Actors = actors,
+            Credits = credits,
         };
     }
 
-    internal static Drama FromActorWork(
+    internal static Drama FromRelatedDrama(
         string videoId,
         string title,
         string description,
@@ -199,6 +193,36 @@ internal static class DramaMapper
             EpisodeCount = Math.Max(0, episodeCount),
         };
 
+    internal static Drama FromShelf(
+        string seriesId,
+        string title,
+        string description,
+        string coverUrl,
+        int episodeCount,
+        string status,
+        IReadOnlyList<string> tags
+    ) =>
+        new()
+        {
+            Id = seriesId,
+            Title = JsonValueReader.First(title, seriesId),
+            Description = description,
+            CoverUrl = coverUrl,
+            EpisodeCount = Math.Max(0, episodeCount),
+            ReleaseStatus = status,
+            Tags = tags ?? [],
+        };
+
+    internal static Drama FromAction(
+        string seriesId,
+        string title,
+        string description,
+        string coverUrl,
+        int episodeCount,
+        string status,
+        IReadOnlyList<string> tags
+    ) => FromShelf(seriesId, title, description, coverUrl, episodeCount, status, tags);
+
     internal static string StatusFromRemark(string remark) =>
         remark.Contains("完结", StringComparison.OrdinalIgnoreCase)
         || remark.Contains("全集", StringComparison.OrdinalIgnoreCase)
@@ -208,65 +232,285 @@ internal static class DramaMapper
             ? "ongoing"
         : string.Empty;
 
-    private static List<DramaActor> DtoActors(IReadOnlyList<DramaCelebrityDto> values)
+    private static List<DramaCredit> DtoCredits(
+        IReadOnlyList<DramaCreatorUserDto> creators,
+        IReadOnlyList<DramaCelebrityDto> celebrities
+    )
     {
-        List<DramaActor> actors = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
-        foreach (DramaCelebrityDto? value in values ?? [])
+        List<DramaCredit> credits = [];
+        Dictionary<string, int> positions = new(StringComparer.Ordinal);
+        foreach (DramaCreatorUserDto? creator in creators ?? [])
         {
-            if (value is null)
+            if (creator is null)
             {
                 continue;
             }
 
-            var id = (value.Id ?? string.Empty).Trim();
-            if (!JsonValueReader.IsNumericId(id) || !seen.Add(id))
-            {
-                continue;
-            }
-
-            actors.Add(
-                new DramaActor
-                {
-                    Id = id,
-                    ProfileId = ProfileId(value.Schema),
-                    Name = value.Name ?? string.Empty,
-                    Introduction = value.Introduction ?? string.Empty,
-                    AvatarUrl = value.AvatarUrl ?? string.Empty,
-                    RoleName = value.RoleName ?? string.Empty,
-                }
+            // The service occasionally omits nested account objects for a
+            // partially populated creator. Keep that item usable instead of
+            // letting one incomplete credit abort the whole detail response.
+            var baseInfo = creator.BaseInfo;
+            var userTag = creator.UserTag;
+            Add(
+                creator.UserId ?? string.Empty,
+                baseInfo?.UserId ?? string.Empty,
+                baseInfo?.Name ?? string.Empty,
+                baseInfo?.Description ?? string.Empty,
+                baseInfo?.AvatarUrl ?? string.Empty,
+                -1,
+                userTag
+                    ?.Subtitles?.Where(static item => item is not null)
+                    .Select(static item => item?.Text ?? string.Empty)
+                    ?? []
             );
         }
 
-        return actors;
+        foreach (DramaCelebrityDto? celebrity in celebrities ?? [])
+        {
+            if (celebrity is null)
+            {
+                continue;
+            }
+
+            var roleName = celebrity.RoleName ?? string.Empty;
+            Add(
+                ProfileId(celebrity.Schema ?? string.Empty),
+                celebrity.Id ?? string.Empty,
+                celebrity.Name ?? string.Empty,
+                celebrity.Introduction ?? string.Empty,
+                celebrity.AvatarUrl ?? string.Empty,
+                celebrity.RoleType,
+                [
+                    JsonValueReader.First(
+                        celebrity.SubTitle,
+                        roleName.Length > 0 ? "饰 " + roleName : string.Empty
+                    ),
+                ]
+            );
+        }
+
+        return credits;
+
+        void Add(
+            string primaryId,
+            string fallbackId,
+            string name,
+            string introduction,
+            string avatarUrl,
+            int roleType,
+            IEnumerable<string> labels
+        )
+        {
+            var id = JsonValueReader.First(primaryId, fallbackId).Trim();
+            if (!JsonValueReader.IsNumericId(id))
+            {
+                return;
+            }
+
+            List<DramaCreditRole> roles = ParseRoles(labels, roleType);
+            var user = new User
+            {
+                Id = id,
+                Name = name ?? string.Empty,
+                Introduction = introduction ?? string.Empty,
+                AvatarUrl = avatarUrl ?? string.Empty,
+            };
+            if (positions.TryGetValue(id, out var position))
+            {
+                credits[position] = MergeCredit(credits[position], user, roles);
+                return;
+            }
+
+            positions[id] = credits.Count;
+            credits.Add(new DramaCredit { User = user, Roles = roles });
+        }
     }
 
-    private static List<DramaActor> JsonActors(JsonElement data)
+    private static List<DramaCredit> JsonCredits(JsonElement data)
     {
-        List<DramaActor> actors = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        List<DramaCredit> credits = [];
+        Dictionary<string, int> positions = new(StringComparer.Ordinal);
+        foreach (JsonElement item in JsonValueReader.Array(data, "main_creator_users"))
+        {
+            JsonElement baseInfo = JsonValueReader.Object(item, "base_info");
+            JsonElement tag = JsonValueReader.Object(item, "user_tag");
+            var userId = JsonValueReader.First(
+                JsonValueReader.String(item, "user_id"),
+                JsonValueReader.String(baseInfo, "user_id")
+            );
+            Add(
+                userId,
+                userId,
+                JsonValueReader.String(baseInfo, "user_name"),
+                JsonValueReader.String(baseInfo, "description"),
+                JsonValueReader.String(baseInfo, "user_avatar"),
+                -1,
+                JsonValueReader
+                    .Array(tag, "sub_title_list")
+                    .Select(item => JsonValueReader.String(item, "text"))
+            );
+        }
+
         foreach (JsonElement item in JsonValueReader.Array(data, "celebrities"))
         {
-            var id = JsonValueReader.String(item, "celebrity_id");
-            if (!JsonValueReader.IsNumericId(id) || !seen.Add(id))
+            var schema = JsonValueReader.String(item, "schema");
+            var roleName = JsonValueReader.String(item, "role_name");
+            Add(
+                ProfileId(schema),
+                JsonValueReader.String(item, "celebrity_id"),
+                JsonValueReader.String(item, "nickname", "name"),
+                JsonValueReader.String(item, "intro", "introduction"),
+                JsonValueReader.String(item, "avatar", "avatar_url"),
+                JsonValueReader.Int(item, "role_type"),
+                [
+                    JsonValueReader.First(
+                        JsonValueReader.String(item, "sub_title"),
+                        roleName.Length > 0 ? "饰 " + roleName : string.Empty
+                    ),
+                ]
+            );
+        }
+
+        return credits;
+
+        void Add(
+            string primaryId,
+            string fallbackId,
+            string name,
+            string introduction,
+            string avatarUrl,
+            int roleType,
+            IEnumerable<string> labels
+        )
+        {
+            var id = JsonValueReader.First(primaryId, fallbackId).Trim();
+            if (!JsonValueReader.IsNumericId(id))
+            {
+                return;
+            }
+
+            List<DramaCreditRole> roles = ParseRoles(labels, roleType);
+            var user = new User
+            {
+                Id = id,
+                Name = name,
+                Introduction = introduction,
+                AvatarUrl = avatarUrl,
+            };
+            if (positions.TryGetValue(id, out var position))
+            {
+                credits[position] = MergeCredit(credits[position], user, roles);
+                return;
+            }
+
+            positions[id] = credits.Count;
+            credits.Add(new DramaCredit { User = user, Roles = roles });
+        }
+    }
+
+    private static DramaCredit MergeCredit(
+        DramaCredit first,
+        User user,
+        IReadOnlyList<DramaCreditRole> roles
+    ) =>
+        new()
+        {
+            User = new User
+            {
+                Id = first.User.Id.Length > 0 ? first.User.Id : user.Id,
+                Name = JsonValueReader.First(first.User.Name, user.Name),
+                Introduction = JsonValueReader.First(first.User.Introduction, user.Introduction),
+                AvatarUrl = JsonValueReader.First(first.User.AvatarUrl, user.AvatarUrl),
+            },
+            Roles = MergeRoles(first.Roles, roles),
+        };
+
+    private static List<DramaCreditRole> MergeRoles(
+        IReadOnlyList<DramaCreditRole> first,
+        IReadOnlyList<DramaCreditRole> second
+    )
+    {
+        List<DramaCreditRole> result = [];
+        Dictionary<string, int> positions = new(StringComparer.Ordinal);
+        foreach (DramaCreditRole? role in first.Concat(second))
+        {
+            if (role is null)
             {
                 continue;
             }
 
-            actors.Add(
-                new DramaActor
+            var key = role.CharacterName + "|" + role.Label;
+            if (positions.TryGetValue(key, out var position))
+            {
+                if (RoleSpecificity(role.Type) > RoleSpecificity(result[position].Type))
                 {
-                    Id = id,
-                    ProfileId = ProfileId(JsonValueReader.String(item, "schema")),
-                    Name = JsonValueReader.String(item, "nickname", "name"),
-                    Introduction = JsonValueReader.String(item, "intro", "introduction"),
-                    AvatarUrl = JsonValueReader.String(item, "avatar", "avatar_url"),
-                    RoleName = JsonValueReader.String(item, "role_name"),
+                    result[position] = role;
+                }
+                continue;
+            }
+
+            positions[key] = result.Count;
+            result.Add(role);
+        }
+
+        return result;
+    }
+
+    private static int RoleSpecificity(DramaCreditRoleType type) =>
+        type switch
+        {
+            DramaCreditRoleType.Lead or DramaCreditRoleType.Supporting => 3,
+            DramaCreditRoleType.Participant => 2,
+            DramaCreditRoleType.Unknown => 0,
+            _ => 1,
+        };
+
+    private static List<DramaCreditRole> ParseRoles(
+        IEnumerable<string> labels,
+        int providerRoleType = -1
+    )
+    {
+        List<DramaCreditRole> roles = [];
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        foreach (var raw in labels ?? [])
+        {
+            var label = (raw ?? string.Empty).Trim();
+            if (label.Length == 0 || !seen.Add(label))
+            {
+                continue;
+            }
+
+            var type = label switch
+            {
+                _ when label.StartsWith("饰", StringComparison.Ordinal) => providerRoleType switch
+                {
+                    0 => DramaCreditRoleType.Lead,
+                    1 => DramaCreditRoleType.Supporting,
+                    4 => DramaCreditRoleType.Participant,
+                    _ => DramaCreditRoleType.Participant,
+                },
+                "导演" => DramaCreditRoleType.Director,
+                "编剧" => DramaCreditRoleType.Writer,
+                "出品方" or "制作方" => DramaCreditRoleType.Producer,
+                _ => DramaCreditRoleType.Other,
+            };
+            var character = type
+                is DramaCreditRoleType.Lead
+                    or DramaCreditRoleType.Supporting
+                    or DramaCreditRoleType.Participant
+                ? label[1..].Trim()
+                : string.Empty;
+            roles.Add(
+                new DramaCreditRole
+                {
+                    Type = type,
+                    CharacterName = character,
+                    Label = label,
                 }
             );
         }
 
-        return actors;
+        return roles;
     }
 
     private static string ProfileId(string schema)
@@ -292,7 +536,11 @@ internal static class DramaMapper
         AddJson(data.Tags);
         foreach (DramaCategoryDto item in data.CategoryList ?? [])
         {
-            if (item is not null && !string.IsNullOrWhiteSpace(item.Name) && seen.Add(item.Name.Trim()))
+            if (
+                item is not null
+                && !string.IsNullOrWhiteSpace(item.Name)
+                && seen.Add(item.Name.Trim())
+            )
             {
                 tags.Add(item.Name.Trim());
             }

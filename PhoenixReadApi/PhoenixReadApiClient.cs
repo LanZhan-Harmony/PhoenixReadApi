@@ -1,10 +1,10 @@
 using PhoenixReadApi.Internal.Features.Catalog;
+using PhoenixReadApi.Internal.Features.Comments;
 using PhoenixReadApi.Internal.Features.Danmaku;
 using PhoenixReadApi.Internal.Features.Details;
-using PhoenixReadApi.Internal.Features.Actors;
-using PhoenixReadApi.Internal.Features.Comments;
 using PhoenixReadApi.Internal.Features.Playback;
 using PhoenixReadApi.Internal.Features.Search;
+using PhoenixReadApi.Internal.Features.Users;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
 namespace PhoenixReadApi;
@@ -22,7 +22,7 @@ public sealed class PhoenixReadApiClient : IDisposable
     private readonly PlaybackService _playback;
     private readonly DanmakuService _danmaku;
     private readonly CommentService _comments;
-    private readonly ActorService _actors;
+    private readonly UserService _users;
 
     /// <summary>创建 API 客户端。</summary>
     public PhoenixReadApiClient(PhoenixReadApiOptions? options = null)
@@ -49,7 +49,7 @@ public sealed class PhoenixReadApiClient : IDisposable
         _playback = new PlaybackService(_runtime);
         _danmaku = new DanmakuService(_runtime);
         _comments = new CommentService(_runtime);
-        _actors = new ActorService(_runtime);
+        _users = new UserService(_runtime);
     }
 
     /// <summary>获取指定分类的剧集列表。</summary>
@@ -142,17 +142,17 @@ public sealed class PhoenixReadApiClient : IDisposable
         CancellationToken cancellationToken = default
     ) => _comments.GetEpisodeCommentsAsync(seriesId, videoId, count, cursor, cancellationToken);
 
-    /// <summary>获取演员主页及其参演剧集。传入剧集演员的 <see cref="DramaActor.ProfileId"/>。</summary>
-    public Task<Actor> GetActorAsync(
-        string profileId,
+    /// <summary>获取任意公开账号的主页及其公开剧集记录。</summary>
+    public Task<UserProfile> GetUserProfileAsync(
+        string userId,
         CancellationToken cancellationToken = default
-    ) => _actors.GetAsync(profileId, cancellationToken);
+    ) => _users.GetAsync(userId, cancellationToken);
 
-    /// <summary>获取剧集演员的主页，并保留详情中的演员资料。</summary>
-    public Task<Actor> GetActorAsync(
-        DramaActor actor,
+    /// <summary>根据剧集署名关系获取对应账号的主页。</summary>
+    public Task<UserProfile> GetUserProfileAsync(
+        DramaCredit credit,
         CancellationToken cancellationToken = default
-    ) => _actors.GetAsync(actor, cancellationToken);
+    ) => _users.GetAsync(credit, cancellationToken);
 
     /// <summary>销毁 API 客户端。</summary>
     public void Dispose() => _runtime.Dispose();

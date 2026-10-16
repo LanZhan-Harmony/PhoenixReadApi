@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
-using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web;
 using PhoenixReadApi.Internal.Features.Shared;
@@ -109,9 +108,7 @@ internal sealed class DetailsService : PhoenixFeatureService
     private static DramaDetails ParseAppDetails(AppDetailsData? data, string seriesId)
     {
         DramaDto detail = data?.VideoData ?? new();
-        if (
-            JsonValueReader.First(detail.SeriesId, detail.SeriesIdNumber) != seriesId
-        )
+        if (JsonValueReader.First(detail.SeriesId, detail.SeriesIdNumber) != seriesId)
         {
             throw new PhoenixReadApiResponseException("App 未返回所请求的剧集。", "detail");
         }
@@ -201,11 +198,7 @@ internal sealed class DetailsService : PhoenixFeatureService
 
         return new DramaDetails
         {
-            Drama = new Drama
-            {
-                Id = seriesId,
-                Title = title,
-            },
+            Drama = new Drama { Id = seriesId, Title = title },
             Chapters = chapters,
         };
     }

@@ -24,7 +24,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppDetailPayload))]
 [JsonSerializable(typeof(AppCommentPayload))]
 [JsonSerializable(typeof(AppCommentListPayload))]
-[JsonSerializable(typeof(AppActorProfilePayload))]
+[JsonSerializable(typeof(AppUserProfilePayload))]
 [JsonSerializable(typeof(AppMediaPayload))]
 [JsonSerializable(typeof(WebSuggestionResponseDto))]
 [JsonSerializable(typeof(AppResponse<AppCatalogData>))]
@@ -32,7 +32,9 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppResponse<AppPlaybackData>))]
 [JsonSerializable(typeof(AppResponse<AppDanmakuData>))]
 [JsonSerializable(typeof(AppResponse<AppCommentListData>))]
-[JsonSerializable(typeof(AppResponse<AppActorProfileData>))]
+[JsonSerializable(typeof(AppResponse<AppUserProfileData>))]
+[JsonSerializable(typeof(AppResponse<AppUserShelfData>))]
+[JsonSerializable(typeof(AppResponse<AppUserActionData>))]
 [JsonSerializable(typeof(DramaDto))]
 [JsonSerializable(typeof(AppVideoDto))]
 [JsonSerializable(typeof(AppPlaybackModel))]
@@ -133,3 +135,4 @@ internal static class JsonAotSerializer
         return JsonSerializer.Deserialize(value, jsonTypeInfo);
     }
 }
+

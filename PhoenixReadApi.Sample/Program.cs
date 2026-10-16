@@ -2,6 +2,7 @@ using PhoenixReadApi;
 
 const string seriesId = "7687438098002611225";
 const string videoId = "7687440021728529432";
+const string ordinaryUserId = "1567227541459424";
 
 using PhoenixReadApiClient client = new(
     new PhoenixReadApiOptions
@@ -77,36 +78,55 @@ DramaDetails? details = await TryAsync(
 if (details is not null)
 {
     Console.WriteLine($"  剧集：{details.Drama.Title}，分集：{details.Chapters.Count}");
-    Console.WriteLine($"  演员：{details.Drama.Actors.Count}");
-    foreach (DramaActor actor in details.Drama.Actors.Take(3))
+    Console.WriteLine($"  署名账号：{details.Drama.Credits.Count}");
+    foreach (DramaCredit credit in details.Drama.Credits.Take(6))
     {
-        Console.WriteLine($"    {actor.Name} | 饰 {actor.RoleName} | ID {actor.Id} | Profile {actor.ProfileId}");
+        string roles = string.Join(
+            "、",
+            credit.Roles.Select(static role =>
+                role.CharacterName.Length > 0 ? $"{role.Label}（{role.Type}）" : role.Label
+            )
+        );
+        Console.WriteLine($"    {credit.User.Name} | {roles} | ID {credit.User.Id}");
     }
 
-    if (details.Drama.Actors.Count > 0)
+    if (details.Drama.Credits.Count > 0)
     {
-        Actor? actor = await TryAsync(
-            "GetActorAsync",
-            () => client.GetActorAsync(details.Drama.Actors[0], timeout.Token)
+        UserProfile? profile = await TryAsync(
+            "GetUserProfileAsync",
+            () => client.GetUserProfileAsync(details.Drama.Credits[0], timeout.Token)
         );
-        if (actor is not null)
+        if (profile is not null)
         {
-            Console.WriteLine($"  演员主页：{actor.Name}，参演剧集：{actor.Works.Count}");
+            Console.WriteLine(
+                $"  账号主页：{profile.User.Name}，相关剧集：{profile.RelatedDramas.Count}，动态：{profile.Activities.Count}"
+            );
         }
 
-        if (details.Drama.Actors[0].ProfileId.Length > 0)
+        if (details.Drama.Credits[0].User.Id.Length > 0)
         {
-            Actor? actorByProfileId = await TryAsync(
-                "GetActorAsync(profileId)",
-                () => client.GetActorAsync(details.Drama.Actors[0].ProfileId, timeout.Token)
+            UserProfile? profileById = await TryAsync(
+                "GetUserProfileAsync(userId)",
+                () => client.GetUserProfileAsync(details.Drama.Credits[0].User.Id, timeout.Token)
             );
-            if (actorByProfileId is not null)
+            if (profileById is not null)
             {
                 Console.WriteLine(
-                    $"  演员主页（ProfileId）：{actorByProfileId.ProfileId}，参演剧集：{actorByProfileId.Works.Count}"
+                    $"  账号主页（UserId）：{profileById.User.Id}，公开剧集：{profileById.RelatedDramas.Count}"
                 );
             }
         }
+    }
+
+    UserProfile? ordinaryProfile = await TryAsync(
+        "GetUserProfileAsync(ordinary user)",
+        () => client.GetUserProfileAsync(ordinaryUserId, timeout.Token)
+    );
+    if (ordinaryProfile is not null)
+    {
+        Console.WriteLine(
+            $"  普通账号内容：收藏 {ordinaryProfile.Collections.Count}，点赞 {ordinaryProfile.Likes.Count}，动态 {ordinaryProfile.Activities.Count}，相关剧集 {ordinaryProfile.RelatedDramas.Count}"
+        );
     }
 }
 
@@ -187,3 +207,4 @@ static async Task<T?> TryAsync<T>(string name, Func<Task<T>> operation)
         return default;
     }
 }
+

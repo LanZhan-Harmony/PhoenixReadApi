@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace PhoenixReadApi.Internal.Contracts.App.Comment;
 
-internal sealed class AppActorProfilePayload
+internal sealed class AppUserProfilePayload
 {
     [JsonPropertyName("comment_source")]
     public int CommentSource { get; init; } = 1506;
@@ -28,3 +28,4 @@ internal sealed class AppActorProfilePayload
     [JsonPropertyName("target_user_id")]
     public string TargetUserId { get; init; } = string.Empty;
 }
+

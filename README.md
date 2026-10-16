@@ -1,11 +1,11 @@
 # PhoenixReadApi
 
-`PhoenixReadApi` 是一个面向 .NET 10 的红果短剧客户端类库，提供：
+`PhoenixReadApi` 是一个面向 .NET 10 的红果短剧 API Nuget 库，提供：
 
 - 分类剧库、详情和分集；
 - 视频播放、搜索联想、推荐和弹幕；
 - 综合搜索、搜索联想、季数补齐和推荐分页；
-- 演员资料、参演剧集、剧评和分集评论；
+- 剧集署名账号、账号主页、剧评和分集评论；
 - CENC AES-128 内容密钥提取与弹幕时间窗口；
 - 可注入 `HttpClient`，支持代理、Cookie、诊断和离线测试；
 - 内部 JSON 处理使用 `System.Text.Json` 源代码生成，支持 NativeAOT 和裁剪发布。
@@ -32,14 +32,15 @@ Console.WriteLine($"Reviews: {reviews.Items.Count}/{reviews.Total}");
 Console.WriteLine($"Episode comments: {episodeComments.Items.Count}/{episodeComments.Total}");
 ```
 
-详情中的 `Drama.Actors` 包含演员 ID、姓名、简介、头像和饰演角色。演员资料中的
-`ProfileId` 是请求演员主页所需的 ID，可以直接调用：
+详情中的 `Drama.Credits` 包含与剧集有关的账号及其署名关系。账号可能是演员、导演、
+编剧或出品方，出演角色保存在 `DramaCreditRole.CharacterName`。所有账号都使用统一的
+`User` 模型，可以直接读取其主页：
 
 ```csharp
-DramaActor actor = details.Drama.Actors[0];
-var actorProfile = await client.GetActorAsync(actor, timeout.Token);
-// 也可以直接传入 actor.ProfileId
-var sameProfile = await client.GetActorAsync(actor.ProfileId, timeout.Token);
+DramaCredit credit = details.Drama.Credits[0];
+var profile = await client.GetUserProfileAsync(credit, timeout.Token);
+// 也可以直接传入账号 ID
+var sameProfile = await client.GetUserProfileAsync(credit.User.Id, timeout.Token);
 ```
 
 剧评和分集评论支持游标分页。将返回页的 `Cursor` 传给下一次调用即可：

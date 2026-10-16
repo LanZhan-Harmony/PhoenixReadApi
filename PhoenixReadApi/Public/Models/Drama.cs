@@ -42,6 +42,10 @@ public sealed class Drama
     /// <summary>剧集标签。</summary>
     public IReadOnlyList<string> Tags { get; init; } = [];
 
-    /// <summary>参演演员及其饰演的角色。</summary>
-    public IReadOnlyList<DramaActor> Actors { get; init; } = [];
+    /// <summary>与本剧有关的账号及其署名关系。</summary>
+    /// <remarks>
+    /// 列表可能包含演员、导演、编剧、出品方等账号；出演角色和其他关系见
+    /// <see cref="DramaCredit.Roles"/>。
+    /// </remarks>
+    public IReadOnlyList<DramaCredit> Credits { get; init; } = [];
 }
