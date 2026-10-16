@@ -9,10 +9,10 @@ internal sealed class AppDanmakuData
     public IReadOnlyList<AppDanmakuRecord> Items { get; init; } = [];
 
     [JsonPropertyName("extra")]
-    public AppDanmakuExtra? Extra { get; init; }
+    public AppDanmakuExtra Extra { get; init; } = new();
 
     [JsonPropertyName("common_list_info")]
-    public AppCommentListInfo? ListInfo { get; init; }
+    public AppCommentListInfo ListInfo { get; init; } = new();
 }
 
 internal sealed class AppDanmakuExtra
@@ -26,47 +26,47 @@ internal sealed class AppCommentListInfo
 {
     [JsonPropertyName("cursor")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? Cursor { get; init; }
+    public string Cursor { get; init; } = string.Empty;
 }
 
 internal sealed class AppDanmakuRecord
 {
     [JsonPropertyName("comment")]
-    public AppComment? Comment { get; init; }
+    public AppComment Comment { get; init; } = new();
 }
 
 internal sealed class AppComment
 {
     [JsonPropertyName("common")]
-    public AppCommentCommon? Common { get; init; }
+    public AppCommentCommon Common { get; init; } = new();
 
     [JsonPropertyName("expand")]
-    public AppCommentExpand? Expand { get; init; }
+    public AppCommentExpand Expand { get; init; } = new();
 
     [JsonPropertyName("comment_id")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? Id { get; init; }
+    public string Id { get; init; } = string.Empty;
 }
 
 internal sealed class AppCommentCommon
 {
     [JsonPropertyName("group_id")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? GroupId { get; init; }
+    public string GroupId { get; init; } = string.Empty;
 
     [JsonPropertyName("status")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? Status { get; init; }
+    public string Status { get; init; } = string.Empty;
 
     [JsonPropertyName("content")]
-    public AppCommentContent? Content { get; init; }
+    public AppCommentContent Content { get; init; } = new();
 }
 
 internal sealed class AppCommentContent
 {
     [JsonPropertyName("text")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? Text { get; init; }
+    public string Text { get; init; } = string.Empty;
 }
 
 internal sealed class AppCommentExpand

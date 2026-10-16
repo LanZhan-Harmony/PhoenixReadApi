@@ -1,9 +1,9 @@
 namespace PhoenixReadApi;
 
-/// <summary>红果短剧服务提供的分类。</summary>
+/// <summary>短剧服务提供的分类。</summary>
 public enum PhoenixReadApiCategory
 {
-    /// <summary>服务支持的全部 App 分类。</summary>
+    /// <summary>服务支持的全部分类。</summary>
     All,
 
     /// <summary>真人剧。</summary>

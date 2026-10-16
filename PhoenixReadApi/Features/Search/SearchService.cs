@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
-using PhoenixReadApi.Internal.Contracts.App.Search;
+using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Search;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
@@ -17,8 +17,10 @@ namespace PhoenixReadApi.Internal.Features.Search;
 /// <summary>负责搜索、联想、季数补齐和推荐分页。</summary>
 internal sealed partial class SearchService : PhoenixFeatureService
 {
-    private const int SearchSuggestionCount = 5;
-    private const int MaxSuggestions = 5;
+    // SearchAsync only needs a small name lookup to supplement the web result.
+    private const int SearchNameLookupCount = 5;
+    internal const int DefaultSuggestionLimit = 5;
+    private const int MaxSuggestionLimit = 20;
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan SuggestionCacheLifetime = TimeSpan.FromMinutes(2);
     private readonly Lock _stateLock = new();
@@ -93,28 +95,40 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     internal Task<IReadOnlyList<SearchSuggestion>> GetSuggestionsAsync(
         string keyword,
+        int maxResults,
         CancellationToken cancellationToken
     )
     {
         var query = NormalizeKeyword(keyword);
+        if (maxResults <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxResults),
+                "搜索建议数量必须大于 0。"
+            );
+        }
+
+        var limit = Math.Min(maxResults, MaxSuggestionLimit);
+        var cacheKey = SuggestionCacheKey(query, limit);
         if (
-            TryGetCache(_suggestionCache, query, out List<SearchSuggestion>? cached)
+            TryGetCache(_suggestionCache, cacheKey, out List<SearchSuggestion>? cached)
             && cached is not null
         )
         {
             return Task.FromResult<IReadOnlyList<SearchSuggestion>>(cached);
         }
 
+        var state = (Service: this, Query: query, Limit: limit);
         Lazy<Task<IReadOnlyList<SearchSuggestion>>> pending = _suggestionPending.GetOrAdd(
-            query,
-            static (value, state) =>
+            cacheKey,
+            static (_, state) =>
                 new Lazy<Task<IReadOnlyList<SearchSuggestion>>>(
-                    () => state.LoadSuggestionsAsync(value),
+                    () => state.Service.LoadSuggestionsAsync(state.Query, state.Limit),
                     LazyThreadSafetyMode.ExecutionAndPublication
                 ),
-            this
+            state
         );
-        return AwaitSuggestionsAsync(query, pending, cancellationToken);
+        return AwaitSuggestionsAsync(cacheKey, pending, cancellationToken);
     }
 
     private async Task<IReadOnlyList<SearchSuggestion>> AwaitSuggestionsAsync(
@@ -238,21 +252,21 @@ internal sealed partial class SearchService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        IReadOnlyList<SuggestionRecord> records = await FetchSuggestionRecordsAsync(
+        IReadOnlyList<WebSuggestionDto> records = await FetchSuggestionRecordsAsync(
                 keyword,
-                SearchSuggestionCount,
+                SearchNameLookupCount,
                 cancellationToken
             )
             .ConfigureAwait(false);
         List<Drama> output = [];
-        foreach (SuggestionRecord record in records)
+        foreach (WebSuggestionDto record in records)
         {
             if (!string.Equals(record.WordType, "short_play_name", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            AppDramaDto? data = record.VideoData;
+            DramaDto data = record.VideoData;
             if (
                 data is null
                 || !JsonValueReader.IsNumericId(
@@ -264,20 +278,16 @@ internal sealed partial class SearchService : PhoenixFeatureService
             }
 
             Drama drama = DramaMapper.FromDto(data, "短剧");
-            if (drama.DisplayTitle == drama.SourceId && !string.IsNullOrWhiteSpace(record.Name))
+            if (drama.Title == drama.Id && !string.IsNullOrWhiteSpace(record.Name))
             {
                 var title = record.Name.Trim();
                 drama = new Drama
                 {
                     Id = drama.Id,
-                    Source = drama.Source,
-                    SourceId = drama.SourceId,
                     Title = title,
-                    Name = title,
                     Description = drama.Description,
                     CoverUrl = drama.CoverUrl,
                     Category = drama.Category,
-                    Channel = drama.Channel,
                     Remark = drama.Remark,
                     Score = drama.Score,
                     Views = drama.Views,
@@ -289,7 +299,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 };
             }
 
-            if (drama.Id.Length > 0 && drama.DisplayTitle != drama.SourceId)
+            if (drama.Id.Length > 0 && drama.Title != drama.Id)
             {
                 output.Add(drama);
             }
@@ -320,9 +330,9 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         List<Drama> output = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
-        foreach (AppDramaDto row in page.Items)
+        foreach (WebSearchRecordDto row in page.Items)
         {
-            Drama drama = DramaMapper.FromDto(row, "短剧");
+            Drama drama = DramaMapper.FromDto(row.VideoData, "短剧");
             if (drama.Id.Length > 0 && seen.Add(drama.Id))
             {
                 output.Add(drama);
@@ -342,19 +352,22 @@ internal sealed partial class SearchService : PhoenixFeatureService
         };
     }
 
-    private async Task<IReadOnlyList<SearchSuggestion>> LoadSuggestionsAsync(string query)
+    private async Task<IReadOnlyList<SearchSuggestion>> LoadSuggestionsAsync(
+        string query,
+        int maxResults
+    )
     {
-        IReadOnlyList<SuggestionRecord> records = await FetchSuggestionRecordsAsync(
+        IReadOnlyList<WebSuggestionDto> records = await FetchSuggestionRecordsAsync(
                 query,
-                MaxSuggestions,
+                maxResults,
                 CancellationToken.None
             )
             .ConfigureAwait(false);
-        List<SearchSuggestion> output = new(MaxSuggestions);
+        List<SearchSuggestion> output = new(maxResults);
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
-        foreach (SuggestionRecord record in records)
+        foreach (WebSuggestionDto record in records)
         {
-            var name = record.Name?.Trim() ?? string.Empty;
+            var name = record.Name.Trim();
             if (name.Length is 0 or > 80 || name.Any(char.IsControl) || !seen.Add(name))
             {
                 continue;
@@ -369,7 +382,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 ? record.WordType
                 : string.Empty;
             output.Add(new SearchSuggestion { Name = name, Type = type });
-            if (output.Count == MaxSuggestions)
+            if (output.Count == maxResults)
             {
                 break;
             }
@@ -378,7 +391,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return output;
     }
 
-    private async Task<IReadOnlyList<SuggestionRecord>> FetchSuggestionRecordsAsync(
+    private static string SuggestionCacheKey(string query, int maxResults) =>
+        query + "\0" + maxResults.ToString(CultureInfo.InvariantCulture);
+
+    private async Task<IReadOnlyList<WebSuggestionDto>> FetchSuggestionRecordsAsync(
         string query,
         int count,
         CancellationToken cancellationToken
@@ -398,8 +414,9 @@ internal sealed partial class SearchService : PhoenixFeatureService
             .ConfigureAwait(false);
         try
         {
-            SuggestionData? data = JsonAotSerializer.Deserialize<SuggestionData>(body);
-            IReadOnlyList<SuggestionRecord>? items = data?.SuggestList;
+            WebSuggestionResponseDto? data =
+                JsonAotSerializer.Deserialize<WebSuggestionResponseDto>(body);
+            IReadOnlyList<WebSuggestionDto>? items = data?.SuggestList;
             return items
                 ?? throw new PhoenixReadApiResponseException(
                     "红果搜索联想未返回有效数据。",
@@ -454,10 +471,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         List<Drama> output = [];
         HashSet<string> seenIds = new(seen, StringComparer.Ordinal);
-        foreach (AppDramaDto row in data.Items)
+        foreach (DramaDto row in data.Items)
         {
             Drama drama = DramaMapper.FromDto(row, category);
-            if (drama.Id.Length > 0 && seenIds.Add(drama.SourceId))
+            if (drama.Id.Length > 0 && seenIds.Add(drama.Id))
             {
                 output.Add(drama);
             }
@@ -508,7 +525,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         foreach (Drama drama in dramas)
         {
             if (
-                !TryParseSeason(drama.DisplayTitle, out var baseTitle, out var season, out var unit)
+                !TryParseSeason(drama.Title, out var baseTitle, out var season, out var unit)
             )
             {
                 continue;
@@ -600,7 +617,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 {
                     if (
                         !TryParseSeason(
-                            match.DisplayTitle,
+                            match.Title,
                             out var baseTitle,
                             out var season,
                             out var unit
@@ -626,8 +643,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     private static int CompareSearchDrama(Drama left, Drama right, string query)
     {
-        var leftRank = TitleRank(left.DisplayTitle, query);
-        var rightRank = TitleRank(right.DisplayTitle, query);
+        var leftRank = TitleRank(left.Title, query);
+        var rightRank = TitleRank(right.Title, query);
         if (leftRank != rightRank)
         {
             return leftRank.CompareTo(rightRank);
@@ -635,13 +652,13 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         if (
             TryParseSeason(
-                left.DisplayTitle,
+                left.Title,
                 out var leftBase,
                 out var leftSeason,
                 out var leftUnit
             )
             && TryParseSeason(
-                right.DisplayTitle,
+                right.Title,
                 out var rightBase,
                 out var rightSeason,
                 out var rightUnit
@@ -653,7 +670,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             return leftSeason.CompareTo(rightSeason);
         }
 
-        return string.Compare(left.DisplayTitle, right.DisplayTitle, StringComparison.Ordinal);
+        return string.Compare(left.Title, right.Title, StringComparison.Ordinal);
     }
 
     private static bool TryParseSeason(

@@ -1,49 +1,58 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Serialization;
+using PhoenixReadApi.Internal.Contracts.Web;
 
 namespace PhoenixReadApi.Internal.Contracts.Web.Playback;
 
 internal sealed class WebPlayerPageDto
 {
+    [JsonPropertyName("isSuccess")]
+    public bool IsSuccess { get; init; }
+
     [JsonPropertyName("vid")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? VideoId { get; init; }
+    public string VideoId { get; init; } = string.Empty;
 
     [JsonPropertyName("series_id")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? SeriesId { get; init; }
+    public string SeriesId { get; init; } = string.Empty;
 
-    [JsonPropertyName("video_player_info")]
-    public WebPlayerInfoDto? PlayerInfo { get; init; }
+    [JsonPropertyName("protectedPlayback")]
+    public bool ProtectedPlayback { get; init; }
+
+    [JsonPropertyName("publicVideoSeo")]
+    public WebPublicVideoSeoDto PublicVideoSeo { get; init; } = new();
+
+    [JsonPropertyName("seriesDetail")]
+    public WebSeriesDetailDto SeriesDetail { get; init; } = new();
+
+    [JsonPropertyName("videoList")]
+    public JsonElement VideoList { get; init; }
 }
-
-internal sealed class WebPlayerInfoDto
+internal sealed class WebPublicVideoSeoDto
 {
-    [JsonPropertyName("duration")]
+    [JsonPropertyName("available")]
+    public bool Available { get; init; }
+
+    [JsonPropertyName("durationSeconds")]
     [JsonConverter(typeof(FlexibleDoubleConverter))]
-    public double Duration { get; init; }
+    public double DurationSeconds { get; init; }
 
-    [JsonPropertyName("main_url")]
-    [JsonConverter(typeof(FlexibleStringListConverter))]
-    public IReadOnlyList<string> MainUrls { get; init; } = [];
+    [JsonPropertyName("seriesId")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string SeriesId { get; init; } = string.Empty;
 
-    [JsonPropertyName("backup_url")]
-    [JsonConverter(typeof(FlexibleStringListConverter))]
-    public IReadOnlyList<string> BackupUrls { get; init; } = [];
+    [JsonPropertyName("itemId")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ItemId { get; init; } = string.Empty;
 
-    [JsonPropertyName("backup_url_1")]
-    [JsonConverter(typeof(FlexibleStringListConverter))]
-    public IReadOnlyList<string> BackupUrls1 { get; init; } = [];
+    [JsonPropertyName("posterUrl")]
+    public string PosterUrl { get; init; } = string.Empty;
 
-    [JsonPropertyName("backup_url_2")]
-    [JsonConverter(typeof(FlexibleStringListConverter))]
-    public IReadOnlyList<string> BackupUrls2 { get; init; } = [];
+    [JsonPropertyName("width")]
+    public int Width { get; init; }
 
-    [JsonPropertyName("backup_urls")]
-    [JsonConverter(typeof(FlexibleStringListConverter))]
-    public IReadOnlyList<string> BackupUrlCollection { get; init; } = [];
-
-    [JsonPropertyName("url_list")]
-    [JsonConverter(typeof(FlexibleStringListConverter))]
-    public IReadOnlyList<string> UrlList { get; init; } = [];
+    [JsonPropertyName("height")]
+    public int Height { get; init; }
 }

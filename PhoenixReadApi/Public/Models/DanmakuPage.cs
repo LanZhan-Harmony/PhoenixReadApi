@@ -1,7 +1,7 @@
 namespace PhoenixReadApi;
 
 /// <summary>指定时间范围内的弹幕窗口。</summary>
-public class DanmakuPage
+public sealed class DanmakuPage
 {
     /// <summary>分集 ID。</summary>
     public string EpisodeId { get; init; } = string.Empty;
@@ -15,7 +15,7 @@ public class DanmakuPage
     /// <summary>下一次请求的起点（毫秒）。</summary>
     public long NextMs { get; init; }
 
-    /// <summary>红果接口返回的弹幕总数。</summary>
+    /// <summary>弹幕总数。</summary>
     public long Total { get; init; }
 }
 

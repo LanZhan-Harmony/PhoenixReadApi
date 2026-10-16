@@ -3,13 +3,6 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Contracts.App.Playback;
 
-internal sealed class AppPlaybackData
-{
-    [JsonPropertyName("video_model")]
-    [JsonConverter(typeof(VideoModelDtoConverter))]
-    public AppPlaybackModel? VideoModel { get; init; }
-}
-
 internal sealed class AppPlaybackModel
 {
     [JsonPropertyName("video_list")]
@@ -28,14 +21,14 @@ internal sealed class AppPlaybackModel
 internal sealed class AppMediaVariantDto
 {
     [JsonPropertyName("video_meta")]
-    public AppVideoMetaDto? Metadata { get; init; }
+    public AppVideoMetaDto Metadata { get; init; } = new();
 
     [JsonPropertyName("gear_des_key")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? GearDescriptionKey { get; init; }
+    public string GearDescriptionKey { get; init; } = string.Empty;
 
     [JsonPropertyName("encrypt_info")]
-    public AppEncryptionDto? Encryption { get; init; }
+    public AppEncryptionDto Encryption { get; init; } = new();
 
     [JsonPropertyName("main_url")]
     [JsonConverter(typeof(FlexibleStringListConverter))]
@@ -66,7 +59,7 @@ internal sealed class AppVideoMetaDto
 {
     [JsonPropertyName("codec_type")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? CodecType { get; init; }
+    public string CodecType { get; init; } = string.Empty;
 
     [JsonPropertyName("vheight")]
     [JsonConverter(typeof(FlexibleIntConverter))]
@@ -78,19 +71,19 @@ internal sealed class AppVideoMetaDto
 
     [JsonPropertyName("definition")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? Definition { get; init; }
+    public string Definition { get; init; } = string.Empty;
 }
 
 internal sealed class AppEncryptionDto
 {
     [JsonPropertyName("spade_a")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? SpadeA { get; init; }
+    public string SpadeA { get; init; } = string.Empty;
 
     [JsonPropertyName("encrypt")]
     public bool Encrypt { get; init; }
 
     [JsonPropertyName("encryption_method")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? Method { get; init; }
+    public string Method { get; init; } = string.Empty;
 }

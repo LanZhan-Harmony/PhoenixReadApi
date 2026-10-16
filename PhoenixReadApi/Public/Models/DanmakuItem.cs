@@ -1,9 +1,9 @@
 namespace PhoenixReadApi;
 
 /// <summary>一条弹幕。</summary>
-public class DanmakuItem
+public sealed class DanmakuItem
 {
-    /// <summary>红果接口返回的弹幕 ID。</summary>
+    /// <summary>弹幕 ID。</summary>
     public string Id { get; init; } = string.Empty;
 
     /// <summary>评论文本。</summary>

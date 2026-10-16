@@ -208,14 +208,10 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
         new()
         {
             Id = first.Id,
-            Source = first.Source,
-            SourceId = first.SourceId,
             Title = JsonValueReader.First(first.Title, second.Title),
-            Name = JsonValueReader.First(first.Name, second.Name),
             Description = JsonValueReader.First(first.Description, second.Description),
             CoverUrl = JsonValueReader.First(first.CoverUrl, second.CoverUrl),
             Category = JsonValueReader.First(first.Category, second.Category),
-            Channel = JsonValueReader.First(first.Channel, second.Channel),
             Remark = JsonValueReader.First(first.Remark, second.Remark),
             Score = JsonValueReader.First(first.Score, second.Score),
             Views = JsonValueReader.First(first.Views, second.Views),

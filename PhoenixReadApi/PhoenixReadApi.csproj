@@ -26,7 +26,7 @@
     <PackageProjectUrl>https://github.com/LanZhan-Harmony/PhoenixReadApi</PackageProjectUrl>
     <Description>使用 C# 编写的 PhoenixRead 红果免费短剧 API</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReleaseNotes>首个兼容 NativeAOT 的 App、网页、搜索和播放客户端版本。</PackageReleaseNotes>
+    <PackageReleaseNotes>首个兼容 NativeAOT 的剧库、搜索、播放和弹幕客户端版本。</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

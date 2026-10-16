@@ -2,7 +2,7 @@ using System.Net;
 
 namespace PhoenixReadApi;
 
-/// <summary>红果响应被拒绝、不可用或格式错误时使用的基础异常类型。</summary>
+/// <summary>服务响应被拒绝、不可用或格式错误时使用的基础异常类型。</summary>
 /// <remarks>
 /// 为保持源代码兼容性，继续保留原有的接口和整数状态码属性。
 /// 新代码可以使用 <see cref="Operation"/>、<see cref="RequestUri"/>、
@@ -19,7 +19,7 @@ public class PhoenixReadApiException(
     Exception? innerException = null
 ) : Exception(message, innerException)
 {
-    /// <summary>使用旧版接口和状态码参数创建 API 异常。</summary>
+    /// <summary>使用兼容参数创建 API 异常。</summary>
     public PhoenixReadApiException(
         string message,
         string? endpoint = null,
@@ -49,7 +49,7 @@ public class PhoenixReadApiException(
     /// <summary>收到响应时的 HTTP 状态码。</summary>
     public int? StatusCode { get; } = statusCode;
 
-    /// <summary>红果接口返回的错误码。</summary>
+    /// <summary>服务返回的错误码。</summary>
     public string? ProviderCode { get; } = providerCode;
 
     /// <summary>获取该操作是否通常可以安全重试。</summary>
