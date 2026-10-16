@@ -3,14 +3,15 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.App.Playback;
 
 namespace PhoenixReadApi.Internal.Serialization;
 
 /// <summary>转换红果接口可能以字符串或 JSON 标量值返回的数据。</summary>
-internal sealed class FlexibleStringConverter : JsonConverter<string?>
+internal sealed class FlexibleStringConverter : JsonConverter<string>
 {
-    public override string? Read(
+    public override string Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
         JsonSerializerOptions options
@@ -18,12 +19,12 @@ internal sealed class FlexibleStringConverter : JsonConverter<string?>
     {
         if (reader.TokenType == JsonTokenType.Null)
         {
-            return null;
+            return string.Empty;
         }
 
         if (reader.TokenType == JsonTokenType.String)
         {
-            return reader.GetString();
+            return reader.GetString() ?? string.Empty;
         }
 
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
@@ -32,9 +33,9 @@ internal sealed class FlexibleStringConverter : JsonConverter<string?>
 
     public override void Write(
         Utf8JsonWriter writer,
-        string? value,
+        string value,
         JsonSerializerOptions options
-    ) => writer.WriteStringValue(value);
+    ) => writer.WriteStringValue(value ?? string.Empty);
 }
 
 /// <summary>转换可能以 JSON 数字或字符串形式返回的整数。</summary>
@@ -60,11 +61,11 @@ internal sealed class FlexibleIntConverter : JsonConverter<int>
     public override void Write(Utf8JsonWriter writer, int value, JsonSerializerOptions options) =>
         writer.WriteNumberValue(value);
 
-    private static string? ReadText(ref Utf8JsonReader reader)
+    private static string ReadText(ref Utf8JsonReader reader)
     {
         if (reader.TokenType == JsonTokenType.String)
         {
-            return reader.GetString();
+            return reader.GetString() ?? string.Empty;
         }
 
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
@@ -95,11 +96,11 @@ internal sealed class FlexibleLongConverter : JsonConverter<long>
     public override void Write(Utf8JsonWriter writer, long value, JsonSerializerOptions options) =>
         writer.WriteNumberValue(value);
 
-    private static string? ReadText(ref Utf8JsonReader reader)
+    private static string ReadText(ref Utf8JsonReader reader)
     {
         if (reader.TokenType == JsonTokenType.String)
         {
-            return reader.GetString();
+            return reader.GetString() ?? string.Empty;
         }
 
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
@@ -133,11 +134,11 @@ internal sealed class FlexibleDoubleConverter : JsonConverter<double>
         JsonSerializerOptions options
     ) => writer.WriteNumberValue(value);
 
-    private static string? ReadText(ref Utf8JsonReader reader)
+    private static string ReadText(ref Utf8JsonReader reader)
     {
         if (reader.TokenType == JsonTokenType.String)
         {
-            return reader.GetString();
+            return reader.GetString() ?? string.Empty;
         }
 
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
@@ -184,52 +185,11 @@ internal sealed class VideoModelConverter : JsonConverter<JsonElement>
     ) => value.WriteTo(writer);
 }
 
-/// <summary>读取 video_model，兼容对象和 JSON 字符串格式，并转换为对应的 App DTO。</summary>
-internal sealed class VideoModelDtoConverter : JsonConverter<AppPlaybackModel>
-{
-    public override AppPlaybackModel? Read(
-        ref Utf8JsonReader reader,
-        Type typeToConvert,
-        JsonSerializerOptions options
-    )
-    {
-        if (reader.TokenType == JsonTokenType.Null)
-        {
-            return null;
-        }
-
-        if (reader.TokenType == JsonTokenType.String)
-        {
-            var text = reader.GetString();
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return null;
-            }
-
-            try
-            {
-                return JsonAotSerializer.Deserialize<AppPlaybackModel>(text);
-            }
-            catch (JsonException exception)
-            {
-                throw new JsonException("video_model is not valid JSON.", exception);
-            }
-        }
-
-        using JsonDocument document = JsonDocument.ParseValue(ref reader);
-        return JsonAotSerializer.Deserialize<AppPlaybackModel>(document.RootElement.GetRawText());
-    }
-
-    public override void Write(
-        Utf8JsonWriter writer,
-        AppPlaybackModel value,
-        JsonSerializerOptions options
-    ) => JsonAotSerializer.Serialize(writer, value);
-}
-
 /// <summary>读取以数组或键值对象表示的视频版本集合。</summary>
 internal sealed class VideoVariantListConverter : JsonConverter<List<JsonElement>>
 {
+    public override bool HandleNull => true;
+
     public override List<JsonElement> Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
@@ -269,6 +229,8 @@ internal sealed class VideoVariantListConverter : JsonConverter<List<JsonElement
 /// <summary>读取 App 分集记录，兼容数组和键值对象两种 video_list 格式。</summary>
 internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<AppVideoDto>>
 {
+    public override bool HandleNull => true;
+
     public override IReadOnlyList<AppVideoDto> Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
@@ -311,9 +273,11 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<A
 }
 
 /// <summary>读取剧库的 video_data，兼容数组和键值对象两种格式。</summary>
-internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<AppDramaDto>>
+internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<DramaDto>>
 {
-    public override IReadOnlyList<AppDramaDto> Read(
+    public override bool HandleNull => true;
+
+    public override IReadOnlyList<DramaDto> Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
         JsonSerializerOptions options
@@ -327,10 +291,10 @@ internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<A
             JsonValueKind.Object => root.EnumerateObject().Select(static item => item.Value),
             _ => [],
         };
-        List<AppDramaDto> result = [];
+        List<DramaDto> result = [];
         foreach (JsonElement value in values)
         {
-            AppDramaDto? item = JsonAotSerializer.Deserialize<AppDramaDto>(value.GetRawText());
+            DramaDto? item = JsonAotSerializer.Deserialize<DramaDto>(value.GetRawText());
             if (item is not null)
             {
                 result.Add(item);
@@ -341,12 +305,12 @@ internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<A
 
     public override void Write(
         Utf8JsonWriter writer,
-        IReadOnlyList<AppDramaDto> value,
+        IReadOnlyList<DramaDto> value,
         JsonSerializerOptions options
     )
     {
         writer.WriteStartArray();
-        foreach (AppDramaDto item in value)
+        foreach (DramaDto item in value)
         {
             JsonAotSerializer.Serialize(writer, item);
         }
@@ -358,6 +322,8 @@ internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<A
 /// <summary>将红果接口返回的字符串或字符串数组统一转换为列表。</summary>
 internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<string>>
 {
+    public override bool HandleNull => true;
+
     public override IReadOnlyList<string> Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
@@ -419,6 +385,8 @@ internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<
 internal sealed class FlexibleMediaVariantListConverter
     : JsonConverter<IReadOnlyList<AppMediaVariantDto>>
 {
+    public override bool HandleNull => true;
+
     public override IReadOnlyList<AppMediaVariantDto> Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
@@ -464,9 +432,11 @@ internal sealed class FlexibleMediaVariantListConverter
 }
 
 /// <summary>读取分类结构值，兼容其中嵌套 JSON 文本的情况。</summary>
-internal sealed class CategorySchemaConverter : JsonConverter<List<string>>
+internal sealed class CategorySchemaConverter : JsonConverter<IReadOnlyList<string>>
 {
-    public override List<string> Read(
+    public override bool HandleNull => true;
+
+    public override IReadOnlyList<string> Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
         JsonSerializerOptions options
@@ -498,7 +468,7 @@ internal sealed class CategorySchemaConverter : JsonConverter<List<string>>
 
     public override void Write(
         Utf8JsonWriter writer,
-        List<string> value,
+        IReadOnlyList<string> value,
         JsonSerializerOptions options
     )
     {

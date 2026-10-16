@@ -1,99 +1,128 @@
 using PhoenixReadApi;
-using PhoenixApi = PhoenixReadApi.PhoenixReadApi;
 
-using PhoenixApi client = new(new PhoenixReadApiOptions { MaxPagesPerCategory = 1 });
-using CancellationTokenSource cancellation = new(TimeSpan.FromSeconds(45));
+const string seriesId = "7687438098002611225";
+const string videoId = "7687440021728529432";
 
-try
+using PhoenixReadApiClient client = new(
+    new PhoenixReadApiOptions
+    {
+        MaxPagesPerCategory = 1,
+        RequestTimeout = TimeSpan.FromSeconds(25),
+        RetryCount = 1,
+        CompleteSearchSeasons = false,
+    }
+);
+using CancellationTokenSource timeout = new(TimeSpan.FromMinutes(4));
+
+// Exercise every public request method. Playback may be rejected for a
+// protected episode, so each operation is reported independently.
+IReadOnlyList<Drama>? catalog = await TryAsync(
+    "GetCatalogAsync",
+    () => client.GetCatalogAsync(PhoenixReadApiCategory.RealDrama, timeout.Token)
+);
+if (catalog is not null)
 {
-    SearchResult result = await client.SearchAsync("世子很凶", cancellation.Token);
-    Console.WriteLine($"搜索：{result.Total} 条，当前返回：{result.Items.Count} 条");
-    if (!string.IsNullOrWhiteSpace(result.Warning))
+    Console.WriteLine($"  条目：{catalog.Count}");
+}
+
+IReadOnlyList<SearchSuggestion>? suggestions = await TryAsync(
+    "GetSuggestionsAsync",
+    () => client.GetSuggestionsAsync("世子很凶", maxResults: 5, cancellationToken: timeout.Token)
+);
+if (suggestions is not null)
+{
+    foreach (SearchSuggestion suggestion in suggestions)
     {
-        Console.WriteLine("提示：" + result.Warning);
+        Console.WriteLine($"  {suggestion.Name} | {suggestion.Type}");
     }
+}
 
-    foreach (Drama drama in result.Items)
-    {
-        Console.WriteLine(
-            $"{drama.SourceId} | {drama.DisplayTitle} | {drama.EpisodeCount} 集 | {drama.CoverUrl}"
-        );
-    }
+SearchResult? search = await TryAsync(
+    "SearchAsync",
+    () => client.SearchAsync("世子很凶", timeout.Token)
+);
+if (search is not null)
+{
+    Console.WriteLine($"  总数：{search.Total}，返回：{search.Items.Count}");
+}
 
-    return;
-
-    IReadOnlyList<SearchSuggestion> result2 = await client.GetSuggestionsAsync(
-        "女帝",
-        cancellation.Token
-    );
-    Console.WriteLine($"联想：{result2.Count} 条");
-    foreach (SearchSuggestion suggestion in result2)
-    {
-        Console.WriteLine($"{suggestion.Name} | {suggestion.Type}");
-    }
-
-    return;
-
-    PhoenixReadApiCategory category = PhoenixReadApiCategory.All;
-    CatalogResult catalog = await client.GetCatalogResultAsync(category, cancellation.Token);
+RecommendationPage? recommendations = await TryAsync(
+    "GetRecommendationsAsync(query)",
+    () =>
+        client.GetRecommendationsAsync(
+            new RecommendationQuery { Genre = "short_play" },
+            timeout.Token
+        )
+);
+if (recommendations is not null)
+{
     Console.WriteLine(
-        $"分类：{category}，条目：{catalog.Items.Count}，网页兜底：{catalog.UsedWebFallback}"
+        $"  条目：{recommendations.Items.Count}，下一页：{recommendations.NextOffset}"
     );
-    if (catalog.Warnings.Count > 0)
-    {
-        Console.WriteLine("提示：" + string.Join("；", catalog.Warnings));
-    }
+}
 
-    foreach (Drama? drama in catalog.Items.Take(10))
+RecommendationPage? recommendationOverload = await TryAsync(
+    "GetRecommendationsAsync(overload)",
+    () => client.GetRecommendationsAsync("short_play", cancellationToken: timeout.Token)
+);
+if (recommendationOverload is not null)
+{
+    Console.WriteLine($"  条目：{recommendationOverload.Items.Count}");
+}
+
+DramaDetails? details = await TryAsync(
+    "GetDetailsAsync",
+    () => client.GetDetailsAsync(seriesId, timeout.Token)
+);
+if (details is not null)
+{
+    Console.WriteLine($"  剧集：{details.Drama.Title}，分集：{details.Chapters.Count}");
+}
+
+PlaybackMedia? mediaByIds = await TryAsync(
+    "ResolveMediaAsync(ids)",
+    () => client.ResolveMediaAsync(seriesId, videoId, timeout.Token)
+);
+if (mediaByIds is not null)
+{
+    Console.WriteLine($"  地址：{mediaByIds.Url}");
+}
+
+PlaybackMedia? mediaByChapter = await TryAsync(
+    "ResolveMediaAsync(chapter)",
+    () => client.ResolveMediaAsync(new Chapter { VideoId = videoId }, seriesId, timeout.Token)
+);
+if (mediaByChapter is not null)
+{
+    Console.WriteLine($"  地址：{mediaByChapter.Url}");
+}
+
+DanmakuPage? danmaku = await TryAsync(
+    "GetDanmakuAsync",
+    () => client.GetDanmakuAsync(seriesId, videoId, 0, 600_000, timeout.Token)
+);
+if (danmaku is not null)
+{
+    Console.WriteLine($"  弹幕：{danmaku.Items.Count}，下一时间：{danmaku.NextMs}");
+}
+
+static async Task<T?> TryAsync<T>(string name, Func<Task<T>> operation)
+{
+    Console.WriteLine($"{name}:");
+    try
+    {
+        return await operation();
+    }
+    catch (PhoenixReadApiException exception)
     {
         Console.WriteLine(
-            $"{drama.SourceId} | {drama.DisplayTitle} | {drama.EpisodeCount} 集 | {drama.CoverUrl}"
+            $"  失败：{exception.Message}（端点：{exception.Endpoint ?? "unknown"}）"
         );
+        return default;
     }
-
-    if (catalog.Items.Count > 0)
+    catch (Exception exception)
     {
-        DramaDetails details = await client.GetDetailsAsync(
-            catalog.Items[0].SourceId,
-            cancellation.Token
-        );
-        Console.WriteLine($"详情：{details.Drama.DisplayTitle}，分集：{details.Chapters.Count}");
-        if (details.Chapters.Count > 0)
-        {
-            PlaybackMedia media = await client.ResolveMediaAsync(
-                details.Drama.SourceId,
-                details.Chapters[0].VideoUrl,
-                cancellation.Token
-            );
-            Console.WriteLine($"播放地址：{media.Url}");
-            Console.WriteLine(
-                $"清晰度：{media.Quality}，变体：{media.Variants.Count}，CENC Key：{(media.DecryptionKey.Length == 0 ? "无" : "已提取")}"
-            );
-        }
+        Console.WriteLine($"  未处理错误：{exception.Message}");
+        return default;
     }
-}
-catch (OperationCanceledException)
-{
-    Console.Error.WriteLine("请求已取消或超时。");
-    Environment.ExitCode = 2;
-}
-catch (PhoenixReadApiException exception)
-{
-    Console.Error.WriteLine($"PhoenixReadApi 失败：{exception.Message}");
-    if (exception.Endpoint is not null)
-    {
-        Console.Error.WriteLine($"端点：{exception.Endpoint}");
-    }
-
-    if (exception.StatusCode is not null)
-    {
-        Console.Error.WriteLine($"HTTP：{exception.StatusCode}");
-    }
-
-    Environment.ExitCode = 1;
-}
-catch (Exception exception)
-{
-    Console.Error.WriteLine($"未处理错误：{exception.Message}");
-    Environment.ExitCode = 1;
 }

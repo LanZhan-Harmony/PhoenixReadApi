@@ -8,26 +8,26 @@ internal sealed class AppResponse<T>
 {
     [JsonPropertyName("code")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? Code { get; init; }
+    public string Code { get; init; } = string.Empty;
 
     [JsonPropertyName("data")]
     public T? Data { get; init; }
 
     [JsonPropertyName("message")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? Message { get; init; }
+    public string Message { get; init; } = string.Empty;
 
     [JsonPropertyName("BaseResp")]
-    public AppBaseResponse? BaseResponse { get; init; }
+    public AppBaseResponse BaseResponse { get; init; } = new();
 }
 
 internal sealed class AppBaseResponse
 {
     [JsonPropertyName("StatusCode")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? StatusCode { get; init; }
+    public string StatusCode { get; init; } = string.Empty;
 
     [JsonPropertyName("StatusMessage")]
     [JsonConverter(typeof(FlexibleStringConverter))]
-    public string? StatusMessage { get; init; }
+    public string StatusMessage { get; init; } = string.Empty;
 }

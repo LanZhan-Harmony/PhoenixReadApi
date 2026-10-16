@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Catalog;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
@@ -24,21 +25,6 @@ internal sealed class CatalogService : PhoenixFeatureService
         : base(runtime) { }
 
     internal async Task<IReadOnlyList<Drama>> GetAsync(
-        PhoenixReadApiCategory category,
-        CancellationToken cancellationToken
-    )
-    {
-        CatalogResult result = await GetResultAsync(category, cancellationToken)
-            .ConfigureAwait(false);
-        return result.Items;
-    }
-
-    internal Task<CatalogResult> GetResultAsync(
-        PhoenixReadApiCategory category,
-        CancellationToken cancellationToken
-    ) => GetResultCoreAsync(category, cancellationToken);
-
-    private async Task<CatalogResult> GetResultCoreAsync(
         PhoenixReadApiCategory category,
         CancellationToken cancellationToken
     )
@@ -126,7 +112,7 @@ internal sealed class CatalogService : PhoenixFeatureService
             items = MergeDramas([], items);
             items.Sort(
                 static (left, right) =>
-                    string.Compare(left.DisplayTitle, right.DisplayTitle, StringComparison.Ordinal)
+                    string.Compare(left.Title, right.Title, StringComparison.Ordinal)
             );
             if (items.Count == 0 && warnings.Count > 0)
             {
@@ -136,13 +122,7 @@ internal sealed class CatalogService : PhoenixFeatureService
                 );
             }
 
-            return new CatalogResult
-            {
-                Items = items,
-                Category = category,
-                UsedWebFallback = usedWebFallback,
-                Warnings = warnings,
-            };
+            return items;
         }
         finally
         {
@@ -196,7 +176,7 @@ internal sealed class CatalogService : PhoenixFeatureService
                 ?? throw new PhoenixReadApiResponseException("App 分类数据格式异常。", "catalog");
 
             List<Drama> pageItems = [];
-            foreach (AppDramaDto row in data.Items)
+            foreach (DramaDto row in data.Items)
             {
                 Drama drama = DramaMapper.FromDto(row, displayName);
                 if (drama.Id.Length > 0)
@@ -349,7 +329,7 @@ internal sealed class CatalogService : PhoenixFeatureService
         }
 
         List<Drama> output = [];
-        foreach (AppDramaDto item in data.Items)
+        foreach (DramaDto item in data.Items)
         {
             Drama drama = DramaMapper.FromDto(item, category);
             if (drama.Id.Length > 0)

@@ -1,6 +1,6 @@
 namespace PhoenixReadApi;
 
-/// <summary>当可恢复操作配置的所有数据源都失败时抛出此异常。</summary>
+/// <summary>当请求在可恢复失败后仍无法完成时抛出此异常。</summary>
 public class PhoenixReadApiFallbackException(
     string message,
     string? endpoint = "fallback",

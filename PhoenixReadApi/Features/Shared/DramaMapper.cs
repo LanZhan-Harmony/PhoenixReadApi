@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Infrastructure.Web;
 using PhoenixReadApi.Internal.Serialization;
 
@@ -11,9 +12,9 @@ internal static class DramaMapper
 {
     private static readonly char[] separator = [',', '/', '，', '、'];
 
-    internal static Drama FromDto(AppDramaDto value, string category, DateTimeOffset? now = null)
+    internal static Drama FromDto(DramaDto value, string category, DateTimeOffset? now = null)
     {
-        AppDramaDto data = value.VideoData ?? value;
+        DramaDto data = value;
         var sourceId = JsonValueReader.First(data.SeriesId, data.SeriesIdNumber, data.Keyword);
         if (!JsonValueReader.IsNumericId(sourceId))
         {
@@ -24,7 +25,6 @@ internal static class DramaMapper
             data.SeriesTitle,
             data.SeriesName,
             data.Title,
-            data.Name,
             sourceId
         );
         var remark = JsonValueReader.First(data.EpisodeRemark);
@@ -42,15 +42,11 @@ internal static class DramaMapper
 
         return new Drama
         {
-            Id = "hongguo:" + sourceId,
-            Source = "hongguo",
-            SourceId = sourceId,
+            Id = sourceId,
             Title = title,
-            Name = title,
             Description = JsonValueReader.First(data.SeriesIntro, data.VideoDescription),
             CoverUrl = JsonValueReader.First(data.SeriesCover, data.Cover),
             Category = genre,
-            Channel = "红果",
             Remark = remark,
             EpisodeCount = Math.Max(0, data.EpisodeCount),
             Tags = tags,
@@ -60,7 +56,7 @@ internal static class DramaMapper
                 "0" => "ongoing",
                 _ => StatusFromRemark(remark),
             },
-            Score = data.Score ?? string.Empty,
+            Score = data.Score,
             Views = JsonValueReader.First(data.SeriesPlayCount, data.PlayCount),
             Heat = DtoHeat(data),
             OnlineDate = DtoOnlineDate(data, now ?? DateTimeOffset.Now),
@@ -168,15 +164,11 @@ internal static class DramaMapper
             : 0;
         return new Drama
         {
-            Id = "hongguo:" + sourceId,
-            Source = PhoenixReadApi.SourceName,
-            SourceId = sourceId,
+            Id = sourceId,
             Title = title,
-            Name = title,
             Description = intro,
             CoverUrl = cover,
             Category = genre,
-            Channel = "红果",
             Remark = remark,
             EpisodeCount = episodeCount,
             Tags = tags,
@@ -197,19 +189,19 @@ internal static class DramaMapper
             ? "ongoing"
         : string.Empty;
 
-    private static List<string> DtoTags(AppDramaDto data)
+    private static List<string> DtoTags(DramaDto data)
     {
         List<string> tags = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
         AddJson(data.Tags);
-        foreach (AppCategoryDto item in data.CategoryList)
+        foreach (DramaCategoryDto item in data.CategoryList ?? [])
         {
-            if (!string.IsNullOrWhiteSpace(item.Name) && seen.Add(item.Name.Trim()))
+            if (item is not null && !string.IsNullOrWhiteSpace(item.Name) && seen.Add(item.Name.Trim()))
             {
                 tags.Add(item.Name.Trim());
             }
         }
-        foreach (var item in data.CategorySchema)
+        foreach (var item in data.CategorySchema ?? [])
         {
             if (!string.IsNullOrWhiteSpace(item) && seen.Add(item.Trim()))
             {
@@ -258,7 +250,7 @@ internal static class DramaMapper
         }
     }
 
-    private static string DtoHeat(AppDramaDto data)
+    private static string DtoHeat(DramaDto data)
     {
         var score = JsonValueReader.First(data.HotScoreData?.Score, data.HotScore);
         return
@@ -276,7 +268,7 @@ internal static class DramaMapper
             : data.HotScoreData?.Text ?? string.Empty;
     }
 
-    private static string DtoOnlineDate(AppDramaDto data, DateTimeOffset now)
+    private static string DtoOnlineDate(DramaDto data, DateTimeOffset now)
     {
         if (
             long.TryParse(
@@ -303,7 +295,7 @@ internal static class DramaMapper
             catch (ArgumentOutOfRangeException) { }
         }
 
-        foreach (AppSubtitleDto item in data.Subtitles)
+        foreach (DramaSubtitleDto item in data.Subtitles ?? [])
         {
             var label = item.Content ?? string.Empty;
             if (label == "今日上新")

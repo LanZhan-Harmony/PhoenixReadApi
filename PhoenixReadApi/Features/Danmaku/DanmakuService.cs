@@ -68,7 +68,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
             result.Data
             ?? throw new PhoenixReadApiResponseException("红果弹幕时间段格式无效。", "danmaku");
 
-        var next = data.Extra?.NextTime ?? 0;
+        var next = data.Extra.NextTime;
         if (next <= startMs || next > MaxDanmakuDurationMs)
         {
             throw new PhoenixReadApiResponseException("红果弹幕时间段格式无效。", "danmaku");
@@ -85,16 +85,16 @@ internal sealed class DanmakuService : PhoenixFeatureService
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (AppDanmakuRecord raw in data.Items)
         {
-            AppComment? comment = raw.Comment;
-            AppCommentCommon? common = comment?.Common;
-            if (common?.GroupId != videoId || common.Status != "1")
+            AppComment comment = raw.Comment;
+            AppCommentCommon common = comment.Common;
+            if (common.GroupId != videoId || common.Status != "1")
             {
                 continue;
             }
 
-            var position = comment?.Expand?.OffsetTime ?? 0;
-            var text = SanitizeText(common.Content?.Text ?? string.Empty);
-            var id = comment?.Id?.Trim() ?? string.Empty;
+            var position = comment.Expand.OffsetTime;
+            var text = SanitizeText(common.Content.Text);
+            var id = comment.Id.Trim();
             if (
                 position < startMs
                 || position >= page.NextMs
@@ -139,7 +139,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
 
     private static long ParseTotal(AppDanmakuData data)
     {
-        var cursor = data.ListInfo?.Cursor ?? string.Empty;
+        var cursor = data.ListInfo.Cursor;
         if (cursor.Length is 0 or > 8192)
         {
             return 0;

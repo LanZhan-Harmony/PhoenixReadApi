@@ -3,10 +3,10 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.Danmaku;
 using PhoenixReadApi.Internal.Contracts.App.Playback;
-using PhoenixReadApi.Internal.Contracts.App.Search;
 using PhoenixReadApi.Internal.Contracts.Web;
 using PhoenixReadApi.Internal.Contracts.Web.Catalog;
 using PhoenixReadApi.Internal.Contracts.Web.Playback;
@@ -22,15 +22,14 @@ namespace PhoenixReadApi.Internal.Serialization;
 )]
 [JsonSerializable(typeof(AppCatalogPayload))]
 [JsonSerializable(typeof(AppDetailPayload))]
-[JsonSerializable(typeof(AppMediaPayload))]
+[JsonSerializable(typeof(AppPlaybackPayload))]
 [JsonSerializable(typeof(AppCommentPayload))]
-[JsonSerializable(typeof(PlaybackReference))]
-[JsonSerializable(typeof(SuggestionData))]
+[JsonSerializable(typeof(WebSuggestionResponseDto))]
 [JsonSerializable(typeof(AppResponse<AppCatalogData>))]
 [JsonSerializable(typeof(AppResponse<AppDetailsData>))]
-[JsonSerializable(typeof(AppResponse<AppPlaybackData>))]
+[JsonSerializable(typeof(AppResponse<Dictionary<string, AppPlaybackItem>>))]
 [JsonSerializable(typeof(AppResponse<AppDanmakuData>))]
-[JsonSerializable(typeof(AppDramaDto))]
+[JsonSerializable(typeof(DramaDto))]
 [JsonSerializable(typeof(AppVideoDto))]
 [JsonSerializable(typeof(AppPlaybackModel))]
 [JsonSerializable(typeof(AppMediaVariantDto))]
@@ -40,7 +39,6 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(WebDetailsPageDto))]
 [JsonSerializable(typeof(WebPlayerPageDto))]
 [JsonSerializable(typeof(WebSearchPageDto))]
-[JsonSerializable(typeof(BackupPlaybackResponseDto))]
 internal partial class SourceGenerationContext : JsonSerializerContext { }
 
 internal static class JsonAotSerializer

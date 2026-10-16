@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
@@ -107,10 +108,9 @@ internal sealed class DetailsService : PhoenixFeatureService
 
     private static DramaDetails ParseAppDetails(AppDetailsData? data, string seriesId)
     {
-        AppDramaDto? detail = data?.VideoData;
+        DramaDto detail = data?.VideoData ?? new();
         if (
-            detail is null
-            || JsonValueReader.First(detail.SeriesId, detail.SeriesIdNumber) != seriesId
+            JsonValueReader.First(detail.SeriesId, detail.SeriesIdNumber) != seriesId
         )
         {
             throw new PhoenixReadApiResponseException("App 未返回所请求的剧集。", "detail");
@@ -120,9 +120,9 @@ internal sealed class DetailsService : PhoenixFeatureService
         List<Chapter> chapters = [];
         HashSet<string> usedIds = new(StringComparer.Ordinal);
         HashSet<int> usedEpisodes = [];
-        foreach (AppVideoDto item in data!.VideoList)
+        foreach (AppVideoDto item in detail.VideoList)
         {
-            var videoId = item.VideoId?.Trim() ?? string.Empty;
+            var videoId = item.VideoId.Trim();
             var episode = item.Episode;
             if (
                 !JsonValueReader.IsNumericId(videoId)
@@ -134,7 +134,7 @@ internal sealed class DetailsService : PhoenixFeatureService
                 throw new PhoenixReadApiResponseException("App 分集编号或视频 ID 无效。", "detail");
             }
 
-            var returnedSeriesId = item.SeriesId?.Trim() ?? string.Empty;
+            var returnedSeriesId = item.SeriesId.Trim();
             if (returnedSeriesId.Length > 0 && returnedSeriesId != seriesId)
             {
                 throw new PhoenixReadApiResponseException("App 返回了其他剧集的分集。", "detail");
@@ -203,12 +203,8 @@ internal sealed class DetailsService : PhoenixFeatureService
         {
             Drama = new Drama
             {
-                Id = "hongguo:" + seriesId,
-                SourceId = seriesId,
-                Source = PhoenixReadApi.SourceName,
+                Id = seriesId,
                 Title = title,
-                Name = title,
-                Channel = "红果",
             },
             Chapters = chapters,
         };
@@ -237,10 +233,8 @@ internal sealed class DetailsService : PhoenixFeatureService
     private static Chapter CreateChapter(string seriesId, string videoId, int episode) =>
         new()
         {
-            Id = $"hongguo:{seriesId}:{videoId}",
-            Source = PhoenixReadApi.SourceName,
+            VideoId = videoId,
             Title = $"第{episode}集",
-            VideoUrl = "hongguo-cenc://" + videoId,
             Episode = episode,
         };
 

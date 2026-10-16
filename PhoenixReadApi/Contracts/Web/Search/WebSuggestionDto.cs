@@ -1,10 +1,11 @@
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Serialization;
 
-namespace PhoenixReadApi.Internal.Contracts.App.Search;
+namespace PhoenixReadApi.Internal.Contracts.Web.Search;
 
-internal sealed class SuggestionRecord
+internal sealed class WebSuggestionDto
 {
     [JsonPropertyName("display_words")]
     public IReadOnlyList<string> DisplayWords { get; init; } = [];
@@ -17,7 +18,7 @@ internal sealed class SuggestionRecord
     public string Name { get; init; } = string.Empty;
 
     [JsonPropertyName("video_data")]
-    public AppDramaDto? VideoData { get; init; }
+    public DramaDto VideoData { get; init; } = new();
 
     [JsonPropertyName("word_type")]
     public string WordType { get; init; } = string.Empty;
