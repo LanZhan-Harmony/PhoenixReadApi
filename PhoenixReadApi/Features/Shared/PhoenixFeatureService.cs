@@ -226,24 +226,29 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
                     .Where(static tag => !string.IsNullOrWhiteSpace(tag))
                     .Distinct(StringComparer.Ordinal),
             ],
-            Actors = MergeActors(first.Actors, second.Actors),
+            Credits = MergeCredits(first.Credits, second.Credits),
         };
 
-    private static IReadOnlyList<DramaActor> MergeActors(
-        IReadOnlyList<DramaActor> first,
-        IReadOnlyList<DramaActor> second
+    private static IReadOnlyList<DramaCredit> MergeCredits(
+        IReadOnlyList<DramaCredit> first,
+        IReadOnlyList<DramaCredit> second
     )
     {
-        List<DramaActor> output = [];
+        List<DramaCredit> output = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
-        foreach (DramaActor? actor in first.Concat(second))
+        foreach (DramaCredit? credit in first.Concat(second))
         {
-            if (actor is null || actor.Id.Length == 0 || !seen.Add(actor.Id))
+            if (
+                credit is null
+                || credit.User is null
+                || credit.User.Id.Length == 0
+                || !seen.Add(credit.User.Id)
+            )
             {
                 continue;
             }
 
-            output.Add(actor);
+            output.Add(credit);
         }
 
         return output;

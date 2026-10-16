@@ -44,6 +44,97 @@ internal sealed class PhoenixReadAppTransport
         );
     }
 
+    internal Task<AppResponse<TResponse>> GetAsync<TResponse>(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    ) =>
+        RetryPolicy.ExecuteAsync(
+            (attempt, token) => SendGetOnceAsync<TResponse>(path, query, token),
+            _options.RetryCount,
+            RetryPolicy.IsTransient,
+            cancellationToken
+        );
+
+    private async Task<AppResponse<TResponse>> SendGetOnceAsync<TResponse>(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    )
+    {
+        Uri endpoint = BuildAppUri(path);
+        foreach (KeyValuePair<string, string> pair in query)
+        {
+            endpoint = AddQuery(endpoint, pair.Key, pair.Value);
+        }
+
+        Uri requestUri = AddQuery(
+            endpoint,
+            "_rticket",
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+        );
+        using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
+        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+        PhoenixReadRequestSigner.Sign(request, ReadOnlySpan<byte>.Empty, DateTimeOffset.UtcNow);
+
+        using HttpResponseMessage response = await _http
+            .SendAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        var bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            var transient = (int)response.StatusCode >= 500;
+            throw new PhoenixReadApiHttpException(
+                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                path,
+                (int)response.StatusCode,
+                requestUri,
+                transient
+            );
+        }
+
+        if (bytes.Length == 0)
+        {
+            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+        }
+
+        AppResponse<TResponse> result;
+        try
+        {
+            result =
+                JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
+                ?? throw new JsonException("The App response was null.");
+        }
+        catch (JsonException exception)
+        {
+            throw new PhoenixReadApiDeserializationException(
+                "红果 App 接口返回格式异常。",
+                path,
+                exception
+            );
+        }
+
+        var providerCode = result.Code;
+        if (string.IsNullOrWhiteSpace(providerCode))
+        {
+            providerCode = result.BaseResponse?.StatusCode;
+        }
+        if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
+        {
+            throw new PhoenixReadApiProviderException(
+                $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
+                path,
+                providerCode,
+                isTransient: true
+            );
+        }
+
+        return result;
+    }
+
     private async Task<AppResponse<TResponse>> SendOnceAsync<TResponse>(
         string path,
         byte[] body,

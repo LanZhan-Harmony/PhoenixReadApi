@@ -1,6 +1,5 @@
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
-using PhoenixReadApi.Internal.Contracts.App.Danmaku;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
@@ -137,10 +136,7 @@ internal sealed class CommentService : PhoenixFeatureService
 
             AppComment comment = record.Comment;
             var groupId = comment.Common.GroupId ?? string.Empty;
-            if (
-                comment.Common.Status != "1"
-                || (groupId.Length > 0 && groupId != targetId)
-            )
+            if (comment.Common.Status != "1" || (groupId.Length > 0 && groupId != targetId))
             {
                 continue;
             }
@@ -163,11 +159,15 @@ internal sealed class CommentService : PhoenixFeatureService
                 {
                     Id = id,
                     Text = text.Length > 4000 ? string.Concat(text.AsSpan(0, 4000), "…") : text,
-                    UserId = userInfo.Id,
-                    UserName = userName.Length > 0 ? userName : baseInfo?.Name ?? string.Empty,
-                    UserAvatarUrl = userAvatar.Length > 0
-                        ? userAvatar
-                        : baseInfo?.AvatarUrl ?? string.Empty,
+                    Author = new User
+                    {
+                        Id = userInfo.Id ?? string.Empty,
+                        Name = userName.Length > 0 ? userName : baseInfo?.Name ?? string.Empty,
+                        AvatarUrl =
+                            userAvatar.Length > 0
+                                ? userAvatar
+                                : baseInfo?.AvatarUrl ?? string.Empty,
+                    },
                     CreatedAtUnixSeconds = comment.Common.CreatedAt,
                     OffsetMs = isEpisode ? Math.Max(0, expand.OffsetTime) : 0,
                     LikeCount = Math.Max(0, stat.LikeCount),

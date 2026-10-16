@@ -11,6 +11,4 @@ public sealed class Chapter
 
     /// <summary>从 1 开始的分集编号。</summary>
     public int Episode { get; init; }
-
 }
-

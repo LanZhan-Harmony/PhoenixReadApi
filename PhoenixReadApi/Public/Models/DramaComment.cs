@@ -9,14 +9,8 @@ public sealed class DramaComment
     /// <summary>评论文本。</summary>
     public string Text { get; init; } = string.Empty;
 
-    /// <summary>评论作者 ID。</summary>
-    public string UserId { get; init; } = string.Empty;
-
-    /// <summary>评论作者名称。</summary>
-    public string UserName { get; init; } = string.Empty;
-
-    /// <summary>评论作者头像 URL。</summary>
-    public string UserAvatarUrl { get; init; } = string.Empty;
+    /// <summary>评论作者。</summary>
+    public User Author { get; init; } = new();
 
     /// <summary>创建时间的 Unix 时间戳（秒）。</summary>
     public long CreatedAtUnixSeconds { get; init; }

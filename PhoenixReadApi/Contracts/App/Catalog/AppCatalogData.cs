@@ -1,7 +1,6 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
-using PhoenixReadApi.Internal.Serialization;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
+using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Contracts.App.Catalog;
 
