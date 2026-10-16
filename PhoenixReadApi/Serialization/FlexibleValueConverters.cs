@@ -185,6 +185,53 @@ internal sealed class VideoModelConverter : JsonConverter<JsonElement>
     ) => value.WriteTo(writer);
 }
 
+/// <summary>读取播放接口中的 video_model，兼容 JSON 对象和 JSON 字符串。</summary>
+internal sealed class VideoModelDtoConverter : JsonConverter<AppPlaybackModel>
+{
+    public override bool HandleNull => true;
+
+    public override AppPlaybackModel Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return new AppPlaybackModel();
+        }
+
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var text = reader.GetString() ?? string.Empty;
+            if (text.Trim().Length == 0)
+            {
+                return new AppPlaybackModel();
+            }
+
+            try
+            {
+                return JsonAotSerializer.Deserialize<AppPlaybackModel>(text)
+                    ?? new AppPlaybackModel();
+            }
+            catch (JsonException exception)
+            {
+                throw new JsonException("video_model 不是有效的 JSON。", exception);
+            }
+        }
+
+        using JsonDocument document = JsonDocument.ParseValue(ref reader);
+        return JsonAotSerializer.Deserialize<AppPlaybackModel>(document.RootElement.GetRawText())
+            ?? new AppPlaybackModel();
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        AppPlaybackModel value,
+        JsonSerializerOptions options
+    ) => JsonAotSerializer.Serialize(writer, value);
+}
+
 /// <summary>读取以数组或键值对象表示的视频版本集合。</summary>
 internal sealed class VideoVariantListConverter : JsonConverter<List<JsonElement>>
 {

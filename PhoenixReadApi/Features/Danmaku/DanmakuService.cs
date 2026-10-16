@@ -68,7 +68,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
             result.Data
             ?? throw new PhoenixReadApiResponseException("红果弹幕时间段格式无效。", "danmaku");
 
-        var next = data.Extra.NextTime;
+        var next = data.Extra?.NextTime ?? 0;
         if (next <= startMs || next > MaxDanmakuDurationMs)
         {
             throw new PhoenixReadApiResponseException("红果弹幕时间段格式无效。", "danmaku");
@@ -83,18 +83,28 @@ internal sealed class DanmakuService : PhoenixFeatureService
         };
         List<DanmakuItem> items = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
-        foreach (AppDanmakuRecord raw in data.Items)
+        foreach (AppCommentRecord? raw in data.Items ?? [])
         {
-            AppComment comment = raw.Comment;
-            AppCommentCommon common = comment.Common;
-            if (common.GroupId != videoId || common.Status != "1")
+            if (
+                raw is null
+                || raw.Comment is null
+                || raw.Comment.Common is null
+                || raw.Comment.Common.Content is null
+            )
             {
                 continue;
             }
 
-            var position = comment.Expand.OffsetTime;
-            var text = SanitizeText(common.Content.Text);
-            var id = comment.Id.Trim();
+            AppComment comment = raw.Comment;
+            AppCommentCommon common = comment.Common;
+            if ((common.GroupId ?? string.Empty) != videoId || common.Status != "1")
+            {
+                continue;
+            }
+
+            var position = comment.Expand?.OffsetTime ?? 0;
+            var text = SanitizeText(common.Content?.Text ?? string.Empty);
+            var id = (comment.Id ?? string.Empty).Trim();
             if (
                 position < startMs
                 || position >= page.NextMs
@@ -139,7 +149,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
 
     private static long ParseTotal(AppDanmakuData data)
     {
-        var cursor = data.ListInfo.Cursor;
+        var cursor = data.ListInfo?.Cursor ?? string.Empty;
         if (cursor.Length is 0 or > 8192)
         {
             return 0;

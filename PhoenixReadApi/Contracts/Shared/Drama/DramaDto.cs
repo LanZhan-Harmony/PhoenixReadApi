@@ -126,6 +126,36 @@ internal sealed class DramaDto
     [JsonPropertyName("video_list")]
     [JsonConverter(typeof(FlexibleVideoListConverter))]
     public IReadOnlyList<AppVideoDto> VideoList { get; init; } = [];
+
+    [JsonPropertyName("celebrities")]
+    public IReadOnlyList<DramaCelebrityDto> Celebrities { get; init; } = [];
+}
+
+internal sealed class DramaCelebrityDto
+{
+    [JsonPropertyName("celebrity_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Id { get; init; } = string.Empty;
+
+    [JsonPropertyName("nickname")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("intro")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Introduction { get; init; } = string.Empty;
+
+    [JsonPropertyName("avatar")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string AvatarUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("role_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string RoleName { get; init; } = string.Empty;
+
+    [JsonPropertyName("schema")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Schema { get; init; } = string.Empty;
 }
 
 internal sealed class DramaHotScoreDto

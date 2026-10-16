@@ -30,7 +30,7 @@ public sealed class Drama
     /// <summary>热度值。</summary>
     public string Heat { get; init; } = string.Empty;
 
-    /// <summary>首次展示日期。</summary>
+    /// <summary>首次上架日期。</summary>
     public string OnlineDate { get; init; } = string.Empty;
 
     /// <summary>分集数量。</summary>
@@ -41,5 +41,7 @@ public sealed class Drama
 
     /// <summary>剧集标签。</summary>
     public IReadOnlyList<string> Tags { get; init; } = [];
-}
 
+    /// <summary>参演演员及其饰演的角色。</summary>
+    public IReadOnlyList<DramaActor> Actors { get; init; } = [];
+}

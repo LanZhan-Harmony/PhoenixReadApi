@@ -78,36 +78,17 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        AppPlaybackPayload payload = new()
-        {
-            VideoIds = new Dictionary<string, IReadOnlyList<string>> { ["1004"] = [videoId] },
-        };
-        AppResponse<Dictionary<string, AppPlaybackItem>> result = await _appTransport
-            .PostAsync<AppPlaybackPayload, Dictionary<string, AppPlaybackItem>>(
-                "/novel/player/multi_video_model/preload/v1",
-                payload,
+        AppResponse<AppPlaybackData> result = await _appTransport
+            .PostAsync<AppMediaPayload, AppPlaybackData>(
+                "/novel/player/video_model/v1/",
+                new AppMediaPayload { VideoId = videoId },
                 commentRequest: false,
                 cancellationToken
             )
             .ConfigureAwait(false);
-        if (
-            result.Data is null
-            || !result.Data.TryGetValue(videoId, out AppPlaybackItem? item)
-            || item.VideoModel.Length == 0
-        )
+        if (result.Data?.VideoModel is not { } model)
         {
-            throw new PhoenixReadApiResponseException("未返回播放模型。", "media");
-        }
-
-        AppPlaybackModel model =
-            JsonAotSerializer.Deserialize<AppPlaybackModel>(item.VideoModel)
-            ?? throw new PhoenixReadApiDeserializationException(
-                "播放模型格式异常。",
-                "media"
-            );
-        if (model.Variants.Count == 0)
-        {
-            throw new PhoenixReadApiResponseException("未返回可用媒体。", "media");
+            throw new PhoenixReadApiResponseException("App 播放信息格式异常。", "media");
         }
 
         return SelectAppMedia(model);
@@ -123,11 +104,9 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
             var codec = variant.Metadata.CodecType.ToLowerInvariant();
             if (
                 codec == "bytevc2"
-                || (
-                    variant.GearDescriptionKey.Contains(
-                        "bytevc2",
-                        StringComparison.OrdinalIgnoreCase
-                    )
+                || variant.GearDescriptionKey.Contains(
+                    "bytevc2",
+                    StringComparison.OrdinalIgnoreCase
                 )
             )
             {
