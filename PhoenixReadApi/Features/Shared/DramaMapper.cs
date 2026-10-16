@@ -60,6 +60,7 @@ internal static class DramaMapper
             Views = JsonValueReader.First(data.SeriesPlayCount, data.PlayCount),
             Heat = DtoHeat(data),
             OnlineDate = DtoOnlineDate(data, now ?? DateTimeOffset.Now),
+            Actors = DtoActors(data.Celebrities),
         };
     }
 
@@ -162,6 +163,7 @@ internal static class DramaMapper
         )
             ? parsedCount
             : 0;
+        List<DramaActor> actors = JsonActors(data);
         return new Drama
         {
             Id = sourceId,
@@ -177,8 +179,25 @@ internal static class DramaMapper
             Views = JsonValueReader.String(data, "series_play_cnt", "play_cnt"),
             Heat = Heat(data),
             OnlineDate = OnlineDate(data, DateTimeOffset.Now),
+            Actors = actors,
         };
     }
+
+    internal static Drama FromActorWork(
+        string videoId,
+        string title,
+        string description,
+        string coverUrl,
+        int episodeCount
+    ) =>
+        new()
+        {
+            Id = videoId,
+            Title = JsonValueReader.First(title, videoId),
+            Description = description,
+            CoverUrl = coverUrl,
+            EpisodeCount = Math.Max(0, episodeCount),
+        };
 
     internal static string StatusFromRemark(string remark) =>
         remark.Contains("完结", StringComparison.OrdinalIgnoreCase)
@@ -188,6 +207,83 @@ internal static class DramaMapper
         || remark.Contains("连载", StringComparison.OrdinalIgnoreCase)
             ? "ongoing"
         : string.Empty;
+
+    private static List<DramaActor> DtoActors(IReadOnlyList<DramaCelebrityDto> values)
+    {
+        List<DramaActor> actors = [];
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        foreach (DramaCelebrityDto? value in values ?? [])
+        {
+            if (value is null)
+            {
+                continue;
+            }
+
+            var id = (value.Id ?? string.Empty).Trim();
+            if (!JsonValueReader.IsNumericId(id) || !seen.Add(id))
+            {
+                continue;
+            }
+
+            actors.Add(
+                new DramaActor
+                {
+                    Id = id,
+                    ProfileId = ProfileId(value.Schema),
+                    Name = value.Name ?? string.Empty,
+                    Introduction = value.Introduction ?? string.Empty,
+                    AvatarUrl = value.AvatarUrl ?? string.Empty,
+                    RoleName = value.RoleName ?? string.Empty,
+                }
+            );
+        }
+
+        return actors;
+    }
+
+    private static List<DramaActor> JsonActors(JsonElement data)
+    {
+        List<DramaActor> actors = [];
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        foreach (JsonElement item in JsonValueReader.Array(data, "celebrities"))
+        {
+            var id = JsonValueReader.String(item, "celebrity_id");
+            if (!JsonValueReader.IsNumericId(id) || !seen.Add(id))
+            {
+                continue;
+            }
+
+            actors.Add(
+                new DramaActor
+                {
+                    Id = id,
+                    ProfileId = ProfileId(JsonValueReader.String(item, "schema")),
+                    Name = JsonValueReader.String(item, "nickname", "name"),
+                    Introduction = JsonValueReader.String(item, "intro", "introduction"),
+                    AvatarUrl = JsonValueReader.String(item, "avatar", "avatar_url"),
+                    RoleName = JsonValueReader.String(item, "role_name"),
+                }
+            );
+        }
+
+        return actors;
+    }
+
+    private static string ProfileId(string schema)
+    {
+        schema ??= string.Empty;
+        var marker = schema.IndexOf("uid=", StringComparison.OrdinalIgnoreCase);
+        if (marker < 0)
+        {
+            return string.Empty;
+        }
+
+        var start = marker + 4;
+        var end = schema.IndexOf('&', start);
+        var value = schema[start..(end < 0 ? schema.Length : end)];
+        value = Uri.UnescapeDataString(value).Trim();
+        return JsonValueReader.IsNumericId(value) ? value : string.Empty;
+    }
 
     private static List<string> DtoTags(DramaDto data)
     {

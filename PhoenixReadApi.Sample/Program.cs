@@ -77,6 +77,63 @@ DramaDetails? details = await TryAsync(
 if (details is not null)
 {
     Console.WriteLine($"  剧集：{details.Drama.Title}，分集：{details.Chapters.Count}");
+    Console.WriteLine($"  演员：{details.Drama.Actors.Count}");
+    foreach (DramaActor actor in details.Drama.Actors.Take(3))
+    {
+        Console.WriteLine($"    {actor.Name} | 饰 {actor.RoleName} | ID {actor.Id} | Profile {actor.ProfileId}");
+    }
+
+    if (details.Drama.Actors.Count > 0)
+    {
+        Actor? actor = await TryAsync(
+            "GetActorAsync",
+            () => client.GetActorAsync(details.Drama.Actors[0], timeout.Token)
+        );
+        if (actor is not null)
+        {
+            Console.WriteLine($"  演员主页：{actor.Name}，参演剧集：{actor.Works.Count}");
+        }
+
+        if (details.Drama.Actors[0].ProfileId.Length > 0)
+        {
+            Actor? actorByProfileId = await TryAsync(
+                "GetActorAsync(profileId)",
+                () => client.GetActorAsync(details.Drama.Actors[0].ProfileId, timeout.Token)
+            );
+            if (actorByProfileId is not null)
+            {
+                Console.WriteLine(
+                    $"  演员主页（ProfileId）：{actorByProfileId.ProfileId}，参演剧集：{actorByProfileId.Works.Count}"
+                );
+            }
+        }
+    }
+}
+
+CommentPage? reviews = await TryAsync(
+    "GetReviewsAsync",
+    () => client.GetReviewsAsync(seriesId, count: 5, cancellationToken: timeout.Token)
+);
+if (reviews is not null)
+{
+    Console.WriteLine($"  剧评：{reviews.Items.Count}/{reviews.Total}，还有下一页：{reviews.HasMore}");
+    if (reviews.Items.Count > 0)
+    {
+        Console.WriteLine($"    首条：{reviews.Items[0].Text[..Math.Min(40, reviews.Items[0].Text.Length)]}");
+    }
+}
+
+CommentPage? episodeComments = await TryAsync(
+    "GetEpisodeCommentsAsync",
+    () => client.GetEpisodeCommentsAsync(seriesId, videoId, count: 5, cancellationToken: timeout.Token)
+);
+if (episodeComments is not null)
+{
+    Console.WriteLine($"  分集评论：{episodeComments.Items.Count}/{episodeComments.Total}，还有下一页：{episodeComments.HasMore}");
+    if (episodeComments.Items.Count > 0)
+    {
+        Console.WriteLine($"    首条：{episodeComments.Items[0].Text[..Math.Min(40, episodeComments.Items[0].Text.Length)]}");
+    }
 }
 
 PlaybackMedia? mediaByIds = await TryAsync(
@@ -85,7 +142,9 @@ PlaybackMedia? mediaByIds = await TryAsync(
 );
 if (mediaByIds is not null)
 {
-    Console.WriteLine($"  地址：{mediaByIds.Url}");
+    Console.WriteLine(
+        $"  地址：{mediaByIds.Url} | 清晰度：{mediaByIds.Quality}p | 变体：{mediaByIds.Variants.Count} | CENC 密钥：{(mediaByIds.DecryptionKey.Length > 0 ? "有" : "无")}"
+    );
 }
 
 PlaybackMedia? mediaByChapter = await TryAsync(
@@ -94,16 +153,18 @@ PlaybackMedia? mediaByChapter = await TryAsync(
 );
 if (mediaByChapter is not null)
 {
-    Console.WriteLine($"  地址：{mediaByChapter.Url}");
+    Console.WriteLine(
+        $"  地址：{mediaByChapter.Url} | 清晰度：{mediaByChapter.Quality}p | 变体：{mediaByChapter.Variants.Count} | CENC 密钥：{(mediaByChapter.DecryptionKey.Length > 0 ? "有" : "无")}"
+    );
 }
 
 DanmakuPage? danmaku = await TryAsync(
     "GetDanmakuAsync",
-    () => client.GetDanmakuAsync(seriesId, videoId, 0, 600_000, timeout.Token)
+    () => client.GetDanmakuAsync(seriesId, videoId, 0, 60_000, timeout.Token)
 );
 if (danmaku is not null)
 {
-    Console.WriteLine($"  弹幕：{danmaku.Items.Count}，下一时间：{danmaku.NextMs}");
+    Console.WriteLine($"  弹幕：{danmaku.Items.Count}/{danmaku.Total}，下一时间：{danmaku.NextMs}");
 }
 
 static async Task<T?> TryAsync<T>(string name, Func<Task<T>> operation)

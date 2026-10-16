@@ -23,12 +23,21 @@ internal sealed class PhoenixReadAppTransport
         string path,
         TRequest payload,
         bool commentRequest,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        int commentSource = 601,
+        int? serverChannel = 1000
     )
     {
         var body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
         return RetryPolicy.ExecuteAsync(
-            (attempt, token) => SendOnceAsync<TResponse>(path, body, commentRequest, token),
+            (attempt, token) => SendOnceAsync<TResponse>(
+                path,
+                body,
+                commentRequest,
+                commentSource,
+                serverChannel,
+                token
+            ),
             _options.RetryCount,
             RetryPolicy.IsTransient,
             cancellationToken
@@ -39,6 +48,8 @@ internal sealed class PhoenixReadAppTransport
         string path,
         byte[] body,
         bool commentRequest,
+        int commentSource,
+        int? serverChannel,
         CancellationToken cancellationToken
     )
     {
@@ -55,8 +66,11 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
         if (commentRequest)
         {
-            request.Headers.TryAddWithoutValidation("Comment-Source", "601");
-            request.Headers.TryAddWithoutValidation("Server-Channel", "1000");
+            request.Headers.TryAddWithoutValidation("Comment-Source", commentSource.ToString(CultureInfo.InvariantCulture));
+            if (serverChannel is { } channel)
+            {
+                request.Headers.TryAddWithoutValidation("Server-Channel", channel.ToString(CultureInfo.InvariantCulture));
+            }
         }
 
         request.Content = new ByteArrayContent(body);
@@ -74,7 +88,7 @@ internal sealed class PhoenixReadAppTransport
                 now
             );
         }
-        else
+        else if (!path.Contains("/novel/player/video_model/", StringComparison.Ordinal))
         {
             PhoenixReadRequestSigner.Sign(request, body, now);
         }
@@ -179,4 +193,5 @@ internal sealed class PhoenixReadAppTransport
 
     private static string Truncate(string value, int length) =>
         value.Length <= length ? value : value[..length];
+
 }

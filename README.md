@@ -5,6 +5,7 @@
 - 分类剧库、详情和分集；
 - 视频播放、搜索联想、推荐和弹幕；
 - 综合搜索、搜索联想、季数补齐和推荐分页；
+- 演员资料、参演剧集、剧评和分集评论；
 - CENC AES-128 内容密钥提取与弹幕时间窗口；
 - 可注入 `HttpClient`，支持代理、Cookie、诊断和离线测试；
 - 内部 JSON 处理使用 `System.Text.Json` 源代码生成，支持 NativeAOT 和裁剪发布。
@@ -19,8 +20,36 @@ using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 var catalog = await client.GetCatalogAsync(cancellationToken: timeout.Token);
 var details = await client.GetDetailsAsync(catalog[0].Id, timeout.Token);
 var media = await client.ResolveMediaAsync(details.Drama.Id, details.Chapters[0].VideoId, timeout.Token);
+var reviews = await client.GetReviewsAsync(details.Drama.Id, cancellationToken: timeout.Token);
+var episodeComments = await client.GetEpisodeCommentsAsync(
+    details.Drama.Id,
+    details.Chapters[0].VideoId,
+    cancellationToken: timeout.Token
+);
 
 Console.WriteLine($"{details.Drama.Title}: {media.Url}");
+Console.WriteLine($"Reviews: {reviews.Items.Count}/{reviews.Total}");
+Console.WriteLine($"Episode comments: {episodeComments.Items.Count}/{episodeComments.Total}");
+```
+
+详情中的 `Drama.Actors` 包含演员 ID、姓名、简介、头像和饰演角色。演员资料中的
+`ProfileId` 是请求演员主页所需的 ID，可以直接调用：
+
+```csharp
+DramaActor actor = details.Drama.Actors[0];
+var actorProfile = await client.GetActorAsync(actor, timeout.Token);
+// 也可以直接传入 actor.ProfileId
+var sameProfile = await client.GetActorAsync(actor.ProfileId, timeout.Token);
+```
+
+剧评和分集评论支持游标分页。将返回页的 `Cursor` 传给下一次调用即可：
+
+```csharp
+var nextReviews = await client.GetReviewsAsync(
+    details.Drama.Id,
+    cursor: reviews.Cursor,
+    cancellationToken: timeout.Token
+);
 ```
 
 应用已经拥有 `HttpClient` 时直接注入：
