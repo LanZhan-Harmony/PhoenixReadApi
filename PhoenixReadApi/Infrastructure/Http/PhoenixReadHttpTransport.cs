@@ -50,14 +50,36 @@ internal sealed class PhoenixReadHttpTransport
         }
     }
 
-    internal Task<byte[]> ReadBodyAsync(
+    internal async Task<byte[]> ReadBodyAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken,
         int? maxBytes = null
-    ) =>
-        ResponseReader.ReadBytesAsync(
-            response,
-            maxBytes ?? _options.MaxResponseBytes,
+    )
+    {
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken
         );
+        timeout.CancelAfter(_options.RequestTimeout);
+        try
+        {
+            return await ResponseReader
+                .ReadBytesAsync(
+                    response,
+                    maxBytes ?? _options.MaxResponseBytes,
+                    timeout.Token
+                )
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+            when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new PhoenixReadApiTransportException(
+                "Phoenix 响应正文读取超时.",
+                response.RequestMessage?.RequestUri?.AbsolutePath,
+                response.RequestMessage?.RequestUri,
+                isTransient: true,
+                exception
+            );
+        }
+    }
 }

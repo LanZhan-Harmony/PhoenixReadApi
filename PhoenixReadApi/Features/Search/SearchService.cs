@@ -102,10 +102,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         var query = NormalizeKeyword(keyword);
         if (maxResults <= 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxResults),
-                "搜索建议数量必须大于 0。"
-            );
+            throw new ArgumentOutOfRangeException(nameof(maxResults), "搜索建议数量必须大于 0。");
         }
 
         var limit = Math.Min(maxResults, MaxSuggestionLimit);
@@ -171,6 +168,26 @@ internal sealed partial class SearchService : PhoenixFeatureService
         ArgumentNullException.ThrowIfNull(query);
         ValidateRecommendationQuery(query);
         return GetRecommendationsCoreAsync(query, cancellationToken);
+    }
+
+    internal Task<RecommendationPage> GetRecommendationsAsync(
+        string genre,
+        int offset = 0,
+        string? sessionId = null,
+        IEnumerable<string>? seen = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return GetRecommendationsCoreAsync(
+            new RecommendationQuery
+            {
+                Genre = genre ?? string.Empty,
+                Offset = offset,
+                SessionId = sessionId ?? string.Empty,
+                Seen = [.. seen ?? []],
+            },
+            cancellationToken
+        );
     }
 
     private async Task<SearchResult> SearchCoreAsync(string keyword)
@@ -524,9 +541,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         Dictionary<string, SeasonGroup> groups = new(StringComparer.Ordinal);
         foreach (Drama drama in dramas)
         {
-            if (
-                !TryParseSeason(drama.Title, out var baseTitle, out var season, out var unit)
-            )
+            if (!TryParseSeason(drama.Title, out var baseTitle, out var season, out var unit))
             {
                 continue;
             }
@@ -651,12 +666,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
 
         if (
-            TryParseSeason(
-                left.Title,
-                out var leftBase,
-                out var leftSeason,
-                out var leftUnit
-            )
+            TryParseSeason(left.Title, out var leftBase, out var leftSeason, out var leftUnit)
             && TryParseSeason(
                 right.Title,
                 out var rightBase,

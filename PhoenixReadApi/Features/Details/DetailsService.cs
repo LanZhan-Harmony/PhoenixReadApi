@@ -114,7 +114,7 @@ internal sealed class DetailsService : PhoenixFeatureService
         }
 
         Drama drama = DramaMapper.FromDto(detail, "短剧");
-        List<Chapter> chapters = [];
+        List<Episode> episodes = [];
         HashSet<string> usedIds = new(StringComparer.Ordinal);
         HashSet<int> usedEpisodes = [];
         foreach (AppVideoDto item in detail.VideoList)
@@ -137,21 +137,21 @@ internal sealed class DetailsService : PhoenixFeatureService
                 throw new PhoenixReadApiResponseException("App 返回了其他剧集的分集。", "detail");
             }
 
-            chapters.Add(CreateChapter(seriesId, videoId, episode));
+            episodes.Add(CreateEpisode(videoId, episode));
         }
 
-        chapters.Sort(static (left, right) => left.Episode.CompareTo(right.Episode));
+        episodes.Sort(static (left, right) => left.Number.CompareTo(right.Number));
         var total = detail.EpisodeCount;
         if (
-            chapters.Count == 0
-            || total > chapters.Count
-            || chapters.Where((chapter, index) => chapter.Episode != index + 1).Any()
+            episodes.Count == 0
+            || total > episodes.Count
+            || episodes.Where((episode, index) => episode.Number != index + 1).Any()
         )
         {
             throw new PhoenixReadApiResponseException("App 未返回完整且连续的分集。", "detail");
         }
 
-        return new DramaDetails { Drama = drama, Chapters = chapters };
+        return new DramaDetails { Drama = drama, Episodes = episodes };
     }
 
     private async Task<DramaDetails> FetchWebDetailsAsync(
@@ -178,7 +178,7 @@ internal sealed class DetailsService : PhoenixFeatureService
             detail.Name,
             seriesId
         );
-        List<Chapter> chapters = [];
+        List<Episode> episodes = [];
         var index = 1;
         foreach (var item in detail.VideoIds)
         {
@@ -188,10 +188,10 @@ internal sealed class DetailsService : PhoenixFeatureService
                 continue;
             }
 
-            chapters.Add(CreateChapter(seriesId, videoId, index++));
+            episodes.Add(CreateEpisode(videoId, index++));
         }
 
-        if (chapters.Count == 0)
+        if (episodes.Count == 0)
         {
             throw new PhoenixReadApiResponseException("网页详情没有返回剧集 ID。", "detail");
         }
@@ -199,7 +199,7 @@ internal sealed class DetailsService : PhoenixFeatureService
         return new DramaDetails
         {
             Drama = new Drama { Id = seriesId, Title = title },
-            Chapters = chapters,
+            Episodes = episodes,
         };
     }
 
@@ -223,12 +223,12 @@ internal sealed class DetailsService : PhoenixFeatureService
         return false;
     }
 
-    private static Chapter CreateChapter(string seriesId, string videoId, int episode) =>
+    private static Episode CreateEpisode(string videoId, int number) =>
         new()
         {
             VideoId = videoId,
-            Title = $"第{episode}集",
-            Episode = episode,
+            Title = $"第{number}集",
+            Number = number,
         };
 
     private sealed record CachedValue<T>(T Value, DateTimeOffset ExpiresAt);

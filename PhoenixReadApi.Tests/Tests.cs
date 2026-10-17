@@ -35,7 +35,7 @@ public class Tests
     public async Task TestGetDanmakuAsync() { }
 
     [Test]
-    public async Task TestGetReviewsAsync() { }
+    public async Task TestGetDramaReviewsAsync() { }
 
     [Test]
     public async Task TestGetEpisodeCommentsAsync() { }
