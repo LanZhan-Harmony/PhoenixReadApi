@@ -51,6 +51,18 @@ internal sealed class CommentService : PhoenixFeatureService
         );
     }
 
+    internal Task<CommentPage> GetEpisodeCommentsAsync(
+        string seriesId,
+        Episode episode,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    )
+    {
+        ArgumentNullException.ThrowIfNull(episode);
+        return GetEpisodeCommentsAsync(seriesId, episode.VideoId, count, cursor, cancellationToken);
+    }
+
     private async Task<CommentPage> LoadAsync(
         string seriesId,
         string targetId,

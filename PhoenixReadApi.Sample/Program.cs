@@ -92,16 +92,16 @@ if (details is null)
 }
 
 string seriesId = details.Drama.Id;
-Chapter? firstChapter = details.Chapters.FirstOrDefault();
-if (firstChapter is null || firstChapter.VideoId.Length == 0)
+Episode? firstEpisode = details.Episodes.FirstOrDefault();
+if (firstEpisode is null || firstEpisode.VideoId.Length == 0)
 {
     Console.WriteLine("  详情没有返回可用分集。");
     return;
 }
 
-string videoId = firstChapter.VideoId;
-Console.WriteLine($"  剧集：{details.Drama.Title}（{seriesId}），分集：{details.Chapters.Count}");
-Console.WriteLine($"  首集：第{firstChapter.Episode}集（{videoId}）");
+string videoId = firstEpisode.VideoId;
+Console.WriteLine($"  剧集：{details.Drama.Title}（{seriesId}），分集：{details.Episodes.Count}");
+Console.WriteLine($"  首集：第{firstEpisode.Number}集（{videoId}）");
 Console.WriteLine($"  署名账号：{details.Drama.Credits.Count}");
 foreach (DramaCredit credit in details.Drama.Credits.Take(6))
 {
@@ -144,7 +144,7 @@ if (details.Drama.Credits.Count > 0)
 }
 
 CommentPage? reviews = await TryAsync(
-    "GetReviewsAsync",
+    "GetDramaReviewsAsync",
     () => client.GetDramaReviewsAsync(seriesId, count: 5, cancellationToken: timeout.Token)
 );
 if (reviews is not null)
@@ -222,8 +222,8 @@ if (mediaByIds is not null)
 }
 
 PlaybackMedia? mediaByChapter = await TryAsync(
-    "ResolveMediaAsync(chapter)",
-    () => client.ResolveMediaAsync(firstChapter, seriesId, timeout.Token)
+    "ResolveMediaAsync(episode)",
+    () => client.ResolveMediaAsync(seriesId, firstEpisode, timeout.Token)
 );
 if (mediaByChapter is not null)
 {

@@ -15,7 +15,7 @@ public class PhoenixReadApiOptions
     /// <summary>每个分类最多请求的剧库页数。</summary>
     public int MaxPagesPerCategory { get; init; } = 50;
 
-    /// <summary>请求遇到临时性错误时的最大重试次数。</summary>
+    /// <summary>请求遇到临时性错误时的最大尝试次数，包含首次请求。</summary>
     public int RetryCount { get; init; } = 2;
 
     /// <summary>单次请求的超时时间；如果传入取消令牌，则以取消令牌为准。</summary>

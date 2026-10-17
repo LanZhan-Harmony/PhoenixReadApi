@@ -19,11 +19,11 @@ using var client = new PhoenixReadApiClient();
 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 var catalog = await client.GetCatalogAsync(cancellationToken: timeout.Token);
 var details = await client.GetDetailsAsync(catalog[0].Id, timeout.Token);
-var media = await client.ResolveMediaAsync(details.Drama.Id, details.Chapters[0].VideoId, timeout.Token);
-var reviews = await client.GetReviewsAsync(details.Drama.Id, cancellationToken: timeout.Token);
+var media = await client.ResolveMediaAsync(details.Drama.Id, details.Episodes[0], timeout.Token);
+var reviews = await client.GetDramaReviewsAsync(details.Drama.Id, cancellationToken: timeout.Token);
 var episodeComments = await client.GetEpisodeCommentsAsync(
     details.Drama.Id,
-    details.Chapters[0].VideoId,
+    details.Episodes[0].VideoId,
     cancellationToken: timeout.Token
 );
 
@@ -46,7 +46,7 @@ var sameProfile = await client.GetUserProfileAsync(credit.User.Id, timeout.Token
 剧评和分集评论支持游标分页。将返回页的 `Cursor` 传给下一次调用即可：
 
 ```csharp
-var nextReviews = await client.GetReviewsAsync(
+var nextReviews = await client.GetDramaReviewsAsync(
     details.Drama.Id,
     cursor: reviews.Cursor,
     cancellationToken: timeout.Token

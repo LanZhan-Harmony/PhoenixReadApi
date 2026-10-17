@@ -73,10 +73,10 @@ public sealed class PhoenixReadApiClient : IDisposable
 
     /// <summary>获取指定分集的可播放媒体信息。</summary>
     public Task<PlaybackMedia> ResolveMediaAsync(
-        Chapter chapter,
         string seriesId,
+        Episode episode,
         CancellationToken cancellationToken = default
-    ) => _playback.ResolveAsync(chapter, seriesId, cancellationToken);
+    ) => _playback.ResolveAsync(seriesId, episode, cancellationToken);
 
     /// <summary>搜索剧集。</summary>
     public Task<SearchResult> SearchAsync(
@@ -84,7 +84,7 @@ public sealed class PhoenixReadApiClient : IDisposable
         CancellationToken cancellationToken = default
     ) => _search.SearchAsync(keyword, cancellationToken);
 
-    /// <summary>获取规范化的搜索建议，默认返回五条，最多返回二十条。</summary>
+    /// <summary>获取搜索建议，默认返回五条，最多返回二十条。</summary>
     public Task<IReadOnlyList<SearchSuggestion>> GetSuggestionsAsync(
         string keyword,
         int maxResults = 5,
@@ -104,17 +104,7 @@ public sealed class PhoenixReadApiClient : IDisposable
         string? sessionId = null,
         IEnumerable<string>? seen = null,
         CancellationToken cancellationToken = default
-    ) =>
-        _search.GetRecommendationsAsync(
-            new RecommendationQuery
-            {
-                Genre = genre ?? string.Empty,
-                Offset = offset,
-                SessionId = sessionId ?? string.Empty,
-                Seen = [.. (seen ?? [])],
-            },
-            cancellationToken
-        );
+    ) => _search.GetRecommendationsAsync(genre, offset, sessionId, seen, cancellationToken);
 
     /// <summary>
     /// 获取指定分集在指定时间窗口内的全部弹幕。
@@ -148,6 +138,15 @@ public sealed class PhoenixReadApiClient : IDisposable
         string cursor = "",
         CancellationToken cancellationToken = default
     ) => _comments.GetEpisodeCommentsAsync(seriesId, videoId, count, cursor, cancellationToken);
+
+    /// <summary>获取指定分集的评论。</summary>
+    public Task<CommentPage> GetEpisodeCommentsAsync(
+        string seriesId,
+        Episode episode,
+        int count = 10,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _comments.GetEpisodeCommentsAsync(seriesId, episode, count, cursor, cancellationToken);
 
     /// <summary>获取任意公开账号的主页及其公开剧集记录。</summary>
     public Task<UserProfile> GetUserProfileAsync(
