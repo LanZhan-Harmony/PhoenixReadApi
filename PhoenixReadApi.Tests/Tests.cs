@@ -40,19 +40,18 @@ public class Tests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetDetailsAsync()
+    public async Task TestGetDramaDetailsAsync()
     {
         using CancellationTokenSource timeout = CreateTimeout();
         Scenario scenario = await GetScenarioAsync(timeout.Token);
-        DramaDetails details = await Client.GetDetailsAsync(
-            scenario.SeriesId,
-            timeout.Token
-        );
+        DramaDetails details = await Client.GetDramaDetailsAsync(scenario.SeriesId, timeout.Token);
 
         await Assert.That(details.Drama.Id).IsEqualTo(scenario.SeriesId);
         await Assert.That(details.Episodes.Count > 0).IsTrue();
-        await Assert.That(
-                details.Episodes.Select(static episode => episode.Number)
+        await Assert
+            .That(
+                details
+                    .Episodes.Select(static episode => episode.Number)
                     .SequenceEqual(Enumerable.Range(1, details.Episodes.Count))
             )
             .IsTrue();
@@ -112,7 +111,8 @@ public class Tests
 
         await Assert.That(suggestions.Count > 0).IsTrue();
         await Assert.That(suggestions.Count <= 5).IsTrue();
-        await Assert.That(suggestions.All(static item => !string.IsNullOrWhiteSpace(item.Name)))
+        await Assert
+            .That(suggestions.All(static item => !string.IsNullOrWhiteSpace(item.Name)))
             .IsTrue();
         await Assert.That(clampedSuggestions.Count <= 20).IsTrue();
     }
@@ -161,7 +161,8 @@ public class Tests
         await Assert.That(danmaku.EpisodeId).IsEqualTo(scenario.Episode.VideoId);
         await Assert.That(danmaku.StartMs).IsEqualTo(0L);
         await Assert.That(danmaku.NextMs >= danmaku.StartMs).IsTrue();
-        await Assert.That(
+        await Assert
+            .That(
                 danmaku.Items.All(item =>
                     item.TimeMs >= danmaku.StartMs && item.TimeMs < danmaku.NextMs
                 )
@@ -240,10 +241,7 @@ public class Tests
         using CancellationTokenSource timeout = CreateTimeout();
         Scenario scenario = await GetScenarioAsync(timeout.Token);
 
-        UserProfile byCredit = await Client.GetUserProfileAsync(
-            scenario.Credit,
-            timeout.Token
-        );
+        UserProfile byCredit = await Client.GetUserProfileAsync(scenario.Credit, timeout.Token);
         UserProfile byId = await Client.GetUserProfileAsync(scenario.UserId, timeout.Token);
         UserDramaPage related = await Client.GetUserRelatedDramasAsync(
             scenario.UserId,
@@ -334,8 +332,7 @@ public class Tests
         return Task.CompletedTask;
     }
 
-    private static CancellationTokenSource CreateTimeout() =>
-        new(TimeSpan.FromMinutes(2));
+    private static CancellationTokenSource CreateTimeout() => new(TimeSpan.FromMinutes(2));
 
     private static async Task<Scenario> GetScenarioAsync(CancellationToken cancellationToken) =>
         await ScenarioTask.Value.WaitAsync(cancellationToken);
@@ -361,10 +358,11 @@ public class Tests
             selected = catalog.FirstOrDefault(IsValidDrama);
         }
 
-        Drama selectedDrama = selected
-            ?? throw new InvalidOperationException("搜索和剧库都没有返回可用剧集。");
-        DramaDetails details = await Client.GetDetailsAsync(selectedDrama.Id, timeout.Token);
-        Episode episode = details.Episodes.FirstOrDefault(IsValidEpisode)
+        Drama selectedDrama =
+            selected ?? throw new InvalidOperationException("搜索和剧库都没有返回可用剧集。");
+        DramaDetails details = await Client.GetDramaDetailsAsync(selectedDrama.Id, timeout.Token);
+        Episode episode =
+            details.Episodes.FirstOrDefault(IsValidEpisode)
             ?? throw new InvalidOperationException("剧集详情没有返回可用分集。");
 
         DramaCredit? credit = details.Drama.Credits.FirstOrDefault(item =>
@@ -373,12 +371,7 @@ public class Tests
         string userId = credit?.User.Id ?? FallbackUserId;
         credit ??= new DramaCredit { User = new User { Id = userId } };
 
-        return new Scenario(
-            details.Drama.Id,
-            episode,
-            credit,
-            userId
-        );
+        return new Scenario(details.Drama.Id, episode, credit, userId);
     }
 
     private static bool IsValidDrama(Drama drama) =>

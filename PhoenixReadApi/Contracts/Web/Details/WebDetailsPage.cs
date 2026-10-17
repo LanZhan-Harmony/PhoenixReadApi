@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Serialization;
 
-namespace PhoenixReadApi.Internal.Contracts.Web;
+namespace PhoenixReadApi.Internal.Contracts.Web.Details;
 
 internal sealed class WebDetailsPageDto
 {

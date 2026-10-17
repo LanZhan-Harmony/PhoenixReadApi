@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 
-namespace PhoenixReadApi.Internal.Contracts.App;
+namespace PhoenixReadApi.Internal.Contracts.App.Details;
 
 internal sealed class AppDetailsData
 {

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PhoenixReadApi.Internal.Contracts.Web.Details;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Contracts.Web.Playback;
@@ -24,7 +25,6 @@ internal sealed class WebPlayerPageDto
 
     [JsonPropertyName("seriesDetail")]
     public WebSeriesDetailDto SeriesDetail { get; init; } = new();
-
 }
 
 internal sealed class WebPublicVideoSeoDto

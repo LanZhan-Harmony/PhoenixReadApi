@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace PhoenixReadApi.Internal.Contracts.App;
+namespace PhoenixReadApi.Internal.Contracts.App.Details;
 
 internal sealed class AppDetailPayload
 {

@@ -88,7 +88,7 @@ if (selectedDrama is null || selectedDrama.Id.Length == 0)
 
 DramaDetails? details = await TryAsync(
     "GetDetailsAsync",
-    () => client.GetDetailsAsync(selectedDrama.Id, timeout.Token)
+    () => client.GetDramaDetailsAsync(selectedDrama.Id, timeout.Token)
 );
 if (details is null)
 {
