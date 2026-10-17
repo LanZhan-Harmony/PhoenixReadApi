@@ -18,18 +18,25 @@
   <PropertyGroup>
     <PackageId>PhoenixReadApi</PackageId>
     <Version>1.0.0</Version>
+    <Authors>LanZhan-Harmony</Authors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>phoenix;read;hongguo;short-drama;api;nativeaot</PackageTags>
+    <PackageProjectUrl>https://github.com/LanZhan-Harmony/PhoenixReadApi</PackageProjectUrl>
     <RepositoryUrl>https://github.com/LanZhan-Harmony/PhoenixReadApi</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <Authors>LanZhan-Harmony</Authors>
-    <PackageProjectUrl>https://github.com/LanZhan-Harmony/PhoenixReadApi</PackageProjectUrl>
-    <Description>使用 C# 编写的 PhoenixRead 红果免费短剧 API</Description>
+    <PackageTags>phoenix;read;hongguo;short-drama;api;nativeaot;红果;短剧</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReleaseNotes>首个兼容 NativeAOT 的剧库、搜索、播放和弹幕客户端版本。</PackageReleaseNotes>
+    <Description>使用 C# 编写的 PhoenixRead 红果免费短剧 API</Description>
+    <PackageReleaseNotes>首个剧库、搜索、播放和弹幕客户端版本。</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.402">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

@@ -117,7 +117,7 @@ internal sealed class DetailsService : PhoenixFeatureService
         List<Episode> episodes = [];
         HashSet<string> usedIds = new(StringComparer.Ordinal);
         HashSet<int> usedEpisodes = [];
-        foreach (AppVideoDto item in detail.VideoList)
+        foreach (DramaEpisodeDto item in detail.VideoList)
         {
             var videoId = item.VideoId.Trim();
             var episode = item.Episode;

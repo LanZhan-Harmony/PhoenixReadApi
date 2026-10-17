@@ -37,7 +37,7 @@ public sealed class Drama
     public int EpisodeCount { get; init; }
 
     /// <summary>更新状态。</summary>
-    public string ReleaseStatus { get; init; } = string.Empty;
+    public DramaReleaseStatus ReleaseStatus { get; init; } = DramaReleaseStatus.Unknown;
 
     /// <summary>剧集标签。</summary>
     public IReadOnlyList<string> Tags { get; init; } = [];

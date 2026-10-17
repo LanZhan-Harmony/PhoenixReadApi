@@ -17,7 +17,7 @@ using CancellationTokenSource timeout = new(TimeSpan.FromMinutes(4));
 // detail, and comment results for the keyword above.
 IReadOnlyList<Drama>? catalog = await TryAsync(
     "GetCatalogAsync",
-    () => client.GetCatalogAsync(PhoenixReadApiCategory.RealDrama, timeout.Token)
+    () => client.GetCatalogAsync(PhoenixReadApiCategory.AiDrama, timeout.Token)
 );
 if (catalog is not null)
 {
@@ -49,7 +49,7 @@ RecommendationPage? recommendations = await TryAsync(
     "GetRecommendationsAsync(query)",
     () =>
         client.GetRecommendationsAsync(
-            new RecommendationQuery { Genre = "short_play" },
+            new RecommendationQuery { Genre = RecommendationGenre.ShortDrama },
             timeout.Token
         )
 );
@@ -62,7 +62,11 @@ if (recommendations is not null)
 
 RecommendationPage? recommendationOverload = await TryAsync(
     "GetRecommendationsAsync(overload)",
-    () => client.GetRecommendationsAsync("short_play", cancellationToken: timeout.Token)
+    () =>
+        client.GetRecommendationsAsync(
+            RecommendationGenre.ShortDrama,
+            cancellationToken: timeout.Token
+        )
 );
 if (recommendationOverload is not null)
 {
@@ -140,6 +144,41 @@ if (details.Drama.Credits.Count > 0)
                 $"  账号主页（UserId）：{profileById.User.Id}，公开剧集：{profileById.RelatedDramas.Count}"
             );
         }
+
+        UserActivityPage? activityPage = await TryAsync(
+            "GetUserActivitiesAsync(page)",
+            () =>
+                client.GetUserActivitiesAsync(
+                    creditUserId,
+                    count: 18,
+                    cancellationToken: timeout.Token
+                )
+        );
+        if (activityPage is not null)
+        {
+            Console.WriteLine(
+                $"  动态分页：{activityPage.Items.Count}/{activityPage.Total}，还有下一页：{activityPage.HasMore}"
+            );
+            if (activityPage.HasMore && activityPage.Cursor.Length > 0)
+            {
+                UserActivityPage? nextActivityPage = await TryAsync(
+                    "GetUserActivitiesAsync(next page)",
+                    () =>
+                        client.GetUserActivitiesAsync(
+                            creditUserId,
+                            count: 18,
+                            cursor: activityPage.Cursor,
+                            cancellationToken: timeout.Token
+                        )
+                );
+                if (nextActivityPage is not null)
+                {
+                    Console.WriteLine(
+                        $"  动态下一页：{nextActivityPage.Items.Count}/{nextActivityPage.Total}，还有下一页：{nextActivityPage.HasMore}"
+                    );
+                }
+            }
+        }
     }
 }
 
@@ -200,7 +239,39 @@ if (episodeComments is not null)
         if (ordinaryProfile is not null)
         {
             Console.WriteLine(
-                $"  普通账号内容：收藏 {ordinaryProfile.Collections.Count}，点赞 {ordinaryProfile.Likes.Count}，动态 {ordinaryProfile.Activities.Count}，相关剧集 {ordinaryProfile.RelatedDramas.Count}"
+                $"  普通账号内容：收藏 {ordinaryProfile.Collections.Count}/{ordinaryProfile.CollectionsPage.Total}，点赞 {ordinaryProfile.Likes.Count}/{ordinaryProfile.LikesPage.Total}，动态 {ordinaryProfile.Activities.Count}/{ordinaryProfile.ActivitiesPage.Total}，相关剧集 {ordinaryProfile.RelatedDramas.Count}/{ordinaryProfile.RelatedDramasPage.Total}"
+            );
+        }
+
+        UserDramaPage? collectionsPage = await TryAsync(
+            "GetUserCollectionsAsync(page)",
+            () =>
+                client.GetUserCollectionsAsync(
+                    ordinaryUserId,
+                    count: 18,
+                    cancellationToken: timeout.Token
+                )
+        );
+        if (collectionsPage is not null)
+        {
+            Console.WriteLine(
+                $"  收藏分页：{collectionsPage.Items.Count}/{collectionsPage.Total}，下一偏移：{collectionsPage.NextOffset}，还有下一页：{collectionsPage.HasMore}"
+            );
+        }
+
+        UserDramaPage? likesPage = await TryAsync(
+            "GetUserLikesAsync(page)",
+            () =>
+                client.GetUserLikesAsync(
+                    ordinaryUserId,
+                    count: 18,
+                    cancellationToken: timeout.Token
+                )
+        );
+        if (likesPage is not null)
+        {
+            Console.WriteLine(
+                $"  点赞分页：{likesPage.Items.Count}/{likesPage.Total}，下一偏移：{likesPage.NextOffset}，还有下一页：{likesPage.HasMore}"
             );
         }
     }

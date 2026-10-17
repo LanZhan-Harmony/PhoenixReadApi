@@ -32,6 +32,18 @@ Console.WriteLine($"Reviews: {reviews.Items.Count}/{reviews.Total}");
 Console.WriteLine($"Episode comments: {episodeComments.Items.Count}/{episodeComments.Total}");
 ```
 
+推荐题材和搜索建议类型使用枚举：
+
+```csharp
+var recommendations = await client.GetRecommendationsAsync(
+    RecommendationGenre.ShortDrama,
+    cancellationToken: timeout.Token
+);
+var suggestions = await client.GetSuggestionsAsync("请君入我怀", cancellationToken: timeout.Token);
+SearchSuggestionType suggestionType = suggestions[0].Type;
+DramaReleaseStatus releaseStatus = details.Drama.ReleaseStatus;
+```
+
 详情中的 `Drama.Credits` 包含与剧集有关的账号及其署名关系。账号可能是演员、导演、
 编剧或出品方，出演角色保存在 `DramaCreditRole.CharacterName`。所有账号都使用统一的
 `User` 模型，可以直接读取其主页：
@@ -49,6 +61,27 @@ var sameProfile = await client.GetUserProfileAsync(credit.User.Id, timeout.Token
 var nextReviews = await client.GetDramaReviewsAsync(
     details.Drama.Id,
     cursor: reviews.Cursor,
+    cancellationToken: timeout.Token
+);
+```
+
+账号主页的收藏、点赞、动态和关联剧集支持分页。动态和关联剧集使用游标，收藏和点赞使用偏移量：
+
+```csharp
+string userId = credit.User.Id;
+var activityPage = await client.GetUserActivitiesAsync(userId, cancellationToken: timeout.Token);
+if (activityPage.HasMore)
+{
+    var nextActivities = await client.GetUserActivitiesAsync(
+        userId,
+        cursor: activityPage.Cursor,
+        cancellationToken: timeout.Token
+    );
+}
+
+var collectionPage = await client.GetUserCollectionsAsync(
+    userId,
+    offset: 0,
     cancellationToken: timeout.Token
 );
 ```

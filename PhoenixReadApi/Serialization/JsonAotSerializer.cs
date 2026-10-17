@@ -36,7 +36,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppResponse<AppUserShelfData>))]
 [JsonSerializable(typeof(AppResponse<AppUserActionData>))]
 [JsonSerializable(typeof(DramaDto))]
-[JsonSerializable(typeof(AppVideoDto))]
+[JsonSerializable(typeof(DramaEpisodeDto))]
 [JsonSerializable(typeof(AppPlaybackModel))]
 [JsonSerializable(typeof(AppMediaVariantDto))]
 [JsonSerializable(typeof(AppVideoMetaDto))]

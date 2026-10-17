@@ -5,9 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
-    <InvariantGlobalization>true</InvariantGlobalization>
-    <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
+    <OptimizationPreference>Speed</OptimizationPreference>
   </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\PhoenixReadApi\PhoenixReadApi.csproj" />
   </ItemGroup>

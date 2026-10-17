@@ -273,11 +273,11 @@ internal sealed class VideoVariantListConverter : JsonConverter<List<JsonElement
 }
 
 /// <summary>读取 App 分集记录，兼容数组和键值对象两种 video_list 格式。</summary>
-internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<AppVideoDto>>
+internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<DramaEpisodeDto>>
 {
     public override bool HandleNull => true;
 
-    public override IReadOnlyList<AppVideoDto> Read(
+    public override IReadOnlyList<DramaEpisodeDto> Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
         JsonSerializerOptions options
@@ -291,10 +291,10 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<A
             JsonValueKind.Object => root.EnumerateObject().Select(static item => item.Value),
             _ => [],
         };
-        List<AppVideoDto> result = [];
+        List<DramaEpisodeDto> result = [];
         foreach (JsonElement value in values)
         {
-            AppVideoDto? item = JsonAotSerializer.Deserialize<AppVideoDto>(value.GetRawText());
+            DramaEpisodeDto? item = JsonAotSerializer.Deserialize<DramaEpisodeDto>(value.GetRawText());
             if (item is not null)
             {
                 result.Add(item);
@@ -305,12 +305,12 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<A
 
     public override void Write(
         Utf8JsonWriter writer,
-        IReadOnlyList<AppVideoDto> value,
+        IReadOnlyList<DramaEpisodeDto> value,
         JsonSerializerOptions options
     )
     {
         writer.WriteStartArray();
-        foreach (AppVideoDto item in value)
+        foreach (DramaEpisodeDto item in value)
         {
             JsonAotSerializer.Serialize(writer, item);
         }
