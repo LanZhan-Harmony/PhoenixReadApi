@@ -4,7 +4,7 @@ namespace PhoenixReadApi;
 public sealed class RecommendationQuery
 {
     /// <summary>推荐题材。</summary>
-    public string Genre { get; init; } = string.Empty;
+    public RecommendationGenre Genre { get; init; } = RecommendationGenre.ShortDrama;
 
     /// <summary>分页偏移量。</summary>
     public int Offset { get; init; }

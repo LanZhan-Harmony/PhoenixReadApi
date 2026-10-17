@@ -39,12 +39,14 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
             _ => throw new ArgumentException("该分类不支持 App 推荐接口。", nameof(category)),
         };
 
-    protected static (string Genre, string Scene, string Category) CategoryInfo(string genre) =>
+    protected static (string Genre, string Scene, string Category) CategoryInfo(
+        RecommendationGenre genre
+    ) =>
         genre switch
         {
-            "short_play" => ("short_play", "default", "真人剧"),
-            "comic_series" => ("comic_series", "comic_series", "漫剧"),
-            "ai_series" => ("ai_series", "ai_series", "AI剧"),
+            RecommendationGenre.ShortDrama => ("short_play", "default", "真人剧"),
+            RecommendationGenre.ComicDrama => ("comic_series", "comic_series", "漫剧"),
+            RecommendationGenre.AiDrama => ("ai_series", "ai_series", "AI剧"),
             _ => throw new ArgumentException("推荐分类无效。", nameof(genre)),
         };
 
@@ -218,7 +220,9 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
             Heat = JsonValueReader.First(first.Heat, second.Heat),
             OnlineDate = JsonValueReader.First(first.OnlineDate, second.OnlineDate),
             EpisodeCount = Math.Max(first.EpisodeCount, second.EpisodeCount),
-            ReleaseStatus = JsonValueReader.First(first.ReleaseStatus, second.ReleaseStatus),
+            ReleaseStatus = first.ReleaseStatus != DramaReleaseStatus.Unknown
+                ? first.ReleaseStatus
+                : second.ReleaseStatus,
             Tags =
             [
                 .. first

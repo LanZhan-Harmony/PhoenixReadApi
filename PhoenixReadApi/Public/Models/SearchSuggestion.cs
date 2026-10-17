@@ -7,6 +7,6 @@ public sealed class SearchSuggestion
     public string Name { get; init; } = string.Empty;
 
     /// <summary>建议类型。</summary>
-    public string Type { get; init; } = string.Empty;
+    public SearchSuggestionType Type { get; init; } = SearchSuggestionType.Unknown;
 }
 

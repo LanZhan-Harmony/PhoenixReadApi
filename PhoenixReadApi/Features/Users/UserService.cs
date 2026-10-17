@@ -10,6 +10,7 @@ namespace PhoenixReadApi.Internal.Features.Users;
 internal sealed class UserService : PhoenixFeatureService
 {
     private const int PageSize = 18;
+    private const int MaxPageSize = 50;
 
     internal UserService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
@@ -40,6 +41,112 @@ internal sealed class UserService : PhoenixFeatureService
         );
     }
 
+    internal async Task<UserDramaPage> GetRelatedDramasAsync(
+        string userId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    )
+    {
+        userId = NormalizeUserId(userId);
+        ValidateCount(count);
+        cursor = NormalizeCursor(cursor);
+        AppUserProfileData? data = await LoadProfileTabAsync(
+                userId,
+                8,
+                count,
+                cursor,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return new UserDramaPage
+        {
+            Items = MapRelatedDramas(data),
+            Cursor = data?.ListInfo?.Cursor ?? string.Empty,
+            HasMore = data?.ListInfo?.HasMore ?? false,
+            Total = TabTotal(data, 8),
+        };
+    }
+
+    internal async Task<UserActivityPage> GetActivitiesAsync(
+        string userId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    )
+    {
+        userId = NormalizeUserId(userId);
+        ValidateCount(count);
+        cursor = NormalizeCursor(cursor);
+        AppUserProfileData? data = await LoadProfileTabAsync(
+                userId,
+                5,
+                count,
+                cursor,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return new UserActivityPage
+        {
+            Items = MapActivities(data),
+            Cursor = data?.ListInfo?.Cursor ?? string.Empty,
+            HasMore = data?.ListInfo?.HasMore ?? false,
+            Total = TabTotal(data, 5),
+        };
+    }
+
+    internal async Task<UserDramaPage> GetCollectionsAsync(
+        string userId,
+        int count,
+        int offset,
+        CancellationToken cancellationToken
+    )
+    {
+        userId = NormalizeUserId(userId);
+        ValidateCount(count);
+        ValidateOffset(offset);
+        AppUserShelfData? data = await LoadCollectionsAsync(
+                userId,
+                count,
+                offset,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return new UserDramaPage
+        {
+            Items = MapCollections(data),
+            NextOffset = data?.NextOffset ?? offset,
+            HasMore = data?.HasMore ?? false,
+            Total = data?.Total ?? 0,
+        };
+    }
+
+    internal async Task<UserDramaPage> GetLikesAsync(
+        string userId,
+        int count,
+        int offset,
+        CancellationToken cancellationToken
+    )
+    {
+        userId = NormalizeUserId(userId);
+        ValidateCount(count);
+        ValidateOffset(offset);
+        AppUserActionData? data = await LoadLikesAsync(
+                userId,
+                count,
+                offset,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return new UserDramaPage
+        {
+            Items = MapLikes(data),
+            NextOffset = data?.NextOffset ?? offset,
+            HasMore = data?.HasMore ?? false,
+            Total = data?.Total ?? 0,
+        };
+    }
+
     private async Task<UserProfile> LoadAsync(User user, CancellationToken cancellationToken)
     {
         AppUserProfilePayload metadataPayload = new()
@@ -62,18 +169,21 @@ internal sealed class UserService : PhoenixFeatureService
             metadataResponse.Data
             ?? throw new PhoenixReadApiResponseException("账号主页未返回有效数据。", "user-profile");
 
-        HashSet<int> tabTypes = metadata.Tabs.Select(static tab => tab.Type).ToHashSet();
+        HashSet<int> tabTypes = (metadata.Tabs ?? [])
+            .Where(static tab => tab is not null)
+            .Select(static tab => tab!.Type)
+            .ToHashSet();
         Task<AppUserProfileData?> relatedTask = tabTypes.Contains(8)
-            ? LoadProfileTabAsync(user.Id, 8, cancellationToken)
+            ? LoadProfileTabAsync(user.Id, 8, PageSize, string.Empty, cancellationToken)
             : Task.FromResult<AppUserProfileData?>(null);
         Task<AppUserProfileData?> activitiesTask = tabTypes.Contains(5)
-            ? LoadProfileTabAsync(user.Id, 5, cancellationToken)
+            ? LoadProfileTabAsync(user.Id, 5, PageSize, string.Empty, cancellationToken)
             : Task.FromResult<AppUserProfileData?>(null);
         Task<AppUserShelfData?> collectionsTask = tabTypes.Contains(10)
-            ? LoadCollectionsAsync(user.Id, cancellationToken)
+            ? LoadCollectionsAsync(user.Id, PageSize, 0, cancellationToken)
             : Task.FromResult<AppUserShelfData?>(null);
         Task<AppUserActionData?> likesTask = tabTypes.Contains(9)
-            ? LoadLikesAsync(user.Id, cancellationToken)
+            ? LoadLikesAsync(user.Id, PageSize, 0, cancellationToken)
             : Task.FromResult<AppUserActionData?>(null);
 
         await Task.WhenAll(relatedTask, activitiesTask, collectionsTask, likesTask)
@@ -94,21 +204,38 @@ internal sealed class UserService : PhoenixFeatureService
                 AvatarUrl = user.AvatarUrl,
             },
             Collections = MapCollections(collections),
+            CollectionsPage = new UserPageInfo
+            {
+                NextOffset = collections?.NextOffset ?? 0,
+                HasMore = collections?.HasMore ?? false,
+                Total = Math.Max(collections?.Total ?? 0, TabTotal(metadata, 10)),
+            },
             Likes = MapLikes(likes),
+            LikesPage = new UserPageInfo
+            {
+                NextOffset = likes?.NextOffset ?? 0,
+                HasMore = likes?.HasMore ?? false,
+                Total = Math.Max(likes?.Total ?? 0, TabTotal(metadata, 9)),
+            },
             Activities = MapActivities(activities),
+            ActivitiesPage = ProfilePageInfo(activities, metadata, 5),
             RelatedDramas = MapRelatedDramas(related),
+            RelatedDramasPage = ProfilePageInfo(related, metadata, 8),
         };
     }
 
     private async Task<AppUserProfileData?> LoadProfileTabAsync(
         string userId,
         int tabType,
+        int count,
+        string cursor,
         CancellationToken cancellationToken
     )
     {
         AppUserProfilePayload payload = new()
         {
-            Count = PageSize,
+            Count = count,
+            Cursor = cursor,
             TabType = tabType,
             TargetUserId = userId,
         };
@@ -127,6 +254,8 @@ internal sealed class UserService : PhoenixFeatureService
 
     private async Task<AppUserShelfData?> LoadCollectionsAsync(
         string userId,
+        int count,
+        int offset,
         CancellationToken cancellationToken
     )
     {
@@ -134,8 +263,8 @@ internal sealed class UserService : PhoenixFeatureService
             .GetAsync<AppUserShelfData>(
                 "/reading/bookapi/bookshelf/video/info/v",
                 [
-                    new("count", PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                    new("offset", "0"),
+                    new("count", count.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new("offset", offset.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                     new("target_user_id", userId),
                 ],
                 cancellationToken
@@ -146,6 +275,8 @@ internal sealed class UserService : PhoenixFeatureService
 
     private async Task<AppUserActionData?> LoadLikesAsync(
         string userId,
+        int count,
+        int offset,
         CancellationToken cancellationToken
     )
     {
@@ -153,10 +284,10 @@ internal sealed class UserService : PhoenixFeatureService
             .GetAsync<AppUserActionData>(
                 "/reading/ugc/action/mget/v",
                 [
-                    new("count", PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new("count", count.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                     new("object_type_list", "6,15,10"),
                     new("target_user_id", userId),
-                    new("offset", "0"),
+                    new("offset", offset.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                     new("action_type", "3"),
                 ],
                 cancellationToken
@@ -317,6 +448,59 @@ internal sealed class UserService : PhoenixFeatureService
         }
 
         return result;
+    }
+
+    private static UserPageInfo ProfilePageInfo(
+        AppUserProfileData? data,
+        AppUserProfileData metadata,
+        int tabType
+    ) =>
+        new()
+        {
+            Cursor = data?.ListInfo?.Cursor ?? string.Empty,
+            HasMore = data?.ListInfo?.HasMore ?? false,
+            Total = TabTotal(data, tabType, TabTotal(metadata, tabType)),
+        };
+
+    private static long TabTotal(
+        AppUserProfileData? data,
+        int tabType,
+        long fallback = 0
+    ) =>
+        (data?.Tabs ?? [])
+            .Where(static tab => tab is not null)
+            .FirstOrDefault(tab => tab!.Type == tabType)
+            ?.Total
+        ?? fallback;
+
+    private static void ValidateCount(int count)
+    {
+        if (count is < 1 or > MaxPageSize)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(count),
+                $"账号主页分页数量必须在 1 到 {MaxPageSize} 之间。"
+            );
+        }
+    }
+
+    private static void ValidateOffset(int offset)
+    {
+        if (offset is < 0 or > 1_000_000)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset));
+        }
+    }
+
+    private static string NormalizeCursor(string value)
+    {
+        value = (value ?? string.Empty).Trim();
+        if (value.Length > 8192 || value.Any(static c => c is '\r' or '\n' or '\0'))
+        {
+            throw new ArgumentException("账号主页游标无效。", nameof(value));
+        }
+
+        return value;
     }
 
     private static string NormalizeUserId(string value)

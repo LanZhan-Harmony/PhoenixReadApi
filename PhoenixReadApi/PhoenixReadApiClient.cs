@@ -84,7 +84,7 @@ public sealed class PhoenixReadApiClient : IDisposable
         CancellationToken cancellationToken = default
     ) => _search.SearchAsync(keyword, cancellationToken);
 
-    /// <summary>获取搜索建议，默认返回五条，最多返回二十条。</summary>
+    /// <summary>获取搜索建议，默认返回五条；超过二十条时按二十条处理。</summary>
     public Task<IReadOnlyList<SearchSuggestion>> GetSuggestionsAsync(
         string keyword,
         int maxResults = 5,
@@ -99,7 +99,7 @@ public sealed class PhoenixReadApiClient : IDisposable
 
     /// <summary>获取一页推荐结果。</summary>
     public Task<RecommendationPage> GetRecommendationsAsync(
-        string genre,
+        RecommendationGenre genre,
         int offset = 0,
         string? sessionId = null,
         IEnumerable<string>? seen = null,
@@ -159,6 +159,38 @@ public sealed class PhoenixReadApiClient : IDisposable
         DramaCredit credit,
         CancellationToken cancellationToken = default
     ) => _users.GetAsync(credit, cancellationToken);
+
+    /// <summary>获取账号关联剧集的一页。</summary>
+    public Task<UserDramaPage> GetUserRelatedDramasAsync(
+        string userId,
+        int count = 18,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _users.GetRelatedDramasAsync(userId, count, cursor, cancellationToken);
+
+    /// <summary>获取账号动态的一页。</summary>
+    public Task<UserActivityPage> GetUserActivitiesAsync(
+        string userId,
+        int count = 18,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _users.GetActivitiesAsync(userId, count, cursor, cancellationToken);
+
+    /// <summary>获取账号收藏剧集的一页。</summary>
+    public Task<UserDramaPage> GetUserCollectionsAsync(
+        string userId,
+        int count = 18,
+        int offset = 0,
+        CancellationToken cancellationToken = default
+    ) => _users.GetCollectionsAsync(userId, count, offset, cancellationToken);
+
+    /// <summary>获取账号点赞剧集的一页。</summary>
+    public Task<UserDramaPage> GetUserLikesAsync(
+        string userId,
+        int count = 18,
+        int offset = 0,
+        CancellationToken cancellationToken = default
+    ) => _users.GetLikesAsync(userId, count, offset, cancellationToken);
 
     /// <summary>销毁 API 客户端。</summary>
     public void Dispose() => _runtime.Dispose();

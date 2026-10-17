@@ -44,12 +44,7 @@ internal static class DramaMapper
             Remark = remark,
             EpisodeCount = Math.Max(0, data.EpisodeCount),
             Tags = tags,
-            ReleaseStatus = data.SeriesStatus switch
-            {
-                "1" => "finished",
-                "0" => "ongoing",
-                _ => StatusFromRemark(remark),
-            },
+            ReleaseStatus = ReleaseStatusFromValue(data.SeriesStatus, remark),
             Score = data.Score,
             Views = JsonValueReader.First(data.SeriesPlayCount, data.PlayCount),
             Heat = DtoHeat(data),
@@ -90,7 +85,7 @@ internal static class DramaMapper
             Description = description,
             CoverUrl = coverUrl,
             EpisodeCount = Math.Max(0, episodeCount),
-            ReleaseStatus = status,
+            ReleaseStatus = ReleaseStatusFromValue(status),
             Tags = tags ?? [],
         };
 
@@ -104,14 +99,25 @@ internal static class DramaMapper
         IReadOnlyList<string> tags
     ) => FromShelf(seriesId, title, description, coverUrl, episodeCount, status, tags);
 
-    internal static string StatusFromRemark(string remark) =>
-        remark.Contains("完结", StringComparison.OrdinalIgnoreCase)
-        || remark.Contains("全集", StringComparison.OrdinalIgnoreCase)
-            ? "finished"
-        : remark.Contains("更新", StringComparison.OrdinalIgnoreCase)
-        || remark.Contains("连载", StringComparison.OrdinalIgnoreCase)
-            ? "ongoing"
-        : string.Empty;
+    internal static DramaReleaseStatus ReleaseStatusFromValue(
+        string value,
+        string remark = ""
+    )
+    {
+        value = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return value switch
+        {
+            "1" or "finished" or "complete" or "completed" => DramaReleaseStatus.Finished,
+            "0" or "ongoing" or "serializing" or "updating" => DramaReleaseStatus.Ongoing,
+            _ when remark.Contains("完结", StringComparison.OrdinalIgnoreCase)
+                || remark.Contains("全集", StringComparison.OrdinalIgnoreCase)
+                => DramaReleaseStatus.Finished,
+            _ when remark.Contains("更新", StringComparison.OrdinalIgnoreCase)
+                || remark.Contains("连载", StringComparison.OrdinalIgnoreCase)
+                => DramaReleaseStatus.Ongoing,
+            _ => DramaReleaseStatus.Unknown,
+        };
+    }
 
     private static List<DramaCredit> DtoCredits(
         IReadOnlyList<DramaCreatorUserDto> creators,

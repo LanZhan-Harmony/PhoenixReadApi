@@ -171,23 +171,21 @@ internal sealed partial class SearchService : PhoenixFeatureService
     }
 
     internal Task<RecommendationPage> GetRecommendationsAsync(
-        string genre,
+        RecommendationGenre genre,
         int offset = 0,
         string? sessionId = null,
         IEnumerable<string>? seen = null,
         CancellationToken cancellationToken = default
     )
     {
-        return GetRecommendationsCoreAsync(
-            new RecommendationQuery
-            {
-                Genre = genre ?? string.Empty,
-                Offset = offset,
-                SessionId = sessionId ?? string.Empty,
-                Seen = [.. seen ?? []],
-            },
-            cancellationToken
-        );
+        RecommendationQuery query = new()
+        {
+            Genre = genre,
+            Offset = offset,
+            SessionId = sessionId ?? string.Empty,
+            Seen = [.. seen ?? []],
+        };
+        return GetRecommendationsCoreAsync(query, cancellationToken);
     }
 
     private async Task<SearchResult> SearchCoreAsync(string keyword)
@@ -390,14 +388,15 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 continue;
             }
 
-            var type = record.WordType
-                is "short_play_name"
-                    or "short_play_category"
-                    or "common_query"
-                    or "actor_name"
-                    or "short_play_actor"
-                ? record.WordType
-                : string.Empty;
+            var type = record.WordType switch
+            {
+                "short_play_name" => SearchSuggestionType.ShortPlayName,
+                "short_play_category" => SearchSuggestionType.ShortPlayCategory,
+                "common_query" => SearchSuggestionType.CommonQuery,
+                "actor_name" => SearchSuggestionType.ActorName,
+                "short_play_actor" => SearchSuggestionType.ShortPlayActor,
+                _ => SearchSuggestionType.Unknown,
+            };
             output.Add(new SearchSuggestion { Name = name, Type = type });
             if (output.Count == maxResults)
             {
