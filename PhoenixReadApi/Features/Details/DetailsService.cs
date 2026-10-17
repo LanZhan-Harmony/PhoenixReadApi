@@ -1,8 +1,9 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Details;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
-using PhoenixReadApi.Internal.Contracts.Web;
+using PhoenixReadApi.Internal.Contracts.Web.Details;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Infrastructure.Web;

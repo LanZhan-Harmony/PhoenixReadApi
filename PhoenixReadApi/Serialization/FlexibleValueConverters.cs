@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 
@@ -294,7 +293,9 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<D
         List<DramaEpisodeDto> result = [];
         foreach (JsonElement value in values)
         {
-            DramaEpisodeDto? item = JsonAotSerializer.Deserialize<DramaEpisodeDto>(value.GetRawText());
+            DramaEpisodeDto? item = JsonAotSerializer.Deserialize<DramaEpisodeDto>(
+                value.GetRawText()
+            );
             if (item is not null)
             {
                 result.Add(item);

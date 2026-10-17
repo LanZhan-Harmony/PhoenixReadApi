@@ -5,10 +5,11 @@ using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.Danmaku;
+using PhoenixReadApi.Internal.Contracts.App.Details;
 using PhoenixReadApi.Internal.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
-using PhoenixReadApi.Internal.Contracts.Web;
 using PhoenixReadApi.Internal.Contracts.Web.Catalog;
+using PhoenixReadApi.Internal.Contracts.Web.Details;
 using PhoenixReadApi.Internal.Contracts.Web.Playback;
 using PhoenixReadApi.Internal.Contracts.Web.Search;
 
@@ -135,4 +136,3 @@ internal static class JsonAotSerializer
         return JsonSerializer.Deserialize(value, jsonTypeInfo);
     }
 }
-
