@@ -12,7 +12,4 @@ internal sealed class AppCommentBusinessParameter
 
     [JsonPropertyName("playlet_item_duration")]
     public long PlayletItemDuration { get; init; }
-
-    [JsonPropertyName("need_danmaku_guide_type")]
-    public IReadOnlyList<int> NeedDanmakuGuideType { get; init; } = [1, 3, 4, 2];
 }

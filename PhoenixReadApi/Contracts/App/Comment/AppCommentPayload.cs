@@ -28,12 +28,6 @@ internal sealed class AppCommentPayload
     [JsonPropertyName("cursor")]
     public string Cursor { get; init; } = string.Empty;
 
-    [JsonPropertyName("aid")]
-    public int Aid { get; init; } = 8662;
-
-    [JsonPropertyName("compliance_status")]
-    public int ComplianceStatus { get; init; }
-
     [JsonPropertyName("business_param")]
     public AppCommentBusinessParameter BusinessParameter { get; init; } = new();
 }

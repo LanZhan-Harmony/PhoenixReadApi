@@ -41,5 +41,5 @@ public class Tests
     public async Task TestGetEpisodeCommentsAsync() { }
 
     [Test]
-    public async Task TestGetActorAsync() { }
+    public async Task TestGetUserProfileAsync() { }
 }
