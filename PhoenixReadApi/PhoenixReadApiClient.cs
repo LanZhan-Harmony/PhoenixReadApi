@@ -116,7 +116,14 @@ public sealed class PhoenixReadApiClient : IDisposable
             cancellationToken
         );
 
-    /// <summary>获取指定分集在指定时间范围内的弹幕。</summary>
+    /// <summary>
+    /// 获取指定分集在指定时间窗口内的全部弹幕。
+    /// </summary>
+    /// <param name="seriesId">剧集 ID。</param>
+    /// <param name="videoId">分集 ID。</param>
+    /// <param name="startMs">时间窗口起点（毫秒）。</param>
+    /// <param name="durationMs">时间窗口长度（毫秒），不是结束时间。</param>
+    /// <param name="cancellationToken">取消请求的令牌。</param>
     public Task<DanmakuPage> GetDanmakuAsync(
         string seriesId,
         string videoId,
@@ -126,12 +133,12 @@ public sealed class PhoenixReadApiClient : IDisposable
     ) => _danmaku.GetAsync(seriesId, videoId, startMs, durationMs, cancellationToken);
 
     /// <summary>获取剧评。</summary>
-    public Task<CommentPage> GetReviewsAsync(
+    public Task<CommentPage> GetDramaReviewsAsync(
         string seriesId,
         int count = 10,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) => _comments.GetReviewsAsync(seriesId, count, cursor, cancellationToken);
+    ) => _comments.GetDramaReviewsAsync(seriesId, count, cursor, cancellationToken);
 
     /// <summary>获取指定分集的评论。</summary>
     public Task<CommentPage> GetEpisodeCommentsAsync(

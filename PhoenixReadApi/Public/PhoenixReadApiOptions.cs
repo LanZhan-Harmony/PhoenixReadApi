@@ -10,7 +10,7 @@ public class PhoenixReadApiOptions
 
     /// <summary>数据服务的基础地址。</summary>
     public Uri AppBaseUri { get; init; } =
-        new("https://api5-normal-sinfonlineb.fqnovel.com/", UriKind.Absolute);
+        new("https://api5-normal-sinfonlinea.fqnovel.com/", UriKind.Absolute);
 
     /// <summary>每个分类最多请求的剧库页数。</summary>
     public int MaxPagesPerCategory { get; init; } = 50;
@@ -45,7 +45,7 @@ public class PhoenixReadApiOptions
         return new PhoenixReadApiOptions
         {
             WebBaseUri = NormalizeBase(WebBaseUri, "https://hongguoduanju.com/"),
-            AppBaseUri = NormalizeBase(AppBaseUri, "https://api5-normal-sinfonlineb.fqnovel.com/"),
+            AppBaseUri = NormalizeBase(AppBaseUri, "https://api5-normal-sinfonlinea.fqnovel.com/"),
             MaxPagesPerCategory = Math.Clamp(MaxPagesPerCategory, 1, 500),
             RetryCount = Math.Clamp(RetryCount, 1, 3),
             RequestTimeout =

@@ -9,6 +9,6 @@ public sealed class DramaCreditRole
     /// <summary>出演时饰演的角色名称。</summary>
     public string CharacterName { get; init; } = string.Empty;
 
-    /// <summary>接口返回的原始关系文字，例如“饰 许不令”或“导演”。</summary>
+    /// <summary>接口返回的原始关系文字，例如“饰 XXX”或“导演”。</summary>
     public string Label { get; init; } = string.Empty;
 }

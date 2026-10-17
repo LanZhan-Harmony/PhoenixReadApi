@@ -12,7 +12,9 @@ namespace PhoenixReadApi.Internal.Features.Danmaku;
 internal sealed class DanmakuService : PhoenixFeatureService
 {
     private const int MaxDanmakuDurationMs = 24 * 60 * 60 * 1000;
-    private const int MaxDanmakuItems = 90;
+    private const int MaxDanmakuItemsPerRequest = 90;
+    private const int MaxEmptyDanmakuRetries = 2;
+    private const int MaxDanmakuRequests = 4096;
 
     internal DanmakuService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
@@ -27,11 +29,16 @@ internal sealed class DanmakuService : PhoenixFeatureService
     {
         var series = NormalizeSeriesId(seriesId);
         var video = NormalizeVideoId(videoId);
-        if (startMs < 0 || durationMs <= startMs || durationMs > MaxDanmakuDurationMs)
+        if (
+            startMs < 0
+            || durationMs <= 0
+            || durationMs > MaxDanmakuDurationMs
+            || startMs > MaxDanmakuDurationMs - durationMs
+        )
         {
             throw new ArgumentOutOfRangeException(
                 nameof(durationMs),
-                "Danmaku duration must be after start and at most 24 hours."
+                "Danmaku duration must be positive, at most 24 hours, and fit after start."
             );
         }
 
@@ -46,9 +53,111 @@ internal sealed class DanmakuService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
+        var requestedEndMs = startMs + durationMs;
+        var currentMs = startMs;
+        var nextMs = startMs;
+        var total = 0L;
+        List<DanmakuItem> items = [];
+        HashSet<string> seen = new(StringComparer.Ordinal);
+
+        for (var request = 0; request < MaxDanmakuRequests && currentMs < requestedEndMs; request++)
+        {
+            AppDanmakuData data = await RequestPageWithRetryAsync(
+                    seriesId,
+                    videoId,
+                    currentMs,
+                    durationMs,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            DanmakuCursor cursor = ParseCursor(data.ListInfo?.Cursor);
+            total = Math.Max(total, cursor.DanmakuCount);
+            total = Math.Max(total, data.ListInfo?.Total ?? 0);
+
+            var candidateNextMs = ResolveNextMs(currentMs, requestedEndMs, data, cursor);
+            var pageEndMs = Math.Min(candidateNextMs, requestedEndMs);
+            if (pageEndMs <= currentMs)
+            {
+                // A missing or stale cursor means the server has finished this
+                // range. Returning the accumulated items is more useful than
+                // turning a valid empty/last page into a format exception.
+                nextMs = Math.Max(nextMs, Math.Min(currentMs, requestedEndMs));
+                break;
+            }
+
+            AddItems(data.Items, videoId, currentMs, pageEndMs, items, seen);
+            currentMs = pageEndMs;
+            nextMs = currentMs;
+
+            if (candidateNextMs >= requestedEndMs)
+            {
+                break;
+            }
+        }
+
+        items.Sort(static (left, right) =>
+        {
+            var time = left.TimeMs.CompareTo(right.TimeMs);
+            return time != 0 ? time : string.CompareOrdinal(left.Id, right.Id);
+        });
+
+        return new DanmakuPage
+        {
+            EpisodeId = videoId,
+            StartMs = startMs,
+            NextMs = nextMs,
+            Total = Math.Max(total, items.Count),
+            Items = items,
+        };
+    }
+
+    private async Task<AppDanmakuData> RequestPageWithRetryAsync(
+        string seriesId,
+        string videoId,
+        long startMs,
+        long durationMs,
+        CancellationToken cancellationToken
+    )
+    {
+        AppDanmakuData? last = null;
+        for (var attempt = 0; attempt <= MaxEmptyDanmakuRetries; attempt++)
+        {
+            last = await RequestPageAsync(
+                    seriesId,
+                    videoId,
+                    startMs,
+                    durationMs,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (last.Items?.Count > 0 || !HasReportedDanmaku(last))
+            {
+                return last;
+            }
+
+            if (attempt < MaxEmptyDanmakuRetries)
+            {
+                await Task.Delay(100 * (attempt + 1), cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return last!;
+    }
+
+    private async Task<AppDanmakuData> RequestPageAsync(
+        string seriesId,
+        string videoId,
+        long startMs,
+        long durationMs,
+        CancellationToken cancellationToken
+    )
+    {
         AppCommentPayload payload = new()
         {
             GroupId = videoId,
+            Count = MaxDanmakuItemsPerRequest,
             BusinessParameter = new AppCommentBusinessParameter
             {
                 BookId = seriesId,
@@ -64,26 +173,20 @@ internal sealed class DanmakuService : PhoenixFeatureService
                 cancellationToken
             )
             .ConfigureAwait(false);
-        AppDanmakuData data =
-            result.Data
-            ?? throw new PhoenixReadApiResponseException("红果弹幕时间段格式无效。", "danmaku");
+        return result.Data
+            ?? throw new PhoenixReadApiResponseException("红果弹幕接口未返回有效数据。", "danmaku");
+    }
 
-        var next = data.Extra?.NextTime ?? 0;
-        if (next <= startMs || next > MaxDanmakuDurationMs)
-        {
-            throw new PhoenixReadApiResponseException("红果弹幕时间段格式无效。", "danmaku");
-        }
-
-        DanmakuPage page = new()
-        {
-            EpisodeId = videoId,
-            StartMs = startMs,
-            NextMs = Math.Min(next, durationMs),
-            Total = ParseTotal(data),
-        };
-        List<DanmakuItem> items = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
-        foreach (AppCommentRecord? raw in data.Items ?? [])
+    private static void AddItems(
+        IReadOnlyList<AppCommentRecord>? records,
+        string videoId,
+        long startMs,
+        long endMs,
+        List<DanmakuItem> items,
+        HashSet<string> seen
+    )
+    {
+        foreach (AppCommentRecord? raw in records ?? [])
         {
             if (
                 raw is null
@@ -107,7 +210,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
             var id = (comment.Id ?? string.Empty).Trim();
             if (
                 position < startMs
-                || position >= page.NextMs
+                || position >= endMs
                 || text.Length == 0
                 || id.Length == 0
                 || id.Length > 120
@@ -130,39 +233,60 @@ internal sealed class DanmakuService : PhoenixFeatureService
                     TimeMs = position,
                 }
             );
-            if (items.Count == MaxDanmakuItems)
-            {
-                break;
-            }
         }
-
-        items.Sort(static (left, right) => left.TimeMs.CompareTo(right.TimeMs));
-        return new DanmakuPage
-        {
-            EpisodeId = page.EpisodeId,
-            StartMs = page.StartMs,
-            NextMs = page.NextMs,
-            Total = page.Total,
-            Items = items,
-        };
     }
 
-    private static long ParseTotal(AppDanmakuData data)
+    private static long ResolveNextMs(
+        long currentMs,
+        long requestedEndMs,
+        AppDanmakuData data,
+        DanmakuCursor cursor
+    )
     {
-        var cursor = data.ListInfo?.Cursor ?? string.Empty;
+        var extraNextMs = data.Extra?.NextTime ?? 0;
+        if (extraNextMs > currentMs)
+        {
+            return Math.Min(extraNextMs, requestedEndMs);
+        }
+
+        if (cursor.EndMs > currentMs)
+        {
+            return Math.Min(cursor.EndMs, requestedEndMs);
+        }
+
+        // Some last pages omit both the extra field and a usable end cursor.
+        // Treat the requested range as complete instead of reporting a format
+        // error for an otherwise valid response.
+        return requestedEndMs;
+    }
+
+    private static bool HasReportedDanmaku(AppDanmakuData data)
+    {
+        DanmakuCursor cursor = ParseCursor(data.ListInfo?.Cursor);
+        return cursor.DanmakuCount > 0 || (data.ListInfo?.Total ?? 0) > 0;
+    }
+
+    private static DanmakuCursor ParseCursor(string? value)
+    {
+        var cursor = (value ?? string.Empty).Trim();
         if (cursor.Length is 0 or > 8192)
         {
-            return 0;
+            return default;
         }
 
         try
         {
             using JsonDocument document = JsonDocument.Parse(cursor);
-            return Math.Max(0, JsonValueReader.Long(document.RootElement, "danmaku_count"));
+            JsonElement root = document.RootElement;
+            return new DanmakuCursor(
+                JsonValueReader.Long(root, "start_offset_time"),
+                JsonValueReader.Long(root, "end_offset_time"),
+                Math.Max(0, JsonValueReader.Long(root, "danmaku_count"))
+            );
         }
         catch (JsonException)
         {
-            return 0;
+            return default;
         }
     }
 
@@ -170,4 +294,6 @@ internal sealed class DanmakuService : PhoenixFeatureService
         new string([
             .. text.Select(static c => char.IsControl(c) || c is '\u2028' or '\u2029' ? ' ' : c),
         ]).Trim();
+
+    private readonly record struct DanmakuCursor(long StartMs, long EndMs, long DanmakuCount);
 }

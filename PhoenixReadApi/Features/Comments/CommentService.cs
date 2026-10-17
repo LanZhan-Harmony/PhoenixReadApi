@@ -13,7 +13,7 @@ internal sealed class CommentService : PhoenixFeatureService
     internal CommentService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
-    internal Task<CommentPage> GetReviewsAsync(
+    internal Task<CommentPage> GetDramaReviewsAsync(
         string seriesId,
         int count,
         string cursor,

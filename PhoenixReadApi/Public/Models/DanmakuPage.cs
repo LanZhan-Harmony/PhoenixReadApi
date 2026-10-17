@@ -1,6 +1,6 @@
 namespace PhoenixReadApi;
 
-/// <summary>指定时间范围内的弹幕窗口。</summary>
+/// <summary>指定时间范围内的弹幕。</summary>
 public sealed class DanmakuPage
 {
     /// <summary>分集 ID。</summary>
@@ -12,10 +12,9 @@ public sealed class DanmakuPage
     /// <summary>请求时间范围的起点（毫秒）。</summary>
     public long StartMs { get; init; }
 
-    /// <summary>下一次请求的起点（毫秒）。</summary>
+    /// <summary>已读取范围的下一时间点（毫秒）。</summary>
     public long NextMs { get; init; }
 
-    /// <summary>弹幕总数。</summary>
+    /// <summary>接口报告的时间范围内弹幕总数。</summary>
     public long Total { get; init; }
 }
-
