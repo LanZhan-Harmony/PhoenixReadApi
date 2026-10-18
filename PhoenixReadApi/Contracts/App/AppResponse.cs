@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PhoenixReadApi.Internal.Contracts.App.Library;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Contracts.App;
@@ -19,6 +20,13 @@ internal sealed class AppResponse<T>
 
     [JsonPropertyName("BaseResp")]
     public AppBaseResponse BaseResponse { get; init; } = new();
+
+    // The progress-list API places these fields beside data instead of inside it.
+    [JsonPropertyName("video_data")]
+    public IReadOnlyList<AppReadProgressItem> VideoData { get; init; } = [];
+
+    [JsonPropertyName("local_book_data")]
+    public IReadOnlyList<AppReadProgressItem> LocalBookData { get; init; } = [];
 }
 
 internal sealed class AppBaseResponse

@@ -67,6 +67,9 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+# Local PhoenixReadApi authentication snapshots
+PhoenixReadApi.Sample/.auth/
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 

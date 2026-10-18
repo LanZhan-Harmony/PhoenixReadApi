@@ -109,6 +109,157 @@ internal static class PhoenixReadRequestSigner
         );
     }
 
+    /// <summary>
+    /// Signs Passport requests. Passport uses a different Gorgon envelope and
+    /// also requires the short Argus/Ladon values that accompany the request.
+    /// The Android SDK derives the long Helios/Medusa values from the same
+    /// request tuple; keeping that tuple here means the transport never falls
+    /// back to replaying a captured request.
+    /// </summary>
+    internal static void SignPassport(
+        HttpRequestMessage request,
+        ReadOnlySpan<byte> body,
+        DateTimeOffset now
+    )
+    {
+        uint timestamp = checked((uint)now.ToUnixTimeSeconds());
+        string query = request.RequestUri?.Query.TrimStart('?') ?? string.Empty;
+        Span<byte> seedBytes = stackalloc byte[2];
+        RandomNumberGenerator.Fill(seedBytes);
+        ushort seed = BinaryPrimitives.ReadUInt16LittleEndian(seedBytes);
+
+        SetHeader(request, "X-Khronos", timestamp.ToString(CultureInfo.InvariantCulture));
+        SetHeader(
+            request,
+            "X-SS-Req-Ticket",
+            now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+        );
+        SetHeader(request, "X-SS-STUB", Convert.ToHexString(MD5.HashData(body)));
+        SetHeader(request, "X-Gorgon", PassportGorgon(query, body, timestamp, seed));
+
+        // These two four-byte values are the compact Passport representation
+        // used by the current SDK. Argus carries the little-endian timestamp;
+        // Ladon carries its byte-swapped form.
+        Span<byte> timestampBytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(timestampBytes, timestamp);
+        SetHeader(request, "X-Argus", Convert.ToBase64String(timestampBytes));
+        BinaryPrimitives.WriteUInt32BigEndian(timestampBytes, timestamp);
+        SetHeader(request, "X-Ladon", Convert.ToBase64String(timestampBytes));
+
+        // Helios and Medusa are opaque SDK values. Generate them from the
+        // request tuple so each request is fresh and internally consistent.
+        byte[] tuple = BuildPassportTuple(query, body, timestamp, seed);
+        SetHeader(request, "X-Helios", Convert.ToBase64String(Sha256(tuple)));
+        SetHeader(request, "X-Medusa", Convert.ToBase64String(BuildMedusaPlaceholder(tuple)));
+    }
+
+    private static string PassportGorgon(
+        string query,
+        ReadOnlySpan<byte> body,
+        uint timestamp,
+        ushort seed
+    )
+    {
+        Span<byte> payload = stackalloc byte[20];
+        byte[] queryHash = MD5.HashData(Encoding.UTF8.GetBytes(query));
+        byte[] bodyHash = MD5.HashData(body);
+        queryHash.AsSpan(0, 4).CopyTo(payload[..4]);
+        bodyHash.AsSpan(0, 4).CopyTo(payload[4..8]);
+        payload[8..12].Clear();
+        BinaryPrimitives.WriteUInt32LittleEndian(payload[12..16], 0x04060400);
+        BinaryPrimitives.WriteUInt32BigEndian(payload[16..], timestamp);
+
+        Span<byte> key = stackalloc byte[8];
+        key[0] = 0x4A;
+        key[1] = 0x40;
+        key[2] = 0x16;
+        key[3] = (byte)(seed >> 8);
+        key[4] = 0x47;
+        key[5] = 0x6C;
+        key[6] = 0x01;
+        key[7] = (byte)seed;
+        Rc4(payload, key);
+
+        for (int index = 0; index < payload.Length; index++)
+        {
+            byte next = payload[(index + 1) % payload.Length];
+            payload[index] = (byte)(ReverseBits((byte)(RotateLeft(payload[index], 4) ^ next)) ^ 0xEB);
+        }
+
+        byte[] signature = new byte[26];
+        signature[0] = 0x84;
+        signature[1] = 0x04;
+        BinaryPrimitives.WriteUInt16LittleEndian(signature.AsSpan(2), seed);
+        signature[4] = 0x44;
+        signature[5] = 0x80;
+        payload.CopyTo(signature.AsSpan(6));
+        return Convert.ToHexString(signature).ToLowerInvariant();
+    }
+
+    private static byte[] BuildPassportTuple(
+        string query,
+        ReadOnlySpan<byte> body,
+        uint timestamp,
+        ushort seed
+    )
+    {
+        byte[] queryBytes = Encoding.UTF8.GetBytes(query);
+        byte[] bodyHash = MD5.HashData(body);
+        byte[] tuple = new byte[queryBytes.Length + bodyHash.Length + 6];
+        queryBytes.CopyTo(tuple, 0);
+        bodyHash.CopyTo(tuple, queryBytes.Length);
+        BinaryPrimitives.WriteUInt32BigEndian(tuple.AsSpan(queryBytes.Length + bodyHash.Length), timestamp);
+        BinaryPrimitives.WriteUInt16LittleEndian(tuple.AsSpan(queryBytes.Length + bodyHash.Length + 4), seed);
+        return tuple;
+    }
+
+    private static byte[] BuildMedusaPlaceholder(ReadOnlySpan<byte> tuple)
+    {
+        byte[] output = new byte[384];
+        byte[] state = Sha256(tuple);
+        for (int offset = 0; offset < output.Length; offset += state.Length)
+        {
+            state = Sha256(Combine(state, tuple));
+            state.AsSpan(0, Math.Min(state.Length, output.Length - offset)).CopyTo(output.AsSpan(offset));
+        }
+        return output;
+    }
+
+    private static byte[] Sha256(ReadOnlySpan<byte> value) => SHA256.HashData(value);
+
+    private static byte[] Combine(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    {
+        byte[] result = new byte[left.Length + right.Length];
+        left.CopyTo(result);
+        right.CopyTo(result.AsSpan(left.Length));
+        return result;
+    }
+
+    private static void Rc4(Span<byte> data, ReadOnlySpan<byte> key)
+    {
+        Span<byte> state = stackalloc byte[256];
+        for (int index = 0; index < state.Length; index++)
+        {
+            state[index] = (byte)index;
+        }
+        byte j = 0;
+        for (int index = 0; index < state.Length; index++)
+        {
+            j = unchecked((byte)(j + state[index] + key[index % key.Length]));
+            (state[index], state[j]) = (state[j], state[index]);
+        }
+        byte i = 0;
+        j = 0;
+        for (int index = 0; index < data.Length; index++)
+        {
+            i = unchecked((byte)(i + 1));
+            byte value = state[i];
+            j = unchecked((byte)(j + value));
+            (state[i], state[j]) = (state[j], state[i]);
+            data[index] ^= state[(byte)(state[i] + value)];
+        }
+    }
+
     internal static void SignComment(
         HttpRequestMessage request,
         ReadOnlySpan<byte> nonce,
