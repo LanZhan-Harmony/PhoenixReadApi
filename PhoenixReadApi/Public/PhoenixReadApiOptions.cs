@@ -12,6 +12,15 @@ public class PhoenixReadApiOptions
     public Uri AppBaseUri { get; init; } =
         new("https://api5-normal-sinfonlinea.fqnovel.com/", UriKind.Absolute);
 
+    /// <summary>Passport 登录接口的基础地址。</summary>
+    /// <remarks>普通内容请求仍使用 <see cref="AppBaseUri"/>；该地址只用于短信登录链路。</remarks>
+    public Uri AuthenticationBaseUri { get; init; } =
+        new("https://api5-normal-hl.fqnovel.com/", UriKind.Absolute);
+
+    /// <summary>可选的登录会话备份文件路径。</summary>
+    /// <remarks>文件包含 Cookie、Passport Token 和短信票据等敏感信息，应用应限制文件访问权限。</remarks>
+    public string? AuthenticationStateFilePath { get; init; }
+
     /// <summary>每个分类最多请求的剧库页数。</summary>
     public int MaxPagesPerCategory { get; init; } = 50;
 
@@ -38,7 +47,7 @@ public class PhoenixReadApiOptions
 
     /// <summary>发送请求时使用的应用 User-Agent。</summary>
     public string UserAgent { get; init; } =
-        "com.phoenix.read/73532 (Linux; U; Android 16; zh_CN; 25053RT47C; Build/BP2A.250605.031.A3; Cronet/TTNetVersion:04657795 2026-01-23 QuicVersion:c67e9834 2025-09-08)";
+        "com.phoenix.read/73932 (Linux; U; Android 15; zh_CN_#Hans; AOSP on Intel Platform; Build/SQ1A.220205.002;tt-ok/3.12.13.20)";
 
     internal PhoenixReadApiOptions Normalize()
     {
@@ -46,6 +55,8 @@ public class PhoenixReadApiOptions
         {
             WebBaseUri = NormalizeBase(WebBaseUri, "https://hongguoduanju.com/"),
             AppBaseUri = NormalizeBase(AppBaseUri, "https://api5-normal-sinfonlinea.fqnovel.com/"),
+            AuthenticationBaseUri = NormalizeBase(AuthenticationBaseUri, "https://api5-normal-hl.fqnovel.com/"),
+            AuthenticationStateFilePath = NormalizeStatePath(AuthenticationStateFilePath),
             MaxPagesPerCategory = Math.Clamp(MaxPagesPerCategory, 1, 500),
             RetryCount = Math.Clamp(RetryCount, 1, 3),
             RequestTimeout =
@@ -55,10 +66,12 @@ public class PhoenixReadApiOptions
             MaxResponseBytes = Math.Clamp(MaxResponseBytes, 16 * 1024, 64 * 1024 * 1024),
             EnableWebFallback = EnableWebFallback,
             CompleteSearchSeasons = CompleteSearchSeasons,
-            DeviceId = NormalizeNumericId(DeviceId) ?? DeviceIdGenerator.Create(),
-            InstallId = NormalizeNumericId(InstallId) ?? DeviceIdGenerator.Create(),
+            // These are the device identities used by the current Android
+            // profile. Callers may still provide their own numeric IDs.
+            DeviceId = NormalizeNumericId(DeviceId) ?? "1589262967141403",
+            InstallId = NormalizeNumericId(InstallId) ?? "2380912043756905",
             UserAgent = string.IsNullOrWhiteSpace(UserAgent)
-                ? "PhoenixReadApi/1.0"
+                ? "com.phoenix.read/73932 (Linux; U; Android 15; zh_CN_#Hans; AOSP on Intel Platform; Build/SQ1A.220205.002;tt-ok/3.12.13.20)"
                 : UserAgent.Trim(),
         };
     }
@@ -89,5 +102,11 @@ public class PhoenixReadApiOptions
     private static string? NormalizeNumericId(string? value)
     {
         return value is not null && DeviceIdGenerator.IsValid(value) ? value : null;
+    }
+
+    private static string? NormalizeStatePath(string? value)
+    {
+        value = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        return value is null || value.IndexOfAny(['\0', '\r', '\n']) >= 0 ? null : value;
     }
 }

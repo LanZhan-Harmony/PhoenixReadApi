@@ -6,6 +6,9 @@
 - 视频播放、搜索联想、推荐和弹幕；
 - 综合搜索、搜索联想、季数补齐和推荐分页；
 - 剧集署名账号、账号主页、剧评和分集评论；
+- 阅读历史、播放进度、收藏、点赞、预约、关注动态和剧集分季；
+- 评论回复、评论操作、分类筛选、首页分组和分享目标解析；
+- 短信登录状态管理（登录服务需要设备认证时会明确返回认证异常）；
 - CENC AES-128 内容密钥提取与弹幕时间窗口；
 - 可注入 `HttpClient`，支持代理、Cookie、诊断和离线测试；
 - 内部 JSON 处理使用 `System.Text.Json` 源代码生成，支持 NativeAOT 和裁剪发布。
@@ -30,6 +33,10 @@ var episodeComments = await client.GetEpisodeCommentsAsync(
 Console.WriteLine($"{details.Drama.Title}: {media.Url}");
 Console.WriteLine($"Reviews: {reviews.Items.Count}/{reviews.Total}");
 Console.WriteLine($"Episode comments: {episodeComments.Items.Count}/{episodeComments.Total}");
+
+var history = await client.GetHistoryAsync(cancellationToken: timeout.Token);
+var favorites = await client.GetFavoritesAsync(cancellationToken: timeout.Token);
+var progress = await client.GetReadProgressAsync(timeout.Token);
 ```
 
 推荐题材和搜索建议类型使用枚举：
@@ -96,6 +103,27 @@ var options = new PhoenixReadApiOptions
 };
 using var client = new PhoenixReadApiClient(httpClient, options);
 ```
+
+## 登录状态持久化
+
+短信登录成功后，如果希望程序重启后继续使用同一个登录状态，可以指定本地会话备份文件：
+
+```csharp
+var options = new PhoenixReadApiOptions
+{
+    AuthenticationStateFilePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "PhoenixReadApi",
+        "session.json"
+    )
+};
+
+using var client = new PhoenixReadApiClient(options);
+var verification = await client.SendVerificationCodeAsync("手机号");
+var account = await client.LoginAsync("手机号", "短信验证码");
+```
+
+下次使用相同的 `AuthenticationStateFilePath` 创建客户端时，库会自动恢复本地 Cookie 和 Passport Token。会话文件包含敏感认证信息，应限制文件访问权限。调用 `Logout()` 会同时清除内存会话和该文件。
 
 库会校验外部数据、剧集归属和播放地址，并限制响应大小；失败时抛出 `PhoenixReadApiException`，异常中包含请求位置和可用的 HTTP 状态码。
 

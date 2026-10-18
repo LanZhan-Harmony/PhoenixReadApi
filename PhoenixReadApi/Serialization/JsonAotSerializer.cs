@@ -2,10 +2,12 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Auth;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.Danmaku;
 using PhoenixReadApi.Internal.Contracts.App.Details;
+using PhoenixReadApi.Internal.Contracts.App.Library;
 using PhoenixReadApi.Internal.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Catalog;
@@ -36,6 +38,30 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppResponse<AppUserProfileData>))]
 [JsonSerializable(typeof(AppResponse<AppUserShelfData>))]
 [JsonSerializable(typeof(AppResponse<AppUserActionData>))]
+[JsonSerializable(typeof(AppProgressForPayload))]
+[JsonSerializable(typeof(AppBookPackFieldsPayload))]
+[JsonSerializable(typeof(AppProgressUpdatePayload))]
+[JsonSerializable(typeof(AppShelfUpdatePayload))]
+[JsonSerializable(typeof(AppFollowActionPayload))]
+[JsonSerializable(typeof(AppArticleActionPayload))]
+[JsonSerializable(typeof(AppCommentActionPayload))]
+[JsonSerializable(typeof(AppCommentAddPayload))]
+[JsonSerializable(typeof(AppCommentDeletePayload))]
+[JsonSerializable(typeof(AppBusinessParameter))]
+[JsonSerializable(typeof(AppReplyListPayload))]
+[JsonSerializable(typeof(AppCategoryPayload))]
+[JsonSerializable(typeof(AppResponse<AppHistoryData>))]
+[JsonSerializable(typeof(AppResponse<AppReadProgressEnvelope>))]
+[JsonSerializable(typeof(AppResponse<AppShelfListData>))]
+[JsonSerializable(typeof(AppResponse<AppFollowData>))]
+[JsonSerializable(typeof(AppResponse<AppReservationData>))]
+[JsonSerializable(typeof(AppResponse<AppShareData>))]
+[JsonSerializable(typeof(AppResponse<AppLoginData>))]
+[JsonSerializable(typeof(AppSessionSnapshot))]
+[JsonSerializable(typeof(AppResponse<AppCellChangeData>))]
+[JsonSerializable(typeof(AppResponse<AppFeedTabData>))]
+[JsonSerializable(typeof(AppResponse<AppReplyListData>))]
+[JsonSerializable(typeof(AppResponse<JsonElement>))]
 [JsonSerializable(typeof(DramaDto))]
 [JsonSerializable(typeof(DramaEpisodeDto))]
 [JsonSerializable(typeof(AppPlaybackModel))]
