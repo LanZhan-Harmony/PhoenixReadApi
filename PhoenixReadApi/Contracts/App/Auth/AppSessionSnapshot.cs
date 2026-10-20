@@ -36,4 +36,25 @@ internal sealed class AppSessionSnapshot
 
     [JsonPropertyName("ttreq")]
     public string TtReq { get; init; } = string.Empty;
+
+    [JsonPropertyName("device_id")]
+    public string DeviceId { get; init; } = string.Empty;
+
+    [JsonPropertyName("install_id")]
+    public string InstallId { get; init; } = string.Empty;
+
+    [JsonPropertyName("user_id")]
+    public string UserId { get; init; } = string.Empty;
+
+    [JsonPropertyName("user_name")]
+    public string UserName { get; init; } = string.Empty;
+
+    [JsonPropertyName("user_avatar_url")]
+    public string UserAvatarUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("user_description")]
+    public string UserDescription { get; init; } = string.Empty;
+
+    [JsonPropertyName("user_masked_phone")]
+    public string UserMaskedPhone { get; init; } = string.Empty;
 }

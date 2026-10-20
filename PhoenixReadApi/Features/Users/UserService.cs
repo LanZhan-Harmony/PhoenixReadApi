@@ -21,10 +21,7 @@ internal sealed class UserService : PhoenixFeatureService
         return LoadAsync(new User { Id = userId }, cancellationToken);
     }
 
-    internal Task<UserProfile> GetAsync(
-        DramaCredit credit,
-        CancellationToken cancellationToken
-    )
+    internal Task<UserProfile> GetAsync(DramaCredit credit, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(credit);
         ArgumentNullException.ThrowIfNull(credit.User);
@@ -131,12 +128,7 @@ internal sealed class UserService : PhoenixFeatureService
         userId = NormalizeUserId(userId);
         ValidateCount(count);
         ValidateOffset(offset);
-        AppUserActionData? data = await LoadLikesAsync(
-                userId,
-                count,
-                offset,
-                cancellationToken
-            )
+        AppUserActionData? data = await LoadLikesAsync(userId, count, offset, cancellationToken)
             .ConfigureAwait(false);
         return new UserDramaPage
         {
@@ -167,12 +159,17 @@ internal sealed class UserService : PhoenixFeatureService
             .ConfigureAwait(false);
         AppUserProfileData metadata =
             metadataResponse.Data
-            ?? throw new PhoenixReadApiResponseException("账号主页未返回有效数据。", "user-profile");
+            ?? throw new PhoenixReadApiResponseException(
+                "账号主页未返回有效数据。",
+                "user-profile"
+            );
 
-        HashSet<int> tabTypes = (metadata.Tabs ?? [])
-            .Where(static tab => tab is not null)
-            .Select(static tab => tab!.Type)
-            .ToHashSet();
+        HashSet<int> tabTypes =
+        [
+            .. (metadata.Tabs ?? [])
+                .Where(static tab => tab is not null)
+                .Select(static tab => tab!.Type),
+        ];
         Task<AppUserProfileData?> relatedTask = tabTypes.Contains(8)
             ? LoadProfileTabAsync(user.Id, 8, PageSize, string.Empty, cancellationToken)
             : Task.FromResult<AppUserProfileData?>(null);
@@ -264,7 +261,10 @@ internal sealed class UserService : PhoenixFeatureService
                 "/reading/bookapi/bookshelf/video/info/v",
                 [
                     new("count", count.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                    new("offset", offset.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new(
+                        "offset",
+                        offset.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    ),
                     new("target_user_id", userId),
                 ],
                 cancellationToken
@@ -287,7 +287,10 @@ internal sealed class UserService : PhoenixFeatureService
                     new("count", count.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                     new("object_type_list", "6,15,10"),
                     new("target_user_id", userId),
-                    new("offset", offset.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new(
+                        "offset",
+                        offset.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    ),
                     new("action_type", "3"),
                 ],
                 cancellationToken
@@ -313,7 +316,7 @@ internal sealed class UserService : PhoenixFeatureService
             }
 
             var id = record.Video.Id.Trim();
-            if (!JsonValueReader.IsNumericId(id) || !seen.Add(id))
+            if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
             {
                 continue;
             }
@@ -388,8 +391,8 @@ internal sealed class UserService : PhoenixFeatureService
                 continue;
             }
 
-            var id = JsonValueReader.First(item.Video.SeriesId, item.Video.VideoId).Trim();
-            if (!JsonValueReader.IsNumericId(id) || !seen.Add(id))
+            var id = ValueNormalizer.First(item.Video.SeriesId, item.Video.VideoId).Trim();
+            if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
             {
                 continue;
             }
@@ -428,8 +431,8 @@ internal sealed class UserService : PhoenixFeatureService
 
             AppUserActionVideoData video = record.Video;
             AppUserActionSeriesDetail series = video.Series;
-            var id = JsonValueReader.First(series.SeriesId, video.SeriesId).Trim();
-            if (!JsonValueReader.IsNumericId(id) || !seen.Add(id))
+            var id = ValueNormalizer.First(series.SeriesId, video.SeriesId).Trim();
+            if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
             {
                 continue;
             }
@@ -462,11 +465,7 @@ internal sealed class UserService : PhoenixFeatureService
             Total = TabTotal(data, tabType, TabTotal(metadata, tabType)),
         };
 
-    private static long TabTotal(
-        AppUserProfileData? data,
-        int tabType,
-        long fallback = 0
-    ) =>
+    private static long TabTotal(AppUserProfileData? data, int tabType, long fallback = 0) =>
         (data?.Tabs ?? [])
             .Where(static tab => tab is not null)
             .FirstOrDefault(tab => tab!.Type == tabType)
@@ -506,7 +505,7 @@ internal sealed class UserService : PhoenixFeatureService
     private static string NormalizeUserId(string value)
     {
         value = (value ?? string.Empty).Trim();
-        if (!JsonValueReader.IsNumericId(value))
+        if (!ValueNormalizer.IsNumericId(value))
         {
             throw new ArgumentException("账号 ID 无效。", nameof(value));
         }
@@ -514,6 +513,3 @@ internal sealed class UserService : PhoenixFeatureService
         return value;
     }
 }
-
-
-

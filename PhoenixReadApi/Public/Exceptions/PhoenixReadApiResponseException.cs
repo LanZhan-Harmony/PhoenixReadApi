@@ -5,4 +5,14 @@ public class PhoenixReadApiResponseException(
     string message,
     string? endpoint = null,
     Exception? innerException = null
-) : PhoenixReadApiDeserializationException(message, endpoint, innerException) { }
+)
+    : PhoenixReadApiException(
+        message,
+        endpoint ?? "response",
+        endpoint,
+        null,
+        null,
+        null,
+        false,
+        innerException
+    ) { }

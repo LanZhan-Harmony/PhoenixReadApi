@@ -125,6 +125,21 @@ var account = await client.LoginAsync("手机号", "短信验证码");
 
 下次使用相同的 `AuthenticationStateFilePath` 创建客户端时，库会自动恢复本地 Cookie 和 Passport Token。会话文件包含敏感认证信息，应限制文件访问权限。调用 `Logout()` 会同时清除内存会话和该文件。
 
+如果不登录也需要持续使用同一个匿名设备会话，可以单独指定 `AnonymousStateFilePath`，不要与登录会话文件混用：
+
+```csharp
+var options = new PhoenixReadApiOptions
+{
+    AnonymousStateFilePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "PhoenixReadApi",
+        "anonymous-session.json"
+    )
+};
+```
+
+匿名会话首次创建时会生成独立的设备/安装 ID，并把它们与服务端返回的匿名 Cookie 一起保存；再次使用同一路径会恢复同一设备会话。它可以用于未登录的历史、播放进度、收藏、预约和点赞请求；服务端仍可能对写操作进行风控。登录会话路径和匿名会话路径只能设置其中一个。
+
 库会校验外部数据、剧集归属和播放地址，并限制响应大小；失败时抛出 `PhoenixReadApiException`，异常中包含请求位置和可用的 HTTP 状态码。
 
 ## NativeAOT

@@ -136,7 +136,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
             }
 
             var height = variant.Metadata.Height;
-            var definition = JsonValueReader.Quality(variant.Metadata.Definition);
+            var definition = ValueNormalizer.Quality(variant.Metadata.Definition);
             if (definition > 0)
             {
                 height = definition;
@@ -248,7 +248,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         var duration = page.PublicVideoSeo.DurationSeconds;
         MediaVariant[] variants =
         [
-            new() { Url = mediaUrl, Quality = JsonValueReader.Quality(mediaUrl) },
+            new() { Url = mediaUrl, Quality = ValueNormalizer.Quality(mediaUrl) },
         ];
         return new PlaybackMedia
         {

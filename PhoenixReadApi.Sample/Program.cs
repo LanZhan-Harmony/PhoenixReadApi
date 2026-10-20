@@ -32,7 +32,8 @@ if (!authentication.IsAuthenticated && phone.Length > 0)
     );
     if (sent is not null)
     {
-        string code = Environment.GetEnvironmentVariable("PHOENIX_READ_API_SMS_CODE") ?? string.Empty;
+        string code =
+            Environment.GetEnvironmentVariable("PHOENIX_READ_API_SMS_CODE") ?? string.Empty;
         if (code.Length == 0)
         {
             Console.Write("请输入短信验证码（也可以设置 PHOENIX_READ_API_SMS_CODE）：");
@@ -83,16 +84,21 @@ if (search is not null)
 
 RecommendationPage? recommendationByQuery = await TryAsync(
     "GetRecommendationsAsync(query)",
-    () => client.GetRecommendationsAsync(
-        new RecommendationQuery { Genre = RecommendationGenre.ShortDrama },
-        timeout.Token
-    )
+    () =>
+        client.GetRecommendationsAsync(
+            new RecommendationQuery { Genre = RecommendationGenre.ShortDrama },
+            timeout.Token
+        )
 );
 PrintCount("  推荐(query)", recommendationByQuery?.Items.Count);
 
 RecommendationPage? recommendationByOverload = await TryAsync(
     "GetRecommendationsAsync(overload)",
-    () => client.GetRecommendationsAsync(RecommendationGenre.ShortDrama, cancellationToken: timeout.Token)
+    () =>
+        client.GetRecommendationsAsync(
+            RecommendationGenre.ShortDrama,
+            cancellationToken: timeout.Token
+        )
 );
 PrintCount("  推荐(overload)", recommendationByOverload?.Items.Count);
 
@@ -104,8 +110,8 @@ CategoryPage? category = await TryAsync(
 PrintCount("  分类", category?.Items.Count);
 
 CategoryPage? categorySelector = await TryAsync(
-    "GetCategorySelectorAsync",
-    () => client.GetCategorySelectorAsync(categoryQuery, timeout.Token)
+    "GetCategoryAsync",
+    () => client.GetCategoryAsync(categoryQuery, timeout.Token)
 );
 PrintCount("  分类筛选器", categorySelector?.Options.Count);
 
@@ -148,14 +154,26 @@ Console.WriteLine($"剧集：{seriesId}，分集：{details?.Episodes.Count ?? 0
 IReadOnlyList<Drama>? related = await TryWhenIdAsync(
     "GetRelatedDramasAsync",
     seriesId,
-    id => client.GetRelatedDramasAsync(id, details?.Episodes.Count ?? 0, firstEpisode?.Number ?? 0, timeout.Token)
+    id =>
+        client.GetRelatedDramasAsync(
+            id,
+            details?.Episodes.Count ?? 0,
+            firstEpisode?.Number ?? 0,
+            timeout.Token
+        )
 );
 PrintCount("  关联剧集", related?.Count);
 
 IReadOnlyList<Drama>? seasons = await TryWhenIdAsync(
-    "GetSeriesSeasonsAsync",
+    "GetRelatedDramasAsync",
     seriesId,
-    id => client.GetSeriesSeasonsAsync(id, details?.Episodes.Count ?? 0, firstEpisode?.Number ?? 0, timeout.Token)
+    id =>
+        client.GetRelatedDramasAsync(
+            id,
+            details?.Episodes.Count ?? 0,
+            firstEpisode?.Number ?? 0,
+            timeout.Token
+        )
 );
 PrintCount("  分季", seasons?.Count);
 
@@ -176,11 +194,11 @@ PlaybackMedia? mediaByEpisode = firstEpisode is null
     );
 PrintMedia(mediaByEpisode);
 
-long durationMs = mediaByIds?.Duration > TimeSpan.Zero
-    ? (long)Math.Ceiling(mediaByIds.Duration.TotalMilliseconds)
+long durationMs =
+    mediaByIds?.Duration > TimeSpan.Zero ? (long)Math.Ceiling(mediaByIds.Duration.TotalMilliseconds)
     : mediaByEpisode?.Duration > TimeSpan.Zero
         ? (long)Math.Ceiling(mediaByEpisode.Duration.TotalMilliseconds)
-        : 600_000L;
+    : 600_000L;
 DanmakuPage? danmaku = await TryWhenIdsAsync(
     "GetDanmakuAsync",
     seriesId,
@@ -203,7 +221,8 @@ CommentPage? episodeComments = await TryWhenIdsAsync(
     "GetEpisodeCommentsAsync(ids)",
     seriesId,
     videoId,
-    (series, video) => client.GetEpisodeCommentsAsync(series, video, 10, cancellationToken: timeout.Token)
+    (series, video) =>
+        client.GetEpisodeCommentsAsync(series, video, 10, cancellationToken: timeout.Token)
 );
 PrintComments("  分集评论", episodeComments);
 
@@ -216,7 +235,7 @@ CommentPage? episodeCommentsByEpisode = firstEpisode is null
     );
 PrintComments("  分集评论(episode)", episodeCommentsByEpisode);
 
-DramaComment? sampleComment = reviews?.Items.FirstOrDefault() ?? episodeComments?.Items.FirstOrDefault();
+DramaComment? sampleComment = reviews?.Items[0] ?? episodeComments?.Items[0];
 CommentReplyPage? replies = sampleComment is null
     ? null
     : await TryAsync(
@@ -228,12 +247,12 @@ PrintCount("  评论回复", replies?.Items.Count);
 CommentReplyPage? reviewReplies = sampleComment is null
     ? null
     : await TryAsync(
-        "GetReviewRepliesAsync",
-        () => client.GetReviewRepliesAsync(sampleComment.Id, cancellationToken: timeout.Token)
+        "GetCommentRepliesAsync",
+        () => client.GetCommentRepliesAsync(sampleComment.Id, cancellationToken: timeout.Token)
     );
 PrintCount("  剧评回复", reviewReplies?.Items.Count);
 
-string creditUserId = details?.Drama.Credits.FirstOrDefault()?.User.Id ?? string.Empty;
+string creditUserId = details?.Drama.Credits[0]?.User.Id ?? string.Empty;
 UserProfile? creditProfile = await TryWhenIdAsync(
     "GetUserProfileAsync(userId)",
     creditUserId,
@@ -241,7 +260,7 @@ UserProfile? creditProfile = await TryWhenIdAsync(
 );
 PrintProfile(creditProfile);
 
-if (details?.Drama.Credits.FirstOrDefault() is { } credit)
+if (details?.Drama.Credits[0] is { } credit)
 {
     UserProfile? creditProfileByCredit = await TryAsync(
         "GetUserProfileAsync(credit)",
@@ -263,7 +282,12 @@ if (activities is { HasMore: true, Cursor.Length: > 0 })
 {
     UserActivityPage? nextActivities = await TryAsync(
         "GetUserActivitiesAsync(next)",
-        () => client.GetUserActivitiesAsync(profileUserId, cursor: activities.Cursor, cancellationToken: timeout.Token)
+        () =>
+            client.GetUserActivitiesAsync(
+                profileUserId,
+                cursor: activities.Cursor,
+                cancellationToken: timeout.Token
+            )
     );
     PrintCount("  用户动态下一页", nextActivities?.Items.Count);
 }
@@ -301,16 +325,19 @@ ReadProgressPage? progress = await TryAsync(
 );
 PrintCount("  播放进度", progress?.Items.Count);
 
-IReadOnlyList<string> progressIds = new[] { seriesId, videoId }
-    .Where(static id => id.Length > 0)
-    .Distinct(StringComparer.Ordinal)
-    .ToArray();
-ReadProgressPage? progressFor = progressIds.Count == 0
-    ? null
-    : await TryAsync(
-        "GetReadProgressForAsync",
-        () => client.GetReadProgressForAsync(progressIds, timeout.Token)
-    );
+IReadOnlyList<string> progressIds =
+[
+    .. new[] { seriesId, videoId }
+        .Where(static id => id.Length > 0)
+        .Distinct(StringComparer.Ordinal),
+];
+ReadProgressPage? progressFor =
+    progressIds.Count == 0
+        ? null
+        : await TryAsync(
+            "GetReadProgressForAsync",
+            () => client.GetReadProgressForAsync(progressIds, timeout.Token)
+        );
 PrintCount("  指定播放进度", progressFor?.Items.Count);
 
 DramaPage? favorites = await TryAsync(
@@ -338,8 +365,8 @@ FollowUpdatePage? followUpdates = await TryAsync(
 PrintCount("  关注动态", followUpdates?.Items.Count);
 
 FollowUpdatePage? allFollowUpdates = await TryAsync(
-    "GetAllFollowUpdatesAsync",
-    () => client.GetAllFollowUpdatesAsync(cancellationToken: timeout.Token)
+    "GetFollowUpdatesAsync",
+    () => client.GetFollowUpdatesAsync(cancellationToken: timeout.Token)
 );
 PrintCount("  全部关注动态", allFollowUpdates?.Items.Count);
 
@@ -374,11 +401,12 @@ if (share is not null)
 
 ShareLink? parsedShare = RunSync(
     "ResolveShareLink",
-    () => client.ResolveShareLink(
-        share is { Url.Length: > 0 }
-            ? share.Url
-            : $"https://hongguoduanju.com/?series_id={seriesId}&video_id={videoId}"
-    )
+    () =>
+        client.ResolveShareLink(
+            share is { Url.Length: > 0 }
+                ? share.Url
+                : $"https://hongguoduanju.com/?series_id={seriesId}&video_id={videoId}"
+        )
 );
 if (parsedShare is not null)
 {
@@ -389,17 +417,30 @@ if (parsedShare is not null)
 // an anonymous run still completes every read-only part of the sample.
 if (authentication.IsAuthenticated)
 {
-    HashSet<string> favoriteSeriesIds = favorites?.Items
-        .Select(static item => item.Id)
-        .Where(static id => id.Length > 0)
-        .ToHashSet(StringComparer.Ordinal) ?? [];
-    HashSet<string> likedSeriesIds = likes?.Items
-        .Select(static item => item.Id)
-        .Where(static id => id.Length > 0)
-        .ToHashSet(StringComparer.Ordinal) ?? [];
+    HashSet<string> favoriteSeriesIds =
+        favorites
+            ?.Items.Select(static item => item.Id)
+            .Where(static id => id.Length > 0)
+            .ToHashSet(StringComparer.Ordinal)
+        ?? [];
+    HashSet<string> likedSeriesIds =
+        likes
+            ?.Items.Select(static item => item.Id)
+            .Where(static id => id.Length > 0)
+            .ToHashSet(StringComparer.Ordinal)
+        ?? [];
     ReadHistoryEntry? existingHistory = history?.Items.FirstOrDefault(item =>
         item.SeriesId == seriesId && item.VideoId == videoId
     );
+    HashSet<string> existingReviewIds =
+        reviews?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal) ?? [];
+    HashSet<string> existingEpisodeCommentIds =
+        episodeComments?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal)
+        ?? [];
+    HashSet<string> existingDanmakuIds =
+        danmaku?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal) ?? [];
+    HashSet<string> existingReplyIds =
+        replies?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal) ?? [];
     await RunOperationsAsync(
         client,
         seriesId,
@@ -410,6 +451,10 @@ if (authentication.IsAuthenticated)
         favoriteSeriesIds,
         likedSeriesIds,
         existingHistory,
+        existingReviewIds,
+        existingEpisodeCommentIds,
+        existingDanmakuIds,
+        existingReplyIds,
         timeout.Token
     );
 }
@@ -435,20 +480,28 @@ static string ReadPhone(string sampleDirectory)
 static Drama? FindDrama(SearchResult? search, IReadOnlyList<Drama>? catalog, string keyword)
 {
     return search?.Items.FirstOrDefault(item =>
-               string.Equals(item.Title, keyword, StringComparison.OrdinalIgnoreCase))
-        ?? search?.Items.FirstOrDefault(item => item.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-        ?? catalog?.FirstOrDefault(item => item.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+            string.Equals(item.Title, keyword, StringComparison.OrdinalIgnoreCase)
+        )
+        ?? search?.Items.FirstOrDefault(item =>
+            item.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+        )
+        ?? catalog?.FirstOrDefault(item =>
+            item.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+        );
 }
 
 static string FindOrdinaryUserId(CommentPage? comments, DramaDetails? details)
 {
-    HashSet<string> creditIds = details?.Drama.Credits
-        .Select(static credit => credit.User.Id)
-        .Where(static id => id.Length > 0)
-        .ToHashSet(StringComparer.Ordinal) ?? [];
-    return comments?.Items
-        .Select(static comment => comment.Author.Id)
-        .FirstOrDefault(id => id.Length > 0 && !creditIds.Contains(id)) ?? string.Empty;
+    HashSet<string> creditIds =
+        details
+            ?.Drama.Credits.Select(static credit => credit.User.Id)
+            .Where(static id => id.Length > 0)
+            .ToHashSet(StringComparer.Ordinal)
+        ?? [];
+    return comments
+            ?.Items.Select(static comment => comment.Author.Id)
+            .FirstOrDefault(id => id.Length > 0 && !creditIds.Contains(id))
+        ?? string.Empty;
 }
 
 static void PrintMedia(PlaybackMedia? media)
@@ -510,11 +563,7 @@ static async Task<T?> TryAsync<T>(string name, Func<Task<T>> operation)
     return null;
 }
 
-static async Task<T?> TryWhenIdAsync<T>(
-    string name,
-    string id,
-    Func<string, Task<T>> operation
-)
+static async Task<T?> TryWhenIdAsync<T>(string name, string id, Func<string, Task<T>> operation)
     where T : class
 {
     return id.Length == 0 ? null : await TryAsync(name, () => operation(id));
@@ -584,48 +633,98 @@ static async Task RunOperationsAsync(
     IReadOnlySet<string> favoriteSeriesIds,
     IReadOnlySet<string> likedSeriesIds,
     ReadHistoryEntry? existingHistory,
+    IReadOnlySet<string> existingReviewIds,
+    IReadOnlySet<string> existingEpisodeCommentIds,
+    IReadOnlySet<string> existingDanmakuIds,
+    IReadOnlySet<string> existingReplyIds,
     CancellationToken cancellationToken
 )
 {
-    string marker = $"PhoenixReadApi.Sample {DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+    const string marker = "很不错";
 
     if (seriesId.Length > 0 && videoId.Length > 0)
     {
-        await TryAsync("ReportProgressAsync", () => client.ReportProgressAsync(
-            new ProgressUpdate
-            {
-                SeriesId = seriesId,
-                VideoId = videoId,
-                CurrentPositionMs = 1_000,
-                DurationMs = 60_000,
-            }, cancellationToken));
+        await TryAsync(
+            "ReportProgressAsync",
+            () =>
+                client.ReportProgressAsync(
+                    new ProgressUpdate
+                    {
+                        SeriesId = seriesId,
+                        VideoId = videoId,
+                        EpisodeNumber = episode?.Number ?? 0,
+                        CurrentPositionMs = 1_000,
+                        DurationMs = 60_000,
+                        AccumulatedPlayTimeMs = 1_000,
+                    },
+                    cancellationToken
+                )
+        );
         bool wasFavorite = favoriteSeriesIds.Contains(seriesId);
-        await TryAsync("SetFavoriteAsync", () => client.SetFavoriteAsync(seriesId, videoId, true, cancellationToken));
-        await TryAsync("RemoveFavoriteAsync", () => client.RemoveFavoriteAsync(seriesId, videoId, cancellationToken));
+        await TryAsync(
+            "SetFavoriteAsync",
+            () => client.SetFavoriteAsync(seriesId, videoId, true, cancellationToken)
+        );
+        await TryAsync(
+            "RemoveFavoriteAsync",
+            () => client.RemoveFavoriteAsync(seriesId, videoId, cancellationToken)
+        );
         if (wasFavorite)
         {
-            await TryAsync("SetFavoriteAsync(restore)", () => client.SetFavoriteAsync(seriesId, videoId, true, cancellationToken));
+            await TryAsync(
+                "SetFavoriteAsync(restore)",
+                () => client.SetFavoriteAsync(seriesId, videoId, true, cancellationToken)
+            );
         }
 
         bool wasLiked = likedSeriesIds.Contains(seriesId);
-        await TryAsync("SetDramaLikeAsync", () => client.SetDramaLikeAsync(seriesId, videoId, true, cancellationToken));
-        await TryAsync("SetDramaLikeAsync(false)", () => client.SetDramaLikeAsync(seriesId, videoId, false, cancellationToken));
+        await TryAsync(
+            "SetDramaLikeAsync",
+            () => client.SetDramaEpisodeLikeAsync(seriesId, videoId, true, cancellationToken)
+        );
+        await TryAsync(
+            "SetDramaLikeAsync(false)",
+            () => client.SetDramaEpisodeLikeAsync(seriesId, videoId, false, cancellationToken)
+        );
         if (wasLiked)
         {
-            await TryAsync("SetDramaLikeAsync(restore)", () => client.SetDramaLikeAsync(seriesId, videoId, true, cancellationToken));
+            await TryAsync(
+                "SetDramaLikeAsync(restore)",
+                () => client.SetDramaEpisodeLikeAsync(seriesId, videoId, true, cancellationToken)
+            );
         }
-        await TryAsync("SendEpisodeCommentAsync", () => client.SendEpisodeCommentAsync(seriesId, videoId, marker, cancellationToken));
-        await TryAsync("SendDanmakuAsync", () => client.SendDanmakuAsync(seriesId, videoId, marker, cancellationToken));
+        await TryAsync(
+            "SendEpisodeCommentAsync",
+            () => client.SendEpisodeCommentAsync(seriesId, videoId, marker, cancellationToken)
+        );
+        await TryAsync(
+            "SendDanmakuAsync",
+            () => client.SendDanmakuAsync(seriesId, videoId, marker, cancellationToken)
+        );
+        await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
 
         CommentPage? createdComments = await TryAsync(
             "GetEpisodeCommentsAsync(cleanup)",
-            () => client.GetEpisodeCommentsAsync(seriesId, videoId, 20, cancellationToken: cancellationToken)
+            () =>
+                client.GetEpisodeCommentsAsync(
+                    seriesId,
+                    videoId,
+                    20,
+                    cancellationToken: cancellationToken
+                )
         );
         if (createdComments is not null)
         {
-            foreach (DramaComment created in createdComments.Items.Where(item => item.Text == marker))
+            foreach (
+                DramaComment created in createdComments.Items.Where(item =>
+                    item.Text == marker && !existingEpisodeCommentIds.Contains(item.Id)
+                )
+            )
             {
-                await TryAsync("DeleteCommentAsync(created)", () => client.DeleteCommentAsync(created.Id, videoId, cancellationToken));
+                await TryAsync(
+                    "DeleteCommentAsync(created)",
+                    () => client.DeleteCommentAsync(created.Id, videoId, cancellationToken)
+                );
             }
         }
 
@@ -635,77 +734,159 @@ static async Task RunOperationsAsync(
         );
         if (createdDanmaku is not null)
         {
-            foreach (DanmakuItem created in createdDanmaku.Items.Where(item => item.Text == marker))
+            foreach (
+                DanmakuItem created in createdDanmaku.Items.Where(item =>
+                    item.Text == marker && !existingDanmakuIds.Contains(item.Id)
+                )
+            )
             {
-                await TryAsync("DeleteDanmakuAsync(created)", () => client.DeleteDanmakuAsync(created.Id, videoId, cancellationToken));
+                await TryAsync(
+                    "DeleteDanmakuAsync(created)",
+                    () => client.DeleteDanmakuAsync(created.Id, videoId, cancellationToken)
+                );
             }
         }
     }
 
     if (seriesId.Length > 0)
     {
-        await TryAsync("SendDramaReviewAsync", () => client.SendDramaReviewAsync(seriesId, 5.0, marker, cancellationToken));
+        await TryAsync(
+            "SendDramaReviewAsync",
+            () => client.SendDramaReviewAsync(seriesId, 5.0, marker, cancellationToken)
+        );
+        await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
         CommentPage? createdReviews = await TryAsync(
             "GetDramaReviewsAsync(cleanup)",
             () => client.GetDramaReviewsAsync(seriesId, 20, cancellationToken: cancellationToken)
         );
         if (createdReviews is not null)
         {
-            foreach (DramaComment created in createdReviews.Items.Where(item => item.Text == marker))
+            foreach (
+                DramaComment created in createdReviews.Items.Where(item =>
+                    item.Text == marker && !existingReviewIds.Contains(item.Id)
+                )
+            )
             {
-                await TryAsync("DeleteDramaReviewAsync(created)", () => client.DeleteDramaReviewAsync(created.Id, seriesId, cancellationToken));
+                await TryAsync(
+                    "DeleteDramaReviewAsync(created)",
+                    () => client.DeleteDramaReviewAsync(created.Id, seriesId, cancellationToken)
+                );
             }
         }
-        await TryAsync("SetReservationAsync", () => client.SetReservationAsync(seriesId, true, cancellationToken));
-        await TryAsync("DeleteReservationAsync", () => client.DeleteReservationAsync(seriesId, cancellationToken));
+        await TryAsync(
+            "SetReservationAsync",
+            () => client.SetReservationAsync(seriesId, true, cancellationToken)
+        );
+        await TryAsync(
+            "DeleteReservationAsync",
+            () => client.DeleteReservationAsync(seriesId, cancellationToken)
+        );
     }
 
     if (comment is not null)
     {
-        await TryAsync("GetCommentRepliesAsync(write target)", () => client.GetCommentRepliesAsync(comment.Id, cancellationToken: cancellationToken));
-        await TryAsync("SendCommentReplyAsync", () => client.SendCommentReplyAsync(comment.Id, videoId, marker, "", cancellationToken));
-        await TryAsync("SendReplyAsync", () => client.SendReplyAsync(comment.Id, videoId, marker, "", cancellationToken));
+        await TryAsync(
+            "GetCommentRepliesAsync(write target)",
+            () => client.GetCommentRepliesAsync(comment.Id, cancellationToken: cancellationToken)
+        );
+        await TryAsync(
+            "SendCommentReplyAsync",
+            () => client.SendCommentReplyAsync(comment.Id, videoId, marker, "", cancellationToken)
+        );
+        await TryAsync(
+            "SendCommentReplyAsync",
+            () => client.SendCommentReplyAsync(comment.Id, videoId, marker, "", cancellationToken)
+        );
+        await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
         CommentReplyPage? createdReplies = await TryAsync(
             "GetCommentRepliesAsync(cleanup)",
-            () => client.GetCommentRepliesAsync(comment.Id, 20, cancellationToken: cancellationToken)
+            () =>
+                client.GetCommentRepliesAsync(comment.Id, 20, cancellationToken: cancellationToken)
         );
         if (createdReplies is not null)
         {
-            foreach (CommentReply created in createdReplies.Items.Where(item => item.Text == marker))
+            foreach (
+                CommentReply created in createdReplies.Items.Where(item =>
+                    item.Text == marker && !existingReplyIds.Contains(item.Id)
+                )
+            )
             {
-                await TryAsync("SetReplyLikeAsync(created)", () => client.SetReplyLikeAsync(created.Id, videoId, true, cancellationToken));
-                await TryAsync("SetReplyLikeAsync(created,false)", () => client.SetReplyLikeAsync(created.Id, videoId, false, cancellationToken));
-                await TryAsync("DeleteReplyAsync(created)", () => client.DeleteReplyAsync(created.Id, cancellationToken));
+                await TryAsync(
+                    "SetReplyLikeAsync(created)",
+                    () => client.SetReplyLikeAsync(created.Id, videoId, true, cancellationToken)
+                );
+                await TryAsync(
+                    "SetReplyLikeAsync(created,false)",
+                    () => client.SetReplyLikeAsync(created.Id, videoId, false, cancellationToken)
+                );
+                await TryAsync(
+                    "DeleteReplyAsync(created)",
+                    () => client.DeleteReplyAsync(created.Id, cancellationToken)
+                );
             }
         }
-        await TryAsync("SetCommentLikeAsync", () => client.SetCommentLikeAsync(comment.Id, seriesId, true, cancellationToken));
-        await TryAsync("SetCommentLikeAsync(false)", () => client.SetCommentLikeAsync(comment.Id, seriesId, false, cancellationToken));
-        await TryAsync("SetReviewLikeAsync", () => client.SetReviewLikeAsync(comment.Id, seriesId, true, cancellationToken));
-        await TryAsync("SetReviewLikeAsync(false)", () => client.SetReviewLikeAsync(comment.Id, seriesId, false, cancellationToken));
-        await TryAsync("SetDanmakuLikeAsync", () => client.SetDanmakuLikeAsync(comment.Id, videoId, true, cancellationToken));
-        await TryAsync("SetDanmakuLikeAsync(false)", () => client.SetDanmakuLikeAsync(comment.Id, videoId, false, cancellationToken));
-        await TryAsync("DeleteCommentAsync(permission probe)", () => client.DeleteCommentAsync(comment.Id, seriesId, cancellationToken));
+        await TryAsync(
+            "SetCommentLikeAsync",
+            () => client.SetCommentLikeAsync(comment.Id, seriesId, true, cancellationToken)
+        );
+        await TryAsync(
+            "SetCommentLikeAsync(false)",
+            () => client.SetCommentLikeAsync(comment.Id, seriesId, false, cancellationToken)
+        );
+        await TryAsync(
+            "SetReviewLikeAsync",
+            () => client.SetReviewLikeAsync(comment.Id, seriesId, true, cancellationToken)
+        );
+        await TryAsync(
+            "SetReviewLikeAsync(false)",
+            () => client.SetReviewLikeAsync(comment.Id, seriesId, false, cancellationToken)
+        );
+        await TryAsync(
+            "SetDanmakuLikeAsync",
+            () => client.SetDanmakuLikeAsync(comment.Id, videoId, true, cancellationToken)
+        );
+        await TryAsync(
+            "SetDanmakuLikeAsync(false)",
+            () => client.SetDanmakuLikeAsync(comment.Id, videoId, false, cancellationToken)
+        );
     }
 
     if (userId.Length > 0)
     {
-        await TryAsync("SetFollowAsync", () => client.SetFollowAsync(userId, true, cancellationToken));
-        await TryAsync("SetFollowAsync(false)", () => client.SetFollowAsync(userId, false, cancellationToken));
+        await TryAsync(
+            "SetFollowAsync",
+            () => client.SetFollowAsync(userId, true, cancellationToken)
+        );
+        await TryAsync(
+            "SetFollowAsync(false)",
+            () => client.SetFollowAsync(userId, false, cancellationToken)
+        );
     }
 
     if (episode is not null && seriesId.Length > 0 && videoId.Length > 0)
     {
-        await TryAsync("DeleteHistoryAsync", () => client.DeleteHistoryAsync(seriesId, videoId, cancellationToken));
+        await TryAsync(
+            "DeleteHistoryAsync",
+            () => client.DeleteHistoryAsync(seriesId, videoId, cancellationToken)
+        );
         if (existingHistory is not null)
         {
-            await TryAsync("ReportProgressAsync(restore)", () => client.ReportProgressAsync(
-                new ProgressUpdate
-                {
-                    SeriesId = existingHistory.SeriesId,
-                    VideoId = existingHistory.VideoId,
-                    CurrentPositionMs = existingHistory.CurrentPositionMs,
-                    DurationMs = existingHistory.DurationMs,
-                }, cancellationToken));
+            await TryAsync(
+                "ReportProgressAsync(restore)",
+                () =>
+                    client.ReportProgressAsync(
+                        new ProgressUpdate
+                        {
+                            SeriesId = existingHistory.SeriesId,
+                            VideoId = existingHistory.VideoId,
+                            EpisodeNumber = episode?.Number ?? 0,
+                            CurrentPositionMs = existingHistory.CurrentPositionMs,
+                            DurationMs = existingHistory.DurationMs,
+                            AccumulatedPlayTimeMs = existingHistory.CurrentPositionMs,
+                        },
+                        cancellationToken
+                    )
+            );
         }
     }
 }

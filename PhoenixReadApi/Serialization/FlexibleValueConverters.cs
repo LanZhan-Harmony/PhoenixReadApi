@@ -428,6 +428,83 @@ internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<
     }
 }
 
+/// <summary>把 tags 的字符串、对象和数组形式统一为类型化标签列表。</summary>
+internal sealed class DramaTagListConverter : JsonConverter<IReadOnlyList<DramaTagDto>>
+{
+    public override bool HandleNull => true;
+
+    public override IReadOnlyList<DramaTagDto> Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
+    {
+        using JsonDocument document = JsonDocument.ParseValue(ref reader);
+        List<DramaTagDto> result = [];
+        Add(document.RootElement, result);
+        return result;
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        IReadOnlyList<DramaTagDto> value,
+        JsonSerializerOptions options
+    )
+    {
+        writer.WriteStartArray();
+        foreach (DramaTagDto item in value)
+        {
+            writer.WriteStringValue(item.Name);
+        }
+        writer.WriteEndArray();
+    }
+
+    private static void Add(JsonElement value, List<DramaTagDto> result)
+    {
+        switch (value.ValueKind)
+        {
+            case JsonValueKind.String:
+            case JsonValueKind.Number:
+                AddText(value.ToString(), result);
+                return;
+            case JsonValueKind.Array:
+                foreach (JsonElement item in value.EnumerateArray())
+                {
+                    Add(item, result);
+                }
+                return;
+            case JsonValueKind.Object:
+                foreach (string name in new[] { "name", "title", "label", "tag" })
+                {
+                    if (value.TryGetProperty(name, out JsonElement item))
+                    {
+                        AddText(item.ToString(), result);
+                        return;
+                    }
+                }
+                return;
+            default:
+                return;
+        }
+    }
+
+    private static void AddText(string? value, List<DramaTagDto> result)
+    {
+        foreach (
+            string item in (value ?? string.Empty).Split(
+                [',', '/', '，', '、', '|', ';'],
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            )
+        )
+        {
+            if (item.Length > 0 && result.All(existing => existing.Name != item))
+            {
+                result.Add(new DramaTagDto { Name = item });
+            }
+        }
+    }
+}
+
 /// <summary>读取以数组或键值对象表示的媒体版本。</summary>
 internal sealed class FlexibleMediaVariantListConverter
     : JsonConverter<IReadOnlyList<AppMediaVariantDto>>

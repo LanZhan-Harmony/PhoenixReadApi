@@ -12,7 +12,10 @@ internal sealed class AuthenticationService : PhoenixFeatureService
     private AuthenticatedUser _user = new();
 
     internal AuthenticationService(PhoenixReadClientRuntime runtime)
-        : base(runtime) { }
+        : base(runtime)
+    {
+        _user = _appTransport.RestoredUser;
+    }
 
     internal async Task<VerificationCodeResult> SendVerificationCodeAsync(
         string phone,
@@ -100,6 +103,7 @@ internal sealed class AuthenticationService : PhoenixFeatureService
             Description = data.Description ?? string.Empty,
             MaskedPhone = data.Mobile ?? string.Empty,
         };
+        _appTransport.SaveAuthenticatedUser(_user);
         return _user;
     }
 
@@ -114,9 +118,7 @@ internal sealed class AuthenticationService : PhoenixFeatureService
 
     private static string NormalizePhone(string value)
     {
-        value = new string(
-            (value ?? string.Empty).Where(static c => !char.IsWhiteSpace(c)).ToArray()
-        );
+        value = new string([.. (value ?? string.Empty).Where(static c => !char.IsWhiteSpace(c))]);
         if (value.StartsWith("+86", StringComparison.Ordinal))
         {
             value = value[3..];

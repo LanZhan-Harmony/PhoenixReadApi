@@ -11,6 +11,7 @@ using PhoenixReadApi.Internal.Serialization;
 namespace PhoenixReadApi.Internal.Infrastructure.Http;
 
 /// <summary>构建并签名红果 App 请求，然后反序列化响应。</summary>
+/// <remarks>读取请求按配置重试；短信、登录、评论和其他有副作用的写请求由调用方指定不重试。</remarks>
 internal sealed class PhoenixReadAppTransport
 {
     private readonly PhoenixReadHttpTransport _http;
@@ -23,10 +24,17 @@ internal sealed class PhoenixReadAppTransport
     );
     private readonly string? _sessionStateFilePath;
     private readonly object _sessionFileLock = new();
+    private string _deviceId;
+    private string _installId;
     private string _cdid = string.Empty;
     private string _klinkEgdi = "AAJJM_WQMzpUFSGpW0di3XOPy8QZX_ge-bxBdCmFsijoUL4RQJ0-xSCG";
     private string _passportCsrfToken = string.Empty;
     private string _ttReq = string.Empty;
+    private string _userId = string.Empty;
+    private string _userName = string.Empty;
+    private string _userAvatarUrl = string.Empty;
+    private string _userDescription = string.Empty;
+    private string _userMaskedPhone = string.Empty;
 
     private const string AuthenticationVersionCode = "73932";
     private const string AuthenticationVersionName = "7.3.9.32";
@@ -35,17 +43,19 @@ internal sealed class PhoenixReadAppTransport
     private const string AuthenticationDeviceBrand = "SAMSUNG";
     private const string AuthenticationResolution = "1920*1080";
     private const string AuthenticationRomVersion = "V417IR release-keys";
-    private const string AuthenticationCdidFallback = "1bbdb250-e8a0-4cd6-afcf-ba61c1e4a941";
 
     internal PhoenixReadAppTransport(PhoenixReadHttpTransport http, PhoenixReadApiOptions options)
     {
         _http = http;
         _options = options;
-        _sessionStateFilePath = options.AuthenticationStateFilePath;
+        _sessionStateFilePath =
+            options.AuthenticationStateFilePath ?? options.AnonymousStateFilePath;
+        _deviceId = options.DeviceId!;
+        _installId = options.InstallId!;
         LoadSessionSnapshot();
         if (string.IsNullOrWhiteSpace(_cdid))
         {
-            _cdid = AuthenticationCdidFallback;
+            _cdid = Guid.NewGuid().ToString();
         }
         if (string.IsNullOrWhiteSpace(_ttReq))
         {
@@ -61,10 +71,12 @@ internal sealed class PhoenixReadAppTransport
         bool commentRequest,
         CancellationToken cancellationToken,
         int commentSource = 601,
-        int? serverChannel = 1000
+        int? serverChannel = 1000,
+        AppRequestRetryMode retryMode = AppRequestRetryMode.ReadOnly
     )
     {
         var body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+        int attempts = retryMode == AppRequestRetryMode.NoRetry ? 1 : _options.RetryCount;
         return RetryPolicy.ExecuteAsync(
             (attempt, token) =>
                 SendOnceAsync<TResponse>(
@@ -75,7 +87,25 @@ internal sealed class PhoenixReadAppTransport
                     serverChannel,
                     token
                 ),
-            _options.RetryCount,
+            attempts,
+            RetryPolicy.IsTransient,
+            cancellationToken
+        );
+    }
+
+    /// <summary>发送返回顶层播放进度列表的接口。</summary>
+    internal Task<AppReadProgressResponse> PostReadProgressAsync<TRequest>(
+        string path,
+        TRequest payload,
+        CancellationToken cancellationToken,
+        AppRequestRetryMode retryMode = AppRequestRetryMode.ReadOnly
+    )
+    {
+        byte[] body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+        int attempts = retryMode == AppRequestRetryMode.NoRetry ? 1 : _options.RetryCount;
+        return RetryPolicy.ExecuteAsync(
+            (_, token) => SendReadProgressPostOnceAsync(path, body, token),
+            attempts,
             RetryPolicy.IsTransient,
             cancellationToken
         );
@@ -88,6 +118,19 @@ internal sealed class PhoenixReadAppTransport
     ) =>
         RetryPolicy.ExecuteAsync(
             (attempt, token) => SendGetOnceAsync<TResponse>(path, query, token),
+            _options.RetryCount,
+            RetryPolicy.IsTransient,
+            cancellationToken
+        );
+
+    /// <summary>读取顶层 video_data/local_book_data 的播放进度接口。</summary>
+    internal Task<AppReadProgressResponse> GetReadProgressAsync(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    ) =>
+        RetryPolicy.ExecuteAsync(
+            (_, token) => SendReadProgressOnceAsync(path, query, token),
             _options.RetryCount,
             RetryPolicy.IsTransient,
             cancellationToken
@@ -174,6 +217,161 @@ internal sealed class PhoenixReadAppTransport
         return result;
     }
 
+    private async Task<AppReadProgressResponse> SendReadProgressOnceAsync(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    )
+    {
+        Uri endpoint = BuildAppUri(path);
+        foreach (KeyValuePair<string, string> pair in query)
+        {
+            endpoint = AddQuery(endpoint, pair.Key, pair.Value);
+        }
+
+        Uri requestUri = AddQuery(
+            endpoint,
+            "_rticket",
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+        );
+        using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
+        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+        ApplySession(request);
+        PhoenixReadRequestSigner.Sign(request, ReadOnlySpan<byte>.Empty, DateTimeOffset.UtcNow);
+
+        using HttpResponseMessage response = await _http
+            .SendAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        CaptureSession(response);
+        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new PhoenixReadApiHttpException(
+                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                path,
+                (int)response.StatusCode,
+                requestUri,
+                (int)response.StatusCode >= 500
+            );
+        }
+        if (bytes.Length == 0)
+        {
+            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+        }
+
+        AppReadProgressResponse result;
+        try
+        {
+            result =
+                JsonAotSerializer.Deserialize<AppReadProgressResponse>(bytes)
+                ?? throw new JsonException("The App response was null.");
+        }
+        catch (JsonException exception)
+        {
+            throw new PhoenixReadApiDeserializationException(
+                "红果 App 接口返回格式异常。",
+                path,
+                exception
+            );
+        }
+
+        string providerCode = result.Code;
+        if (string.IsNullOrWhiteSpace(providerCode))
+        {
+            providerCode = result.BaseResponse?.StatusCode ?? string.Empty;
+        }
+        if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
+        {
+            throw new PhoenixReadApiProviderException(
+                $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
+                path,
+                providerCode,
+                isTransient: true
+            );
+        }
+        return result;
+    }
+
+    private async Task<AppReadProgressResponse> SendReadProgressPostOnceAsync(
+        string path,
+        byte[] body,
+        CancellationToken cancellationToken
+    )
+    {
+        Uri endpoint = BuildAppUri(path);
+        Uri requestUri = AddQuery(
+            endpoint,
+            "_rticket",
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+        );
+        using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
+        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+        ApplySession(request);
+        request.Content = new ByteArrayContent(body);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+        {
+            CharSet = "utf-8",
+        };
+        PhoenixReadRequestSigner.Sign(request, body, DateTimeOffset.UtcNow);
+
+        using HttpResponseMessage response = await _http
+            .SendAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        CaptureSession(response);
+        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new PhoenixReadApiHttpException(
+                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                path,
+                (int)response.StatusCode,
+                requestUri,
+                (int)response.StatusCode >= 500
+            );
+        }
+        if (bytes.Length == 0)
+        {
+            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+        }
+
+        AppReadProgressResponse result;
+        try
+        {
+            result =
+                JsonAotSerializer.Deserialize<AppReadProgressResponse>(bytes)
+                ?? throw new JsonException("The App response was null.");
+        }
+        catch (JsonException exception)
+        {
+            throw new PhoenixReadApiDeserializationException(
+                "红果 App 接口返回格式异常。",
+                path,
+                exception
+            );
+        }
+        string providerCode = result.Code;
+        if (string.IsNullOrWhiteSpace(providerCode))
+        {
+            providerCode = result.BaseResponse?.StatusCode ?? string.Empty;
+        }
+        if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
+        {
+            throw new PhoenixReadApiProviderException(
+                $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
+                path,
+                providerCode,
+                isTransient: true
+            );
+        }
+        return result;
+    }
+
     private async Task<AppResponse<TResponse>> SendOnceAsync<TResponse>(
         string path,
         byte[] body,
@@ -227,7 +425,17 @@ internal sealed class PhoenixReadAppTransport
         }
         else if (!path.Contains("/novel/player/video_model/", StringComparison.Ordinal))
         {
-            PhoenixReadRequestSigner.Sign(request, body, now);
+            if (
+                path.Contains("/novel/articleapi/do_action", StringComparison.Ordinal)
+                || path.Contains("/reading/bookapi/read_history/update", StringComparison.Ordinal)
+            )
+            {
+                PhoenixReadRequestSigner.SignPassport(request, body, now);
+            }
+            else
+            {
+                PhoenixReadRequestSigner.Sign(request, body, now);
+            }
         }
 
         using HttpResponseMessage response = await _http
@@ -304,13 +512,36 @@ internal sealed class PhoenixReadAppTransport
         byte[] body = System.Text.Encoding.UTF8.GetBytes(encoded);
         return RetryPolicy.ExecuteAsync(
             (_, token) => SendFormOnceAsync<TResponse>(path, body, token),
-            _options.RetryCount,
+            1,
             RetryPolicy.IsTransient,
             cancellationToken
         );
     }
 
-    internal bool HasSession => _cookies.ContainsKey("sessionid") || _cookies.ContainsKey("sid_tt");
+    internal bool HasSession =>
+        _authHeaders.ContainsKey("x-tt-token")
+        && (_cookies.ContainsKey("sessionid") || _cookies.ContainsKey("sid_tt"));
+
+    internal AuthenticatedUser RestoredUser =>
+        new()
+        {
+            Id = _userId,
+            Name = _userName,
+            AvatarUrl = _userAvatarUrl,
+            Description = _userDescription,
+            MaskedPhone = _userMaskedPhone,
+        };
+
+    internal void SaveAuthenticatedUser(AuthenticatedUser user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+        _userId = user.Id;
+        _userName = user.Name;
+        _userAvatarUrl = user.AvatarUrl;
+        _userDescription = user.Description;
+        _userMaskedPhone = user.MaskedPhone;
+        SaveSessionSnapshot();
+    }
 
     internal void SaveAuthenticationMetadata(
         string verificationTicket,
@@ -323,6 +554,11 @@ internal sealed class PhoenixReadAppTransport
         _cookies.Clear();
         _authHeaders.Clear();
         _passportCsrfToken = string.Empty;
+        _userId = string.Empty;
+        _userName = string.Empty;
+        _userAvatarUrl = string.Empty;
+        _userDescription = string.Empty;
+        _userMaskedPhone = string.Empty;
         DeleteSessionSnapshot();
     }
 
@@ -429,8 +665,8 @@ internal sealed class PhoenixReadAppTransport
                 new("passport-sdk-version", "5051452"),
                 new("use_new_token_expire_rule", "true"),
                 new("klink_egdi", _klinkEgdi),
-                new("iid", _options.InstallId!),
-                new("device_id", _options.DeviceId!),
+                new("iid", _installId),
+                new("device_id", _deviceId),
                 new("ac", "wifi"),
                 new("channel", AuthenticationChannel),
                 new("aid", "8662"),
@@ -485,8 +721,8 @@ internal sealed class PhoenixReadAppTransport
             new("resolution", AuthenticationResolution),
             new("dpi", "280"),
             new("ac", "wifi"),
-            new("device_id", _options.DeviceId!),
-            new("iid", _options.InstallId!),
+            new("device_id", _deviceId),
+            new("iid", _installId),
             new("host_abi", "arm64-v8a"),
             new("dragon_device_type", "pad"),
             new("pv_player", AuthenticationVersionCode),
@@ -552,7 +788,7 @@ internal sealed class PhoenixReadAppTransport
             );
         }
 
-        foreach (var header in _authHeaders)
+        foreach (KeyValuePair<string, string> header in _authHeaders)
         {
             request.Headers.TryAddWithoutValidation(header.Key, header.Value);
         }
@@ -612,8 +848,8 @@ internal sealed class PhoenixReadAppTransport
         List<KeyValuePair<string, string>> result = [.. values];
         long ticket = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         Add("klink_egdi", _klinkEgdi);
-        Add("iid", _options.InstallId!);
-        Add("device_id", _options.DeviceId!);
+        Add("iid", _installId);
+        Add("device_id", _deviceId);
         Add("ac", "wifi");
         Add("channel", AuthenticationChannel);
         Add("aid", "8662");
@@ -677,7 +913,7 @@ internal sealed class PhoenixReadAppTransport
     {
         if (string.IsNullOrWhiteSpace(_cdid))
         {
-            _cdid = AuthenticationCdidFallback;
+            _cdid = Guid.NewGuid().ToString();
         }
         if (string.IsNullOrWhiteSpace(_passportCsrfToken))
         {
@@ -686,7 +922,7 @@ internal sealed class PhoenixReadAppTransport
             _passportCsrfToken = Convert.ToHexString(token).ToLowerInvariant();
         }
 
-        _cookies.TryAdd("install_id", _options.InstallId!);
+        _cookies.TryAdd("install_id", _installId);
         _cookies.TryAdd("store-region", "cn-ah");
         _cookies.TryAdd("store-region-src", "did");
         _cookies.TryAdd("ttreq", _ttReq);
@@ -727,11 +963,24 @@ internal sealed class PhoenixReadAppTransport
                 }
             }
             _cdid = snapshot.Cdid;
+            if (DeviceIdGenerator.IsValid(snapshot.DeviceId))
+            {
+                _deviceId = snapshot.DeviceId;
+            }
+            if (DeviceIdGenerator.IsValid(snapshot.InstallId))
+            {
+                _installId = snapshot.InstallId;
+            }
             _klinkEgdi = string.IsNullOrWhiteSpace(snapshot.KlinkEgdi)
                 ? _klinkEgdi
                 : snapshot.KlinkEgdi;
             _passportCsrfToken = snapshot.PassportCsrfToken;
             _ttReq = snapshot.TtReq;
+            _userId = snapshot.UserId;
+            _userName = snapshot.UserName;
+            _userAvatarUrl = snapshot.UserAvatarUrl;
+            _userDescription = snapshot.UserDescription;
+            _userMaskedPhone = snapshot.UserMaskedPhone;
         }
         catch (Exception exception)
             when (exception is IOException or UnauthorizedAccessException or JsonException)
@@ -783,6 +1032,13 @@ internal sealed class PhoenixReadAppTransport
                     KlinkEgdi = _klinkEgdi,
                     PassportCsrfToken = _passportCsrfToken,
                     TtReq = _ttReq,
+                    DeviceId = _deviceId,
+                    InstallId = _installId,
+                    UserId = _userId,
+                    UserName = _userName,
+                    UserAvatarUrl = _userAvatarUrl,
+                    UserDescription = _userDescription,
+                    UserMaskedPhone = _userMaskedPhone,
                     UpdatedAtUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 };
                 string temporary = _sessionStateFilePath + ".tmp";

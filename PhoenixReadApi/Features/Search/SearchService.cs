@@ -115,7 +115,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
             return Task.FromResult<IReadOnlyList<SearchSuggestion>>(cached);
         }
 
-        var state = (Service: this, Query: query, Limit: limit);
+        (SearchService Service, string Query, int Limit) state = (
+            Service: this,
+            Query: query,
+            Limit: limit
+        );
         Lazy<Task<IReadOnlyList<SearchSuggestion>>> pending = _suggestionPending.GetOrAdd(
             cacheKey,
             static (_, state) =>
@@ -284,8 +288,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
             DramaDto data = record.VideoData;
             if (
                 data is null
-                || !JsonValueReader.IsNumericId(
-                    JsonValueReader.First(data.SeriesId, data.SeriesIdNumber)
+                || !ValueNormalizer.IsNumericId(
+                    ValueNormalizer.First(data.SeriesId, data.SeriesIdNumber)
                 )
             )
             {
@@ -388,7 +392,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 continue;
             }
 
-            var type = record.WordType switch
+            SearchSuggestionType type = record.WordType switch
             {
                 "short_play_name" => SearchSuggestionType.ShortPlayName,
                 "short_play_category" => SearchSuggestionType.ShortPlayCategory,

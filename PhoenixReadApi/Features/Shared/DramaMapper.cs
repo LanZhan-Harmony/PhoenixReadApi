@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Infrastructure.Web;
 using PhoenixReadApi.Internal.Serialization;
@@ -9,21 +8,19 @@ namespace PhoenixReadApi.Internal.Features.Shared;
 /// <summary>将红果接口返回的剧集记录映射为稳定的公共模型。</summary>
 internal static class DramaMapper
 {
-    private static readonly char[] separator = [',', '/', '，', '、'];
-
     internal static Drama FromDto(DramaDto value, string category, DateTimeOffset? now = null)
     {
         DramaDto data = value;
-        var sourceId = JsonValueReader.First(data.SeriesId, data.SeriesIdNumber, data.Keyword);
-        if (!JsonValueReader.IsNumericId(sourceId))
+        var sourceId = ValueNormalizer.First(data.SeriesId, data.SeriesIdNumber, data.Keyword);
+        if (!ValueNormalizer.IsNumericId(sourceId))
         {
             return new Drama();
         }
 
-        var title = JsonValueReader.First(data.SeriesTitle, data.SeriesName, data.Title, sourceId);
-        var remark = JsonValueReader.First(data.EpisodeRemark);
+        var title = ValueNormalizer.First(data.SeriesTitle, data.SeriesName, data.Title, sourceId);
+        var remark = ValueNormalizer.First(data.EpisodeRemark);
         List<string> tags = DtoTags(data);
-        var genre = JsonValueReader.First(
+        var genre = ValueNormalizer.First(
             data.CategoryName,
             data.CategoryNameCamel,
             data.Category,
@@ -38,15 +35,15 @@ internal static class DramaMapper
         {
             Id = sourceId,
             Title = title,
-            Description = JsonValueReader.First(data.SeriesIntro, data.VideoDescription),
-            CoverUrl = JsonValueReader.First(data.SeriesCover, data.Cover),
+            Description = ValueNormalizer.First(data.SeriesIntro, data.VideoDescription),
+            CoverUrl = ValueNormalizer.First(data.SeriesCover, data.Cover),
             Category = genre,
             Remark = remark,
             EpisodeCount = Math.Max(0, data.EpisodeCount),
             Tags = tags,
             ReleaseStatus = ReleaseStatusFromValue(data.SeriesStatus, remark),
             Score = data.Score,
-            Views = JsonValueReader.First(data.SeriesPlayCount, data.PlayCount),
+            Views = ValueNormalizer.First(data.SeriesPlayCount, data.PlayCount),
             Heat = DtoHeat(data),
             OnlineDate = DtoOnlineDate(data, now ?? DateTimeOffset.Now),
             Credits = DtoCredits(data.MainCreatorUsers, data.Celebrities),
@@ -63,7 +60,7 @@ internal static class DramaMapper
         new()
         {
             Id = videoId,
-            Title = JsonValueReader.First(title, videoId),
+            Title = ValueNormalizer.First(title, videoId),
             Description = description,
             CoverUrl = coverUrl,
             EpisodeCount = Math.Max(0, episodeCount),
@@ -81,7 +78,7 @@ internal static class DramaMapper
         new()
         {
             Id = seriesId,
-            Title = JsonValueReader.First(title, seriesId),
+            Title = ValueNormalizer.First(title, seriesId),
             Description = description,
             CoverUrl = coverUrl,
             EpisodeCount = Math.Max(0, episodeCount),
@@ -99,10 +96,7 @@ internal static class DramaMapper
         IReadOnlyList<string> tags
     ) => FromShelf(seriesId, title, description, coverUrl, episodeCount, status, tags);
 
-    internal static DramaReleaseStatus ReleaseStatusFromValue(
-        string value,
-        string remark = ""
-    )
+    internal static DramaReleaseStatus ReleaseStatusFromValue(string value, string remark = "")
     {
         value = (value ?? string.Empty).Trim().ToLowerInvariant();
         return value switch
@@ -110,11 +104,11 @@ internal static class DramaMapper
             "1" or "finished" or "complete" or "completed" => DramaReleaseStatus.Finished,
             "0" or "ongoing" or "serializing" or "updating" => DramaReleaseStatus.Ongoing,
             _ when remark.Contains("完结", StringComparison.OrdinalIgnoreCase)
-                || remark.Contains("全集", StringComparison.OrdinalIgnoreCase)
-                => DramaReleaseStatus.Finished,
+                    || remark.Contains("全集", StringComparison.OrdinalIgnoreCase) =>
+                DramaReleaseStatus.Finished,
             _ when remark.Contains("更新", StringComparison.OrdinalIgnoreCase)
-                || remark.Contains("连载", StringComparison.OrdinalIgnoreCase)
-                => DramaReleaseStatus.Ongoing,
+                    || remark.Contains("连载", StringComparison.OrdinalIgnoreCase) =>
+                DramaReleaseStatus.Ongoing,
             _ => DramaReleaseStatus.Unknown,
         };
     }
@@ -136,8 +130,8 @@ internal static class DramaMapper
             // The service occasionally omits nested account objects for a
             // partially populated creator. Keep that item usable instead of
             // letting one incomplete credit abort the whole detail response.
-            var baseInfo = creator.BaseInfo;
-            var userTag = creator.UserTag;
+            DramaCreatorBaseInfoDto? baseInfo = creator.BaseInfo;
+            DramaCreatorTagDto userTag = creator.UserTag;
             Add(
                 creator.UserId ?? string.Empty,
                 baseInfo?.UserId ?? string.Empty,
@@ -168,7 +162,7 @@ internal static class DramaMapper
                 celebrity.AvatarUrl ?? string.Empty,
                 celebrity.RoleType,
                 [
-                    JsonValueReader.First(
+                    ValueNormalizer.First(
                         celebrity.SubTitle,
                         roleName.Length > 0 ? "饰 " + roleName : string.Empty
                     ),
@@ -188,14 +182,14 @@ internal static class DramaMapper
             IEnumerable<string> labels
         )
         {
-            var id = JsonValueReader.First(primaryId, fallbackId).Trim();
-            if (!JsonValueReader.IsNumericId(id))
+            var id = ValueNormalizer.First(primaryId, fallbackId).Trim();
+            if (!ValueNormalizer.IsNumericId(id))
             {
                 return;
             }
 
             List<DramaCreditRole> roles = ParseRoles(labels, roleType);
-            var user = new User
+            User user = new()
             {
                 Id = id,
                 Name = name ?? string.Empty,
@@ -223,9 +217,9 @@ internal static class DramaMapper
             User = new User
             {
                 Id = first.User.Id.Length > 0 ? first.User.Id : user.Id,
-                Name = JsonValueReader.First(first.User.Name, user.Name),
-                Introduction = JsonValueReader.First(first.User.Introduction, user.Introduction),
-                AvatarUrl = JsonValueReader.First(first.User.AvatarUrl, user.AvatarUrl),
+                Name = ValueNormalizer.First(first.User.Name, user.Name),
+                Introduction = ValueNormalizer.First(first.User.Introduction, user.Introduction),
+                AvatarUrl = ValueNormalizer.First(first.User.AvatarUrl, user.AvatarUrl),
             },
             Roles = MergeRoles(first.Roles, roles),
         };
@@ -285,9 +279,9 @@ internal static class DramaMapper
                 continue;
             }
 
-            var type = label switch
+            DramaCreditRoleType type = label switch
             {
-                _ when label.StartsWith("饰", StringComparison.Ordinal) => providerRoleType switch
+                _ when label.StartsWith('饰') => providerRoleType switch
                 {
                     0 => DramaCreditRoleType.Lead,
                     1 => DramaCreditRoleType.Supporting,
@@ -331,14 +325,20 @@ internal static class DramaMapper
         var end = schema.IndexOf('&', start);
         var value = schema[start..(end < 0 ? schema.Length : end)];
         value = Uri.UnescapeDataString(value).Trim();
-        return JsonValueReader.IsNumericId(value) ? value : string.Empty;
+        return ValueNormalizer.IsNumericId(value) ? value : string.Empty;
     }
 
     private static List<string> DtoTags(DramaDto data)
     {
         List<string> tags = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
-        AddJson(data.Tags);
+        foreach (DramaTagDto item in data.Tags ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(item.Name) && seen.Add(item.Name.Trim()))
+            {
+                tags.Add(item.Name.Trim());
+            }
+        }
         foreach (DramaCategoryDto item in data.CategoryList ?? [])
         {
             if (
@@ -358,50 +358,11 @@ internal static class DramaMapper
             }
         }
         return tags;
-
-        void AddJson(JsonElement value)
-        {
-            switch (value.ValueKind)
-            {
-                case JsonValueKind.String:
-                    foreach (
-                        var item in value
-                            .GetString()!
-                            .Split(
-                                separator,
-                                StringSplitOptions.RemoveEmptyEntries
-                                    | StringSplitOptions.TrimEntries
-                            )
-                    )
-                    {
-                        if (seen.Add(item))
-                        {
-                            tags.Add(item);
-                        }
-                    }
-                    break;
-                case JsonValueKind.Array:
-                    foreach (JsonElement item in value.EnumerateArray())
-                    {
-                        AddJson(item);
-                    }
-
-                    break;
-                case JsonValueKind.Object:
-                    var itemName = JsonValueReader.String(value, "name", "title", "label", "tag");
-                    if (itemName.Length > 0 && seen.Add(itemName))
-                    {
-                        tags.Add(itemName);
-                    }
-
-                    break;
-            }
-        }
     }
 
     private static string DtoHeat(DramaDto data)
     {
-        var score = JsonValueReader.First(data.HotScoreData?.Score, data.HotScore);
+        var score = ValueNormalizer.First(data.HotScoreData?.Score, data.HotScore);
         return
             score.Length > 0
             && double.TryParse(
@@ -471,5 +432,4 @@ internal static class DramaMapper
         }
         return string.Empty;
     }
-
 }
