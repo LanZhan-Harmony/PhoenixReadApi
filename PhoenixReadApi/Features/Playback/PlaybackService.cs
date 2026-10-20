@@ -26,16 +26,6 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
     ) =>
         ResolveCoreAsync(NormalizeSeriesId(seriesId), NormalizeVideoId(videoId), cancellationToken);
 
-    internal Task<PlaybackMedia> ResolveAsync(
-        string seriesId,
-        Episode episode,
-        CancellationToken cancellationToken
-    )
-    {
-        ArgumentNullException.ThrowIfNull(episode);
-        return ResolveAsync(seriesId, episode.VideoId, cancellationToken);
-    }
-
     private async Task<PlaybackMedia> ResolveCoreAsync(
         string seriesId,
         string videoId,

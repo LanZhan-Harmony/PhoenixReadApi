@@ -69,16 +69,9 @@ public class Tests
             scenario.Episode.VideoId,
             timeout.Token
         );
-        PlaybackMedia byEpisode = await Client.ResolveMediaAsync(
-            scenario.SeriesId,
-            scenario.Episode,
-            timeout.Token
-        );
 
         await Assert.That(IsHttpUrl(byIds.Url)).IsTrue();
         await Assert.That(byIds.Variants.Count > 0).IsTrue();
-        await Assert.That(IsHttpUrl(byEpisode.Url)).IsTrue();
-        await Assert.That(byEpisode.Variants.Count > 0).IsTrue();
     }
 
     [Test, NotInParallel("phoenix-read-api")]
@@ -209,18 +202,11 @@ public class Tests
             count: 5,
             cancellationToken: timeout.Token
         );
-        CommentPage byEpisode = await Client.GetEpisodeCommentsAsync(
-            scenario.SeriesId,
-            scenario.Episode,
-            count: 5,
-            cancellationToken: timeout.Token
-        );
 
         await Assert.That(byIds.TargetId).IsEqualTo(scenario.Episode.VideoId);
         await Assert.That(byIds.Items.Count <= 5).IsTrue();
         await Assert.That(byIds.Total >= byIds.Items.Count).IsTrue();
         await Assert.That(byIds.Items.All(IsValidComment)).IsTrue();
-        await Assert.That(byEpisode.TargetId).IsEqualTo(scenario.Episode.VideoId);
 
         if (byIds.HasMore && byIds.Cursor.Length > 0)
         {

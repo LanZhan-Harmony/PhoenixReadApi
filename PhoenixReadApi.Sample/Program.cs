@@ -185,20 +185,10 @@ PlaybackMedia? mediaByIds = await TryWhenIdsAsync(
 );
 PrintMedia(mediaByIds);
 
-PlaybackMedia? mediaByEpisode = firstEpisode is null
-    ? null
-    : await TryWhenIdAsync(
-        "ResolveMediaAsync(episode)",
-        seriesId,
-        id => client.ResolveMediaAsync(id, firstEpisode, timeout.Token)
-    );
-PrintMedia(mediaByEpisode);
-
 long durationMs =
-    mediaByIds?.Duration > TimeSpan.Zero ? (long)Math.Ceiling(mediaByIds.Duration.TotalMilliseconds)
-    : mediaByEpisode?.Duration > TimeSpan.Zero
-        ? (long)Math.Ceiling(mediaByEpisode.Duration.TotalMilliseconds)
-    : 600_000L;
+    mediaByIds?.Duration > TimeSpan.Zero
+        ? (long)Math.Ceiling(mediaByIds.Duration.TotalMilliseconds)
+        : 600_000L;
 DanmakuPage? danmaku = await TryWhenIdsAsync(
     "GetDanmakuAsync",
     seriesId,
@@ -225,15 +215,6 @@ CommentPage? episodeComments = await TryWhenIdsAsync(
         client.GetEpisodeCommentsAsync(series, video, 10, cancellationToken: timeout.Token)
 );
 PrintComments("  分集评论", episodeComments);
-
-CommentPage? episodeCommentsByEpisode = firstEpisode is null
-    ? null
-    : await TryWhenIdAsync(
-        "GetEpisodeCommentsAsync(episode)",
-        seriesId,
-        id => client.GetEpisodeCommentsAsync(id, firstEpisode, 10, cancellationToken: timeout.Token)
-    );
-PrintComments("  分集评论(episode)", episodeCommentsByEpisode);
 
 DramaComment? sampleComment = reviews?.Items[0] ?? episodeComments?.Items[0];
 CommentReplyPage? replies = sampleComment is null
@@ -679,11 +660,11 @@ static async Task RunOperationsAsync(
 
         bool wasLiked = likedSeriesIds.Contains(seriesId);
         await TryAsync(
-            "SetDramaLikeAsync",
+            "SetDramaEpisodeLikeAsync",
             () => client.SetDramaEpisodeLikeAsync(seriesId, videoId, true, cancellationToken)
         );
         await TryAsync(
-            "SetDramaLikeAsync(false)",
+            "SetDramaEpisodeLikeAsync(false)",
             () => client.SetDramaEpisodeLikeAsync(seriesId, videoId, false, cancellationToken)
         );
         if (wasLiked)

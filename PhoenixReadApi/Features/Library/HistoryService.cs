@@ -2,13 +2,17 @@ using System.Globalization;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Library;
 using PhoenixReadApi.Internal.Infrastructure.Http;
+using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Library;
 
-/// <summary>阅读历史、进度、收藏、点赞、预约和分类等 App 接口。</summary>
-internal sealed partial class LibraryService
+/// <summary>阅读历史、短剧播放进度及其更新操作。</summary>
+internal sealed class HistoryService : LibraryServiceBase
 {
+    internal HistoryService(PhoenixReadClientRuntime runtime)
+        : base(runtime) { }
+
     internal async Task<ReadHistoryPage> GetHistoryAsync(
         int count,
         int offset,
@@ -184,4 +188,72 @@ internal sealed partial class LibraryService
             },
             cancellationToken
         );
+
+    private static ReadHistoryEntry MapHistory(AppHistoryItem item)
+    {
+        AppHistoryVideoData video = item.Video ?? new();
+        return new ReadHistoryEntry
+        {
+            Id = item.Id,
+            SeriesId = ValueNormalizer.First(
+                item.BookIdString,
+                item.SeriesId,
+                item.BookId,
+                video.SeriesId
+            ),
+            VideoId = ValueNormalizer.First(item.VideoId, item.VideoIdAlias, video.VideoId),
+            EpisodeNumber = item.EpisodeNumber > 0 ? item.EpisodeNumber : video.EpisodeNumber,
+            Title = ValueNormalizer.First(item.BookName, item.Title, video.Title),
+            CoverUrl = ValueNormalizer.First(item.ThumbUrl, item.CoverUrl, video.CoverUrl),
+            CurrentPositionMs = Math.Max(item.CurrentPositionMs, item.CurrentPositionAlias),
+            DurationMs = Math.Max(0, item.DurationMs),
+            UpdatedAtUnixMilliseconds = Math.Max(
+                Math.Max(0, item.UpdatedAtUnixMilliseconds),
+                Math.Max(0, item.ReadTimestampMilliseconds)
+            ),
+        };
+    }
+
+    private static ReadProgressPage MapProgress(
+        IReadOnlyList<AppReadProgressItem>? items,
+        IReadOnlyList<AppReadProgressItem>? localItems
+    )
+    {
+        items ??= [];
+        localItems ??= [];
+        return new ReadProgressPage
+        {
+            Items = [.. items.Select(MapProgress)],
+            LocalItems = [.. localItems.Select(MapProgress)],
+        };
+    }
+
+    private static ReadProgressPage MapProgress(AppReadProgressResponse response)
+    {
+        IReadOnlyList<AppReadProgressItem> items = response.VideoData;
+        IReadOnlyList<AppReadProgressItem> localItems = response.LocalBookData;
+        if (items.Count == 0 && localItems.Count == 0 && response.Data is not null)
+        {
+            items = response.Data.Items;
+            localItems = response.Data.LocalItems;
+            if (items.Count == 0 && localItems.Count == 0 && response.Data.DataItems.Count > 0)
+            {
+                items = response.Data.DataItems;
+            }
+        }
+        return MapProgress(items, localItems);
+    }
+
+    private static ReadProgress MapProgress(AppReadProgressItem item) =>
+        new()
+        {
+            SeriesId = item.SeriesId,
+            VideoId = item.VideoId,
+            EpisodeNumber = item.EpisodeNumber,
+            EpisodeCount = item.EpisodeCount,
+            LastWatchTimeUnixMilliseconds = item.LastWatchTime,
+            CurrentPositionMs = item.CurrentPlayTime,
+            DurationMs = item.CurrentTotalTime,
+            CumulativeDurationMs = item.CumulativeDuration,
+        };
 }

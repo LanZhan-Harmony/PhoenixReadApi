@@ -144,45 +144,6 @@ internal sealed class FlexibleDoubleConverter : JsonConverter<double>
     }
 }
 
-/// <summary>读取视频模型，兼容对象和 JSON 文本两种返回格式。</summary>
-internal sealed class VideoModelConverter : JsonConverter<JsonElement>
-{
-    public override JsonElement Read(
-        ref Utf8JsonReader reader,
-        Type typeToConvert,
-        JsonSerializerOptions options
-    )
-    {
-        if (reader.TokenType == JsonTokenType.String)
-        {
-            var text = reader.GetString();
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return default;
-            }
-
-            try
-            {
-                using JsonDocument document = JsonDocument.Parse(text);
-                return document.RootElement.Clone();
-            }
-            catch (JsonException exception)
-            {
-                throw new JsonException("video_model is not valid JSON.", exception);
-            }
-        }
-
-        using JsonDocument value = JsonDocument.ParseValue(ref reader);
-        return value.RootElement.Clone();
-    }
-
-    public override void Write(
-        Utf8JsonWriter writer,
-        JsonElement value,
-        JsonSerializerOptions options
-    ) => value.WriteTo(writer);
-}
-
 /// <summary>读取播放接口中的 video_model，兼容 JSON 对象和 JSON 字符串。</summary>
 internal sealed class VideoModelDtoConverter : JsonConverter<AppPlaybackModel>
 {
@@ -228,47 +189,6 @@ internal sealed class VideoModelDtoConverter : JsonConverter<AppPlaybackModel>
         AppPlaybackModel value,
         JsonSerializerOptions options
     ) => JsonAotSerializer.Serialize(writer, value);
-}
-
-/// <summary>读取以数组或键值对象表示的视频版本集合。</summary>
-internal sealed class VideoVariantListConverter : JsonConverter<List<JsonElement>>
-{
-    public override bool HandleNull => true;
-
-    public override List<JsonElement> Read(
-        ref Utf8JsonReader reader,
-        Type typeToConvert,
-        JsonSerializerOptions options
-    )
-    {
-        using JsonDocument document = JsonDocument.ParseValue(ref reader);
-        JsonElement root = document.RootElement;
-        if (root.ValueKind == JsonValueKind.Array)
-        {
-            return [.. root.EnumerateArray().Select(static item => item.Clone())];
-        }
-
-        if (root.ValueKind == JsonValueKind.Object)
-        {
-            return [.. root.EnumerateObject().Select(static item => item.Value.Clone())];
-        }
-
-        return [];
-    }
-
-    public override void Write(
-        Utf8JsonWriter writer,
-        List<JsonElement> value,
-        JsonSerializerOptions options
-    )
-    {
-        writer.WriteStartArray();
-        foreach (JsonElement item in value)
-        {
-            item.WriteTo(writer);
-        }
-        writer.WriteEndArray();
-    }
 }
 
 /// <summary>读取 App 分集记录，兼容数组和键值对象两种 video_list 格式。</summary>
