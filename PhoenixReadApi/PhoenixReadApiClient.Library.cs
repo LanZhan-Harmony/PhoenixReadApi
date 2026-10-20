@@ -19,7 +19,7 @@ public sealed partial class PhoenixReadApiClient
         long lastMinReadTimestampMilliseconds = 0,
         CancellationToken cancellationToken = default
     ) =>
-        _library.GetHistoryAsync(
+        _history.GetHistoryAsync(
             count,
             offset,
             querySoftDeleted,
@@ -32,7 +32,7 @@ public sealed partial class PhoenixReadApiClient
     /// <returns>服务端保存的播放进度。</returns>
     public Task<ReadProgressPage> GetReadProgressAsync(
         CancellationToken cancellationToken = default
-    ) => _library.GetReadProgressAsync(cancellationToken);
+    ) => _history.GetReadProgressAsync(cancellationToken);
 
     /// <summary>按剧集或视频 ID 查询播放进度。</summary>
     /// <param name="seriesOrVideoIds">剧集 ID 或视频 ID，至少一个，最多 200 个。</param>
@@ -42,7 +42,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<ReadProgressPage> GetReadProgressForAsync(
         IReadOnlyList<string> seriesOrVideoIds,
         CancellationToken cancellationToken = default
-    ) => _library.GetReadProgressForAsync(seriesOrVideoIds, cancellationToken);
+    ) => _history.GetReadProgressForAsync(seriesOrVideoIds, cancellationToken);
 
     /// <summary>上报当前分集的播放进度。</summary>
     /// <param name="update">视频、剧集和播放位置；UseSoftDelete 为 true 时会删除历史。</param>
@@ -51,7 +51,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<PhoenixOperationResult> ReportProgressAsync(
         ProgressUpdate update,
         CancellationToken cancellationToken = default
-    ) => _library.ReportProgressAsync(update, cancellationToken);
+    ) => _history.ReportProgressAsync(update, cancellationToken);
 
     /// <summary>删除当前账号的一条短剧阅读历史。</summary>
     /// <param name="seriesId">剧集 ID。</param>
@@ -62,7 +62,7 @@ public sealed partial class PhoenixReadApiClient
         string seriesId,
         string videoId,
         CancellationToken cancellationToken = default
-    ) => _library.DeleteHistoryAsync(seriesId, videoId, cancellationToken);
+    ) => _history.DeleteHistoryAsync(seriesId, videoId, cancellationToken);
 
     /// <summary>获取当前客户端账号收藏的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -74,7 +74,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _library.GetFavoritesAsync(count, offset, cancellationToken);
+    ) => _favorites.GetFavoritesAsync(count, offset, cancellationToken);
 
     /// <summary>获取当前账号收藏剧集的 ID。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -101,7 +101,7 @@ public sealed partial class PhoenixReadApiClient
         string seriesId,
         string videoId,
         CancellationToken cancellationToken = default
-    ) => _library.SetFavoriteAsync(seriesId, videoId, active: false, cancellationToken);
+    ) => _favorites.SetFavoriteAsync(seriesId, videoId, active: false, cancellationToken);
 
     /// <summary>获取当前客户端账号点赞的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -112,7 +112,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _library.GetLikesAsync(count, offset, cancellationToken);
+    ) => _likes.GetLikesAsync(count, offset, cancellationToken);
 
     /// <summary>获取当前账号关注动态。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -124,7 +124,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) => _library.GetFollowUpdatesAsync(count, cursor, cancellationToken);
+    ) => _follows.GetFollowUpdatesAsync(count, cursor, cancellationToken);
 
     /// <summary>获取当前账号全部关注动态；这是 GetFollowUpdatesAsync 的语义别名。</summary>
     /// <param name="count">本页数量。</param>
@@ -147,7 +147,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _library.GetReservationsAsync(count, offset, calendar: false, cancellationToken);
+    ) => _reservations.GetReservationsAsync(count, offset, calendar: false, cancellationToken);
 
     /// <summary>获取预约日历数据。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -158,7 +158,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _library.GetReservationsAsync(count, offset, calendar: true, cancellationToken);
+    ) => _reservations.GetReservationsAsync(count, offset, calendar: true, cancellationToken);
 
     /// <summary>获取可预约的新剧列表。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -169,7 +169,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _library.GetUpcomingReservationsAsync(count, offset, cancellationToken);
+    ) => _reservations.GetUpcomingReservationsAsync(count, offset, cancellationToken);
 
     /// <summary>设置或取消剧集预约。</summary>
     /// <param name="seriesId">剧集 ID。</param>
@@ -180,7 +180,7 @@ public sealed partial class PhoenixReadApiClient
         string seriesId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _library.SetReservationAsync(seriesId, active, cancellationToken);
+    ) => _reservations.SetReservationAsync(seriesId, active, cancellationToken);
 
     /// <summary>取消剧集预约。</summary>
     /// <param name="seriesId">剧集 ID。</param>
@@ -189,7 +189,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<PhoenixOperationResult> DeleteReservationAsync(
         string seriesId,
         CancellationToken cancellationToken = default
-    ) => _library.SetReservationAsync(seriesId, active: false, cancellationToken);
+    ) => _reservations.SetReservationAsync(seriesId, active: false, cancellationToken);
 
     /// <summary>根据筛选条件获取一页分类剧集。</summary>
     /// <param name="query">分类、筛选项和分页会话；不能为 null。</param>
@@ -198,7 +198,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<CategoryPage> GetCategoryAsync(
         CategoryQuery query,
         CancellationToken cancellationToken = default
-    ) => _library.GetCategoryAsync(query, cancellationToken);
+    ) => _discovery.GetCategoryAsync(query, cancellationToken);
 
     /// <summary>获取分类筛选面板和首屏内容；这是 GetCategoryAsync 的面向筛选场景别名。</summary>
     /// <param name="query">分类和筛选条件。</param>
@@ -219,13 +219,13 @@ public sealed partial class PhoenixReadApiClient
         int offset = 0,
         string sessionId = "",
         CancellationToken cancellationToken = default
-    ) => _library.GetNewSeriesAsync(offset, sessionId, cancellationToken);
+    ) => _discovery.GetNewSeriesAsync(offset, sessionId, cancellationToken);
 
     /// <summary>获取首页剧场和推荐分组。</summary>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>按服务端分组返回的剧集。</returns>
     public Task<FeedPage> GetFeedCategoriesAsync(CancellationToken cancellationToken = default) =>
-        _library.GetFeedCategoriesAsync(cancellationToken);
+        _discovery.GetFeedCategoriesAsync(cancellationToken);
 
     /// <summary>获取剧库书架字段。</summary>
     /// <param name="channel">书架字段频道，例如短剧页面使用的频道标识。</param>
@@ -234,7 +234,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<BookPackFields> GetBookPackFieldsAsync(
         string channel = "short_video",
         CancellationToken cancellationToken = default
-    ) => _library.GetBookPackFieldsAsync(channel, cancellationToken);
+    ) => _discovery.GetBookPackFieldsAsync(channel, cancellationToken);
 
     /// <summary>获取剧集的分季或关联剧集。</summary>
     /// <param name="seriesId">剧集 ID。</param>
@@ -248,7 +248,7 @@ public sealed partial class PhoenixReadApiClient
         int currentEpisode = 0,
         CancellationToken cancellationToken = default
     ) =>
-        _library.GetRelatedDramasAsync(
+        _discovery.GetRelatedDramasAsync(
             seriesId,
             totalEpisodeCount,
             currentEpisode,
@@ -268,7 +268,7 @@ public sealed partial class PhoenixReadApiClient
         int currentEpisode = 0,
         CancellationToken cancellationToken = default
     ) =>
-        _library.GetRelatedDramasAsync(
+        _discovery.GetRelatedDramasAsync(
             seriesId,
             totalEpisodeCount,
             currentEpisode,
@@ -285,12 +285,12 @@ public sealed partial class PhoenixReadApiClient
         string seriesId,
         string videoId,
         CancellationToken cancellationToken = default
-    ) => _library.CreateShareLinkAsync(seriesId, videoId, cancellationToken);
+    ) => _discovery.CreateShareLinkAsync(seriesId, videoId, cancellationToken);
 
     /// <summary>从分享 URL 中解析剧集和分集 ID。</summary>
     /// <param name="url">完整分享 URL。</param>
     /// <returns>解析出的分享目标；链接不含某个 ID 时对应属性为空字符串。</returns>
-    public ShareLink ResolveShareLink(string url) => LibraryService.ResolveShareLink(url);
+    public ShareLink ResolveShareLink(string url) => DiscoveryService.ResolveShareLink(url);
 
     /// <summary>收藏或取消收藏一部剧。</summary>
     /// <param name="seriesId">剧集 ID。</param>
@@ -303,7 +303,7 @@ public sealed partial class PhoenixReadApiClient
         string videoId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _library.SetFavoriteAsync(seriesId, videoId, active, cancellationToken);
+    ) => _favorites.SetFavoriteAsync(seriesId, videoId, active, cancellationToken);
 
     /// <summary>关注或取消关注一个账号。</summary>
     /// <param name="userId">账号 ID。</param>
@@ -315,7 +315,7 @@ public sealed partial class PhoenixReadApiClient
         string userId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _library.SetFollowAsync(userId, active, cancellationToken);
+    ) => _follows.SetFollowAsync(userId, active, cancellationToken);
 
     /// <summary>点赞或取消点赞一部剧的一集。</summary>
     /// <param name="seriesId">剧集 ID。</param>
@@ -328,5 +328,5 @@ public sealed partial class PhoenixReadApiClient
         string videoId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _library.SetDramaEpisodeLikeAsync(seriesId, videoId, active, cancellationToken);
+    ) => _likes.SetDramaEpisodeLikeAsync(seriesId, videoId, active, cancellationToken);
 }

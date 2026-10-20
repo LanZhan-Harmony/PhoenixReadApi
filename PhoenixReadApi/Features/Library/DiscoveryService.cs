@@ -2,14 +2,19 @@ using System.Globalization;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.App.Library;
+using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Features.Shared;
+using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Library;
 
-/// <summary>阅读历史、进度、收藏、点赞、预约和分类等 App 接口。</summary>
-internal sealed partial class LibraryService
+/// <summary>剧集分类、首页 Feed、关联剧集、书架字段和分享链接。</summary>
+internal sealed class DiscoveryService : LibraryServiceBase
 {
+    internal DiscoveryService(PhoenixReadClientRuntime runtime)
+        : base(runtime) { }
+
     internal async Task<CategoryPage> GetCategoryAsync(
         CategoryQuery query,
         CancellationToken cancellationToken
@@ -277,5 +282,61 @@ internal sealed partial class LibraryService
             SeriesId = ValueNormalizer.IsNumericId(seriesId) ? seriesId : string.Empty,
             VideoId = ValueNormalizer.IsNumericId(videoId) ? videoId : string.Empty,
         };
+    }
+
+    private static FeedPage MapFeed(
+        IReadOnlyList<AppFeedCell>? cells,
+        int nextOffset,
+        string sessionId,
+        bool hasMore
+    ) =>
+        new()
+        {
+            Sections = MapFeedSections(cells ?? [], ""),
+            NextOffset = nextOffset,
+            SessionId = sessionId ?? string.Empty,
+            HasMore = hasMore,
+        };
+
+    private static IEnumerable<AppRelatedDramaItem> FlattenRelatedDramas(AppRelatedDramaItem item)
+    {
+        yield return item;
+        foreach (AppRelatedDramaItem child in item.Children.SelectMany(FlattenRelatedDramas))
+        {
+            yield return child;
+        }
+    }
+
+    private static IReadOnlyList<FeedSection> MapFeedSections(
+        IReadOnlyList<AppFeedCell> cells,
+        string parentTitle
+    )
+    {
+        List<FeedSection> sections = [];
+        foreach (AppFeedCell cell in cells ?? [])
+        {
+            IReadOnlyList<DramaDto> videoItems = cell.VideoItems ?? [];
+            IReadOnlyList<DramaDto> bookItems = cell.BookItems ?? [];
+            IReadOnlyList<DramaDto> rows = videoItems.Count > 0 ? videoItems : bookItems;
+            List<Drama> items =
+            [
+                .. rows.Select(item => DramaMapper.FromDto(item, "推荐"))
+                    .Where(static item => item.Id.Length > 0),
+            ];
+            string title = cell.Name.Length > 0 ? cell.Name : parentTitle;
+            if (items.Count > 0)
+            {
+                sections.Add(
+                    new FeedSection
+                    {
+                        Id = cell.Id,
+                        Title = title,
+                        Items = items,
+                    }
+                );
+            }
+            sections.AddRange(MapFeedSections(cell.Children ?? [], title));
+        }
+        return sections;
     }
 }

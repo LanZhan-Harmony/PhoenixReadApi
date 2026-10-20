@@ -30,7 +30,12 @@ public sealed partial class PhoenixReadApiClient : IDisposable
     private readonly DanmakuService _danmaku;
     private readonly CommentService _comments;
     private readonly UserService _users;
-    private readonly LibraryService _library;
+    private readonly HistoryService _history;
+    private readonly FavoritesService _favorites;
+    private readonly LikesService _likes;
+    private readonly FollowsService _follows;
+    private readonly ReservationsService _reservations;
+    private readonly DiscoveryService _discovery;
     private readonly AuthenticationService _authentication;
 
     /// <summary>创建并拥有一个 API 客户端。</summary>
@@ -75,69 +80,19 @@ public sealed partial class PhoenixReadApiClient : IDisposable
         _danmaku = new DanmakuService(_runtime);
         _comments = new CommentService(_runtime);
         _users = new UserService(_runtime);
-        _library = new LibraryService(_runtime);
+        _history = new HistoryService(_runtime);
+        _favorites = new FavoritesService(_runtime);
+        _likes = new LikesService(_runtime);
+        _follows = new FollowsService(_runtime);
+        _reservations = new ReservationsService(_runtime);
+        _discovery = new DiscoveryService(_runtime);
         _authentication = new AuthenticationService(_runtime);
     }
 
-    /// <summary>获取指定分类的一组剧集。</summary>
-    /// <param name="category">
-    /// 要获取的分类。使用 <see cref="PhoenixReadApiCategory.All"/> 获取全部分类，或使用真人剧、漫剧、
-    /// AI 剧对应的枚举值获取单一分类。
-    /// </param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>按接口返回顺序排列的剧集列表；列表中的 ID 可传给 <see cref="GetDramaDetailsAsync"/>。</returns>
+    /// <summary>释放 API 客户端使用的资源。</summary>
     /// <remarks>
-    /// 分类接口可能需要多个分页请求，分页由客户端内部处理。结果是当前请求时刻可取得的列表，
-    /// 不代表服务端全部剧集总数。
+    /// 如果客户端是通过默认构造函数创建的，调用此方法会释放内部 HttpClient；如果传入了外部 HttpClient，
+    /// 只释放客户端自身的运行时状态，不会释放外部 HttpClient。重复调用是安全的。
     /// </remarks>
-    public Task<IReadOnlyList<Drama>> GetCatalogAsync(
-        PhoenixReadApiCategory category = PhoenixReadApiCategory.All,
-        CancellationToken cancellationToken = default
-    ) => _catalog.GetAsync(category, cancellationToken);
-
-    /// <summary>获取一部剧的详情及其分集列表。</summary>
-    /// <param name="seriesId">剧集 ID。可以传数字 ID，也可以传带有兼容前缀的 ID。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>
-    /// 包含 <see cref="DramaDetails.Drama"/> 和按集数排序的 <see cref="DramaDetails.Episodes"/>；
-    /// 每个 <see cref="Episode"/> 都包含后续播放、评论和弹幕请求所需的 VideoId。
-    /// </returns>
-    /// <remarks>
-    /// 通常应先调用此方法，再把返回的 <see cref="Episode"/> 传给播放、评论或弹幕方法，避免手动拼接视频 ID。
-    /// </remarks>
-    public Task<DramaDetails> GetDramaDetailsAsync(
-        string seriesId,
-        CancellationToken cancellationToken = default
-    ) => _details.GetAsync(seriesId, cancellationToken);
-
-    /// <summary>根据剧集 ID 和视频 ID 获取指定分集的可播放媒体信息。</summary>
-    /// <param name="seriesId">所属剧集 ID，用于校验分集归属和网页兜底请求。</param>
-    /// <param name="videoId">分集视频 ID；可以传数字 ID 或兼容的 CENC 视频 ID。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>
-    /// 播放地址、Referer、媒体时长、最高可用清晰度、可用媒体版本和可能存在的 CENC 解密密钥。
-    /// </returns>
-    /// <remarks>
-    /// 优先返回可用的高质量媒体版本，并将其他版本放在 <see cref="PlaybackMedia.Variants"/> 中。
-    /// 如果返回了 <see cref="PlaybackMedia.DecryptionKey"/>，播放加密媒体时需要将其交给播放器。
-    /// </remarks>
-    public Task<PlaybackMedia> ResolveMediaAsync(
-        string seriesId,
-        string videoId,
-        CancellationToken cancellationToken = default
-    ) => _playback.ResolveAsync(seriesId, videoId, cancellationToken);
-
-    /// <summary>根据详情中的 <see cref="Episode"/> 获取可播放媒体信息。</summary>
-    /// <param name="seriesId">所属剧集 ID，用于校验分集归属和网页兜底请求。</param>
-    /// <param name="episode">由 <see cref="GetDramaDetailsAsync"/> 返回的分集；不能为 null。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>与另一个播放重载相同的 <see cref="PlaybackMedia"/> 结果。</returns>
-    /// <remarks>
-    /// 推荐直接传入详情中的 Episode，这样可以避免从 Episode 再次读取或拼接 VideoId。
-    /// </remarks>
-    public Task<PlaybackMedia> ResolveMediaAsync(
-        string seriesId,
-        Episode episode,
-        CancellationToken cancellationToken = default
-    ) => _playback.ResolveAsync(seriesId, episode, cancellationToken);
+    public void Dispose() => _runtime.Dispose();
 }
