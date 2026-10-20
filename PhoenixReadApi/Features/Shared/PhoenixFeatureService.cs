@@ -74,7 +74,7 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
         foreach (var id in query.Seen)
         {
             var value = id.StartsWith("hongguo:", StringComparison.Ordinal) ? id[8..] : id;
-            if (!JsonValueReader.IsNumericId(value))
+            if (!ValueNormalizer.IsNumericId(value))
             {
                 throw new ArgumentException("推荐分页含无效剧集 ID。", nameof(query));
             }
@@ -89,7 +89,7 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
             value = value[8..];
         }
 
-        if (!JsonValueReader.IsNumericId(value))
+        if (!ValueNormalizer.IsNumericId(value))
         {
             throw new ArgumentException("红果剧集 ID 无效。", nameof(value));
         }
@@ -105,7 +105,7 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
             value = value[15..];
         }
 
-        if (!JsonValueReader.IsNumericId(value))
+        if (!ValueNormalizer.IsNumericId(value))
         {
             throw new ArgumentException("红果视频 ID 无效。", nameof(value));
         }
@@ -210,15 +210,15 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
         new()
         {
             Id = first.Id,
-            Title = JsonValueReader.First(first.Title, second.Title),
-            Description = JsonValueReader.First(first.Description, second.Description),
-            CoverUrl = JsonValueReader.First(first.CoverUrl, second.CoverUrl),
-            Category = JsonValueReader.First(first.Category, second.Category),
-            Remark = JsonValueReader.First(first.Remark, second.Remark),
-            Score = JsonValueReader.First(first.Score, second.Score),
-            Views = JsonValueReader.First(first.Views, second.Views),
-            Heat = JsonValueReader.First(first.Heat, second.Heat),
-            OnlineDate = JsonValueReader.First(first.OnlineDate, second.OnlineDate),
+            Title = ValueNormalizer.First(first.Title, second.Title),
+            Description = ValueNormalizer.First(first.Description, second.Description),
+            CoverUrl = ValueNormalizer.First(first.CoverUrl, second.CoverUrl),
+            Category = ValueNormalizer.First(first.Category, second.Category),
+            Remark = ValueNormalizer.First(first.Remark, second.Remark),
+            Score = ValueNormalizer.First(first.Score, second.Score),
+            Views = ValueNormalizer.First(first.Views, second.Views),
+            Heat = ValueNormalizer.First(first.Heat, second.Heat),
+            OnlineDate = ValueNormalizer.First(first.OnlineDate, second.OnlineDate),
             EpisodeCount = Math.Max(first.EpisodeCount, second.EpisodeCount),
             ReleaseStatus = first.ReleaseStatus != DramaReleaseStatus.Unknown
                 ? first.ReleaseStatus

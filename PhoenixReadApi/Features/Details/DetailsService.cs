@@ -109,7 +109,7 @@ internal sealed class DetailsService : PhoenixFeatureService
     private static DramaDetails ParseAppDetails(AppDetailsData? data, string seriesId)
     {
         DramaDto detail = data?.VideoData ?? new();
-        if (JsonValueReader.First(detail.SeriesId, detail.SeriesIdNumber) != seriesId)
+        if (ValueNormalizer.First(detail.SeriesId, detail.SeriesIdNumber) != seriesId)
         {
             throw new PhoenixReadApiResponseException("App 未返回所请求的剧集。", "detail");
         }
@@ -123,7 +123,7 @@ internal sealed class DetailsService : PhoenixFeatureService
             var videoId = item.VideoId.Trim();
             var episode = item.Episode;
             if (
-                !JsonValueReader.IsNumericId(videoId)
+                !ValueNormalizer.IsNumericId(videoId)
                 || episode < 1
                 || !usedIds.Add(videoId)
                 || !usedEpisodes.Add(episode)
@@ -173,7 +173,7 @@ internal sealed class DetailsService : PhoenixFeatureService
         WebSeriesDetailDto? detail =
             (page?.SeriesDetail)
             ?? throw new PhoenixReadApiResponseException("网页详情为空。", "detail");
-        var title = JsonValueReader.First(
+        var title = ValueNormalizer.First(
             detail.SeriesName,
             detail.SeriesTitle,
             detail.Name,
@@ -184,7 +184,7 @@ internal sealed class DetailsService : PhoenixFeatureService
         foreach (var item in detail.VideoIds)
         {
             var videoId = item.Trim();
-            if (!JsonValueReader.IsNumericId(videoId))
+            if (!ValueNormalizer.IsNumericId(videoId))
             {
                 continue;
             }

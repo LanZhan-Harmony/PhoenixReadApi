@@ -1,8 +1,7 @@
-using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
-using PhoenixReadApi.Internal.Contracts.App.Library;
 using PhoenixReadApi.Internal.Features.Shared;
+using PhoenixReadApi.Internal.Infrastructure.Http;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
 
@@ -98,10 +97,12 @@ internal sealed class CommentService : PhoenixFeatureService
         IReadOnlyList<AppReplyRecord> replyItems = data.Items is { Count: > 0 }
             ? data.Items
             : data.ReplyItems ?? [];
-        AppReplyListInfo info = data.ListInfo is { Total: > 0 } ? data.ListInfo : data.CommentListInfo ?? new();
+        AppReplyListInfo info = data.ListInfo is { Total: > 0 }
+            ? data.ListInfo
+            : data.CommentListInfo ?? new();
         return new CommentReplyPage
         {
-            Items = replyItems.Select(MapReply).Where(static item => item.Id.Length > 0).ToArray(),
+            Items = [.. replyItems.Select(MapReply).Where(static item => item.Id.Length > 0)],
             Total = Math.Max(info.Total, replyItems.Count),
             Cursor = info.Cursor ?? string.Empty,
             HasMore = info.HasMore,
@@ -155,9 +156,19 @@ internal sealed class CommentService : PhoenixFeatureService
     {
         if (rating is < 0.5 or > 5 || Math.Abs(rating * 2 - Math.Round(rating * 2)) > 0.0001)
         {
-            throw new ArgumentOutOfRangeException(nameof(rating), "剧评分必须是 0.5 到 5 之间的半星倍数。");
+            throw new ArgumentOutOfRangeException(
+                nameof(rating),
+                "剧评分必须是 0.5 到 5 之间的半星倍数。"
+            );
         }
-        return AddCommentAsync(seriesId, seriesId, text, isEpisode: false, ScoreFromRating(rating), cancellationToken);
+        return AddCommentAsync(
+            seriesId,
+            seriesId,
+            text,
+            isEpisode: false,
+            ScoreFromRating(rating),
+            cancellationToken
+        );
     }
 
     internal Task<PhoenixOperationResult> SendReviewAsync(
@@ -171,7 +182,16 @@ internal sealed class CommentService : PhoenixFeatureService
         string videoId,
         string text,
         CancellationToken cancellationToken
-    ) => AddCommentAsync(seriesId, videoId, text, isEpisode: true, score: 0, cancellationToken, danmaku: true);
+    ) =>
+        AddCommentAsync(
+            seriesId,
+            videoId,
+            text,
+            isEpisode: true,
+            score: 0,
+            cancellationToken,
+            danmaku: true
+        );
 
     internal async Task<PhoenixOperationResult> LikeCommentAsync(
         string commentId,
@@ -184,8 +204,8 @@ internal sealed class CommentService : PhoenixFeatureService
     {
         commentId = NormalizeCommentId(commentId);
         groupId = NormalizeSeriesOrVideoId(groupId);
-        AppResponse<JsonElement> response = await _appTransport
-            .PostAsync<AppCommentActionPayload, JsonElement>(
+        AppResponse<AppOperationResponse> response = await _appTransport
+            .PostAsync<AppCommentActionPayload, AppOperationResponse>(
                 "/novel/commentapi/comment/do_action/v1/",
                 new AppCommentActionPayload
                 {
@@ -196,7 +216,8 @@ internal sealed class CommentService : PhoenixFeatureService
                     BusinessParameter = new AppCommentActionBusinessParameter { BookId = groupId },
                 },
                 commentRequest: true,
-                cancellationToken
+                cancellationToken,
+                retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
         return Operation(response.Message);
@@ -212,8 +233,8 @@ internal sealed class CommentService : PhoenixFeatureService
     {
         commentId = NormalizeCommentId(commentId);
         groupId = NormalizeSeriesOrVideoId(groupId);
-        AppResponse<JsonElement> response = await _appTransport
-            .PostAsync<AppCommentDeletePayload, JsonElement>(
+        AppResponse<AppOperationResponse> response = await _appTransport
+            .PostAsync<AppCommentDeletePayload, AppOperationResponse>(
                 "/novel/commentapi/comment/del/v1/",
                 new AppCommentDeletePayload
                 {
@@ -222,7 +243,8 @@ internal sealed class CommentService : PhoenixFeatureService
                     ServiceId = serviceId,
                 },
                 commentRequest: true,
-                cancellationToken
+                cancellationToken,
+                retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
         return Operation(response.Message);
@@ -239,8 +261,8 @@ internal sealed class CommentService : PhoenixFeatureService
         commentId = NormalizeCommentId(commentId);
         groupId = NormalizeSeriesOrVideoId(groupId);
         text = NormalizeText(text);
-        AppResponse<JsonElement> response = await _appTransport
-            .PostAsync<AppCommentAddPayload, JsonElement>(
+        AppResponse<AppOperationResponse> response = await _appTransport
+            .PostAsync<AppCommentAddPayload, AppOperationResponse>(
                 "/novel/commentapi/reply/add/v1/",
                 new AppCommentAddPayload
                 {
@@ -250,10 +272,12 @@ internal sealed class CommentService : PhoenixFeatureService
                     GroupType = 30,
                     DataType = 4,
                     ReplyToCommentId = commentId,
+                    ReplyToUserId = replyToUserId,
                     BusinessParameter = new AppCommentAddBusinessParameter { BookId = groupId },
                 },
                 commentRequest: true,
-                cancellationToken
+                cancellationToken,
+                retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
         return Operation(response.Message);
@@ -373,7 +397,7 @@ internal sealed class CommentService : PhoenixFeatureService
             AppCommentStat stat = comment.Stat ?? new();
             var userName = userInfo.Name ?? string.Empty;
             var userAvatar = userInfo.AvatarUrl ?? string.Empty;
-            var baseInfo = userInfo.BaseInfo;
+            AppCommentUserBaseInfo? baseInfo = userInfo.BaseInfo;
             items.Add(
                 new DramaComment
                 {
@@ -408,11 +432,9 @@ internal sealed class CommentService : PhoenixFeatureService
     }
 
     private static string SanitizeText(string value) =>
-        new string(
-            value
-                .Select(static c => char.IsControl(c) || c is '\u2028' or '\u2029' ? ' ' : c)
-                .ToArray()
-        ).Trim();
+        new string([
+            .. value.Select(static c => char.IsControl(c) || c is '\u2028' or '\u2029' ? ' ' : c),
+        ]).Trim();
 
     private async Task<PhoenixOperationResult> AddCommentAsync(
         string seriesId,
@@ -427,8 +449,8 @@ internal sealed class CommentService : PhoenixFeatureService
         seriesId = NormalizeSeriesId(seriesId);
         targetId = isEpisode ? NormalizeVideoId(targetId) : seriesId;
         text = NormalizeText(text);
-        AppResponse<JsonElement> response = await _appTransport
-            .PostAsync<AppCommentAddPayload, JsonElement>(
+        AppResponse<AppOperationResponse> response = await _appTransport
+            .PostAsync<AppCommentAddPayload, AppOperationResponse>(
                 "/novel/commentapi/comment/add/v1/",
                 new AppCommentAddPayload
                 {
@@ -436,7 +458,10 @@ internal sealed class CommentService : PhoenixFeatureService
                     Text = text,
                     GroupId = targetId,
                     GroupType = isEpisode ? 30 : 1,
-                    DataType = danmaku ? 20 : isEpisode ? 4 : 2,
+                    DataType =
+                        danmaku ? 20
+                        : isEpisode ? 4
+                        : 2,
                     CommentType = danmaku ? 20 : 0,
                     Score = score,
                     BusinessParameter = new AppCommentAddBusinessParameter
@@ -448,7 +473,8 @@ internal sealed class CommentService : PhoenixFeatureService
                     },
                 },
                 commentRequest: true,
-                cancellationToken
+                cancellationToken,
+                retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
         return Operation(response.Message);
@@ -464,7 +490,12 @@ internal sealed class CommentService : PhoenixFeatureService
             CommentId = reply.CommentId,
             ReplyToUserId = reply.ReplyToUserId,
             Text = SanitizeText(reply.Content?.Text ?? string.Empty),
-            Author = new User { Id = user.Id, Name = user.Name, AvatarUrl = user.AvatarUrl },
+            Author = new User
+            {
+                Id = user.Id,
+                Name = user.Name,
+                AvatarUrl = user.AvatarUrl,
+            },
             CreatedAtUnixSeconds = Math.Max(0, reply.CreatedAt),
             LikeCount = Math.Max(0, reply.LikeCount),
         };
@@ -498,7 +529,7 @@ internal sealed class CommentService : PhoenixFeatureService
     private static string NormalizeSeriesOrVideoId(string value)
     {
         value = (value ?? string.Empty).Trim();
-        return JsonValueReader.IsNumericId(value)
+        return ValueNormalizer.IsNumericId(value)
             ? value
             : throw new ArgumentException("剧集或视频 ID 无效。", nameof(value));
     }
@@ -513,9 +544,6 @@ internal sealed class CommentService : PhoenixFeatureService
         return value;
     }
 
-    private static PhoenixOperationResult Operation(string message) => new()
-    {
-        Succeeded = true,
-        Message = message ?? string.Empty,
-    };
+    private static PhoenixOperationResult Operation(string message) =>
+        new() { Succeeded = true, Message = message ?? string.Empty };
 }

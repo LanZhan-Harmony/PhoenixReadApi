@@ -25,6 +25,11 @@ internal sealed class DramaCategoryDto
     public string Name { get; init; } = string.Empty;
 }
 
+internal sealed class DramaTagDto
+{
+    public string Name { get; init; } = string.Empty;
+}
+
 internal sealed class DramaSubtitleDto
 {
     [JsonPropertyName("content")]

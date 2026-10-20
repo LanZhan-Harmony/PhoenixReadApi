@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Serialization;
 
@@ -99,7 +98,8 @@ internal sealed class DramaDto
     public string FirstVisibleTime { get; init; } = string.Empty;
 
     [JsonPropertyName("tags")]
-    public JsonElement Tags { get; init; }
+    [JsonConverter(typeof(DramaTagListConverter))]
+    public IReadOnlyList<DramaTagDto> Tags { get; init; } = [];
 
     [JsonPropertyName("category_list")]
     public IReadOnlyList<DramaCategoryDto> CategoryList { get; init; } = [];

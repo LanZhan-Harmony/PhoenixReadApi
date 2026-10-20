@@ -1,10 +1,8 @@
-using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.Danmaku;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
-using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Danmaku;
 
@@ -71,7 +69,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
                 )
                 .ConfigureAwait(false);
 
-            DanmakuCursor cursor = ParseCursor(data.ListInfo?.Cursor);
+            AppDanmakuCursor cursor = data.ListInfo?.Cursor ?? new();
             total = Math.Max(total, cursor.DanmakuCount);
             total = Math.Max(total, data.ListInfo?.Total ?? 0);
 
@@ -240,7 +238,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
         long currentMs,
         long requestedEndMs,
         AppDanmakuData data,
-        DanmakuCursor cursor
+        AppDanmakuCursor cursor
     )
     {
         var extraNextMs = data.Extra?.NextTime ?? 0;
@@ -249,9 +247,9 @@ internal sealed class DanmakuService : PhoenixFeatureService
             return Math.Min(extraNextMs, requestedEndMs);
         }
 
-        if (cursor.EndMs > currentMs)
+        if (cursor.EndOffsetTime > currentMs)
         {
-            return Math.Min(cursor.EndMs, requestedEndMs);
+            return Math.Min(cursor.EndOffsetTime, requestedEndMs);
         }
 
         // Some last pages omit both the extra field and a usable end cursor.
@@ -262,32 +260,8 @@ internal sealed class DanmakuService : PhoenixFeatureService
 
     private static bool HasReportedDanmaku(AppDanmakuData data)
     {
-        DanmakuCursor cursor = ParseCursor(data.ListInfo?.Cursor);
+        AppDanmakuCursor cursor = data.ListInfo?.Cursor ?? new();
         return cursor.DanmakuCount > 0 || (data.ListInfo?.Total ?? 0) > 0;
-    }
-
-    private static DanmakuCursor ParseCursor(string? value)
-    {
-        var cursor = (value ?? string.Empty).Trim();
-        if (cursor.Length is 0 or > 8192)
-        {
-            return default;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(cursor);
-            JsonElement root = document.RootElement;
-            return new DanmakuCursor(
-                JsonValueReader.Long(root, "start_offset_time"),
-                JsonValueReader.Long(root, "end_offset_time"),
-                Math.Max(0, JsonValueReader.Long(root, "danmaku_count"))
-            );
-        }
-        catch (JsonException)
-        {
-            return default;
-        }
     }
 
     private static string SanitizeText(string text) =>
@@ -295,5 +269,4 @@ internal sealed class DanmakuService : PhoenixFeatureService
             .. text.Select(static c => char.IsControl(c) || c is '\u2028' or '\u2029' ? ' ' : c),
         ]).Trim();
 
-    private readonly record struct DanmakuCursor(long StartMs, long EndMs, long DanmakuCount);
 }
