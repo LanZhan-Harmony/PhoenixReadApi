@@ -12,7 +12,7 @@ internal static class UrlNormalizer
             return string.Empty;
         }
 
-        var value = WebUtility.HtmlDecode(raw.Trim().Trim('"', '\''));
+        string value = WebUtility.HtmlDecode(raw.Trim().Trim('"', '\''));
         value = value.Replace("\\/", "/", StringComparison.Ordinal);
         if (value.StartsWith("//", StringComparison.Ordinal))
         {

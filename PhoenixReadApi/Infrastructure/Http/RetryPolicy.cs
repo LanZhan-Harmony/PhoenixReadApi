@@ -12,7 +12,7 @@ internal static class RetryPolicy
     {
         Exception? last = null;
         attempts = Math.Clamp(attempts, 1, 8);
-        for (var attempt = 0; attempt < attempts; attempt++)
+        for (int attempt = 0; attempt < attempts; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try

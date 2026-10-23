@@ -136,7 +136,7 @@ internal sealed class AuthenticationService : PhoenixFeatureService
     private static string XorEncode(string value)
     {
         byte[] bytes = Encoding.UTF8.GetBytes(value);
-        for (var index = 0; index < bytes.Length; index++)
+        for (int index = 0; index < bytes.Length; index++)
         {
             bytes[index] ^= 5;
         }

@@ -45,7 +45,7 @@ internal sealed class PhoenixReadWebTransport
         using HttpResponseMessage response = await _http
             .SendAsync(request, cancellationToken)
             .ConfigureAwait(false);
-        var body = await _http
+        byte[] body = await _http
             .ReadBodyAsync(response, cancellationToken, maxBytes)
             .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)

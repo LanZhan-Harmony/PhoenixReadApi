@@ -22,7 +22,7 @@ internal sealed class CommentService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        var normalizedSeriesId = NormalizeSeriesId(seriesId);
+        string normalizedSeriesId = NormalizeSeriesId(seriesId);
         return LoadAsync(
             normalizedSeriesId,
             normalizedSeriesId,
@@ -41,8 +41,8 @@ internal sealed class CommentService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        var normalizedSeriesId = NormalizeSeriesId(seriesId);
-        var normalizedVideoId = NormalizeVideoId(videoId);
+        string normalizedSeriesId = NormalizeSeriesId(seriesId);
+        string normalizedVideoId = NormalizeVideoId(videoId);
         return LoadAsync(
             normalizedSeriesId,
             normalizedVideoId,
@@ -367,14 +367,14 @@ internal sealed class CommentService : PhoenixFeatureService
             }
 
             AppComment comment = record.Comment;
-            var groupId = comment.Common.GroupId ?? string.Empty;
+            string groupId = comment.Common.GroupId ?? string.Empty;
             if (comment.Common.Status != "1" || (groupId.Length > 0 && groupId != targetId))
             {
                 continue;
             }
 
-            var id = (comment.Id ?? string.Empty).Trim();
-            var text = SanitizeText(comment.Common.Content?.Text ?? string.Empty);
+            string id = (comment.Id ?? string.Empty).Trim();
+            string text = SanitizeText(comment.Common.Content?.Text ?? string.Empty);
             if (id.Length == 0 || id.Length > 120 || text.Length == 0 || !seen.Add(id))
             {
                 continue;
@@ -383,8 +383,8 @@ internal sealed class CommentService : PhoenixFeatureService
             AppCommentUserInfo userInfo = comment.Common.UserInfo ?? new();
             AppCommentExpand expand = comment.Expand ?? new();
             AppCommentStat stat = comment.Stat ?? new();
-            var userName = userInfo.Name ?? string.Empty;
-            var userAvatar = userInfo.AvatarUrl ?? string.Empty;
+            string userName = userInfo.Name ?? string.Empty;
+            string userAvatar = userInfo.AvatarUrl ?? string.Empty;
             AppCommentUserBaseInfo? baseInfo = userInfo.BaseInfo;
             items.Add(
                 new DramaComment

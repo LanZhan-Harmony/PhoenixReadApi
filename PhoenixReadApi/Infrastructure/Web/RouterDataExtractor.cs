@@ -14,13 +14,13 @@ internal static partial class RouterDataExtractor
             return null;
         }
 
-        var start = html.IndexOf('{', match.Index + match.Length);
+        int start = html.IndexOf('{', match.Index + match.Length);
         if (start < 0)
         {
             return null;
         }
 
-        var end = FindJsonEnd(html, start);
+        int end = FindJsonEnd(html, start);
         if (end <= start)
         {
             return null;
@@ -38,12 +38,12 @@ internal static partial class RouterDataExtractor
 
     private static int FindJsonEnd(string value, int start)
     {
-        var depth = 0;
-        var inString = false;
-        var escaped = false;
-        for (var index = start; index < value.Length; index++)
+        int depth = 0;
+        bool inString = false;
+        bool escaped = false;
+        for (int index = start; index < value.Length; index++)
         {
-            var current = value[index];
+            char current = value[index];
             if (inString)
             {
                 if (escaped)

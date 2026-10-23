@@ -11,16 +11,16 @@ internal static class DramaMapper
     internal static Drama FromDto(DramaDto value, string category, DateTimeOffset? now = null)
     {
         DramaDto data = value;
-        var sourceId = ValueNormalizer.First(data.SeriesId, data.SeriesIdNumber, data.Keyword);
+        string sourceId = ValueNormalizer.First(data.SeriesId, data.SeriesIdNumber, data.Keyword);
         if (!ValueNormalizer.IsNumericId(sourceId))
         {
             return new Drama();
         }
 
-        var title = ValueNormalizer.First(data.SeriesTitle, data.SeriesName, data.Title, sourceId);
-        var remark = ValueNormalizer.First(data.EpisodeRemark);
+        string title = ValueNormalizer.First(data.SeriesTitle, data.SeriesName, data.Title, sourceId);
+        string remark = ValueNormalizer.First(data.EpisodeRemark);
         List<string> tags = DtoTags(data);
-        var genre = ValueNormalizer.First(
+        string genre = ValueNormalizer.First(
             data.CategoryName,
             data.CategoryNameCamel,
             data.Category,
@@ -153,7 +153,7 @@ internal static class DramaMapper
                 continue;
             }
 
-            var roleName = celebrity.RoleName ?? string.Empty;
+            string roleName = celebrity.RoleName ?? string.Empty;
             Add(
                 ProfileId(celebrity.Schema ?? string.Empty),
                 celebrity.Id ?? string.Empty,
@@ -182,7 +182,7 @@ internal static class DramaMapper
             IEnumerable<string> labels
         )
         {
-            var id = ValueNormalizer.First(primaryId, fallbackId).Trim();
+            string id = ValueNormalizer.First(primaryId, fallbackId).Trim();
             if (!ValueNormalizer.IsNumericId(id))
             {
                 return;
@@ -196,7 +196,7 @@ internal static class DramaMapper
                 Introduction = introduction ?? string.Empty,
                 AvatarUrl = avatarUrl ?? string.Empty,
             };
-            if (positions.TryGetValue(id, out var position))
+            if (positions.TryGetValue(id, out int position))
             {
                 credits[position] = MergeCredit(credits[position], user, roles);
                 return;
@@ -238,8 +238,8 @@ internal static class DramaMapper
                 continue;
             }
 
-            var key = role.CharacterName + "|" + role.Label;
-            if (positions.TryGetValue(key, out var position))
+            string key = role.CharacterName + "|" + role.Label;
+            if (positions.TryGetValue(key, out int position))
             {
                 if (RoleSpecificity(role.Type) > RoleSpecificity(result[position].Type))
                 {
@@ -273,7 +273,7 @@ internal static class DramaMapper
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (var raw in labels ?? [])
         {
-            var label = (raw ?? string.Empty).Trim();
+            string label = (raw ?? string.Empty).Trim();
             if (label.Length == 0 || !seen.Add(label))
             {
                 continue;
@@ -293,7 +293,7 @@ internal static class DramaMapper
                 "出品方" or "制作方" => DramaCreditRoleType.Producer,
                 _ => DramaCreditRoleType.Other,
             };
-            var character = type
+            string character = type
                 is DramaCreditRoleType.Lead
                     or DramaCreditRoleType.Supporting
                     or DramaCreditRoleType.Participant
@@ -315,15 +315,15 @@ internal static class DramaMapper
     private static string ProfileId(string schema)
     {
         schema ??= string.Empty;
-        var marker = schema.IndexOf("uid=", StringComparison.OrdinalIgnoreCase);
+        int marker = schema.IndexOf("uid=", StringComparison.OrdinalIgnoreCase);
         if (marker < 0)
         {
             return string.Empty;
         }
 
-        var start = marker + 4;
-        var end = schema.IndexOf('&', start);
-        var value = schema[start..(end < 0 ? schema.Length : end)];
+        int start = marker + 4;
+        int end = schema.IndexOf('&', start);
+        string value = schema[start..(end < 0 ? schema.Length : end)];
         value = Uri.UnescapeDataString(value).Trim();
         return ValueNormalizer.IsNumericId(value) ? value : string.Empty;
     }
@@ -350,7 +350,7 @@ internal static class DramaMapper
                 tags.Add(item.Name.Trim());
             }
         }
-        foreach (var item in data.CategorySchema ?? [])
+        foreach (string item in data.CategorySchema ?? [])
         {
             if (!string.IsNullOrWhiteSpace(item) && seen.Add(item.Trim()))
             {
@@ -362,14 +362,14 @@ internal static class DramaMapper
 
     private static string DtoHeat(DramaDto data)
     {
-        var score = ValueNormalizer.First(data.HotScoreData?.Score, data.HotScore);
+        string score = ValueNormalizer.First(data.HotScoreData?.Score, data.HotScore);
         return
             score.Length > 0
             && double.TryParse(
                 score,
                 NumberStyles.Float,
                 CultureInfo.InvariantCulture,
-                out var value
+                out double value
             )
             && !double.IsNaN(value)
             && !double.IsInfinity(value)
@@ -385,7 +385,7 @@ internal static class DramaMapper
                 data.FirstVisibleTime,
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
-                out var number
+                out long number
             )
         )
         {
@@ -407,7 +407,7 @@ internal static class DramaMapper
 
         foreach (DramaSubtitleDto item in data.Subtitles ?? [])
         {
-            var label = item.Content ?? string.Empty;
+            string label = item.Content ?? string.Empty;
             if (label == "今日上新")
             {
                 return now.ToOffset(TimeSpan.FromHours(8))
@@ -423,7 +423,7 @@ internal static class DramaMapper
 
             if (label.EndsWith("上新", StringComparison.Ordinal))
             {
-                var date = DateNormalizer.Normalize(label);
+                string date = DateNormalizer.Normalize(label);
                 if (date.Length > 0)
                 {
                     return date;

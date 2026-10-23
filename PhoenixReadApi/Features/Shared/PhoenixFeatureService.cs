@@ -71,9 +71,9 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
             throw new ArgumentException("推荐分类或分页参数无效。", nameof(query));
         }
 
-        foreach (var id in query.Seen)
+        foreach (string id in query.Seen)
         {
-            var value = id.StartsWith("hongguo:", StringComparison.Ordinal) ? id[8..] : id;
+            string value = id.StartsWith("hongguo:", StringComparison.Ordinal) ? id[8..] : id;
             if (!ValueNormalizer.IsNumericId(value))
             {
                 throw new ArgumentException("推荐分页含无效剧集 ID。", nameof(query));
@@ -192,7 +192,7 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
                 continue;
             }
 
-            if (positions.TryGetValue(drama.Id, out var position))
+            if (positions.TryGetValue(drama.Id, out int position))
             {
                 output[position] = MergeDrama(output[position], drama);
             }

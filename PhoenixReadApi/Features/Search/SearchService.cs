@@ -43,7 +43,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     internal Task<SearchResult> SearchAsync(string keyword, CancellationToken cancellationToken)
     {
-        var query = NormalizeKeyword(keyword);
+        string query = NormalizeKeyword(keyword);
         if (TryGetCache(_searchCache, query, out SearchResult? cached) && cached is not null)
         {
             return Task.FromResult(cached);
@@ -99,14 +99,14 @@ internal sealed partial class SearchService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        var query = NormalizeKeyword(keyword);
+        string query = NormalizeKeyword(keyword);
         if (maxResults <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(maxResults), "搜索建议数量必须大于 0。");
         }
 
-        var limit = Math.Min(maxResults, MaxSuggestionLimit);
-        var cacheKey = SuggestionCacheKey(query, limit);
+        int limit = Math.Min(maxResults, MaxSuggestionLimit);
+        string cacheKey = SuggestionCacheKey(query, limit);
         if (
             TryGetCache(_suggestionCache, cacheKey, out List<SearchSuggestion>? cached)
             && cached is not null
@@ -227,8 +227,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
 
         List<Drama> merged = MergeDramas([.. page.Items], names);
-        var limited = page.Limited || pageError is not null || namesError is not null;
-        var warning = string.Empty;
+        bool limited = page.Limited || pageError is not null || namesError is not null;
+        string warning = string.Empty;
         if (pageError is not null)
         {
             warning = "红果综合搜索暂不可用，已保留名称匹配结果，可重试";
@@ -244,7 +244,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             && !cancellationToken.IsCancellationRequested
         )
         {
-            var seasonLimited = await CompleteSearchSeasonsAsync(keyword, merged, cancellationToken)
+            bool seasonLimited = await CompleteSearchSeasonsAsync(keyword, merged, cancellationToken)
                 .ConfigureAwait(false);
             if (seasonLimited)
             {
@@ -299,7 +299,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             Drama drama = DramaMapper.FromDto(data, "短剧");
             if (drama.Title == drama.Id && !string.IsNullOrWhiteSpace(record.Name))
             {
-                var title = record.Name.Trim();
+                string title = record.Name.Trim();
                 drama = new Drama
                 {
                     Id = drama.Id,
@@ -386,7 +386,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
         foreach (WebSuggestionDto record in records)
         {
-            var name = record.Name.Trim();
+            string name = record.Name.Trim();
             if (name.Length is 0 or > 80 || name.Any(char.IsControl) || !seen.Add(name))
             {
                 continue;
@@ -424,7 +424,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             _options.WebBaseUri,
             $"incent_resource/suggestion?app_id=8662&query={Uri.EscapeDataString(query)}&count={count.ToString(CultureInfo.InvariantCulture)}"
         );
-        var body = await GetTextAsync(
+        string body = await GetTextAsync(
                 uri,
                 _options.WebBaseUri,
                 "suggestions",
@@ -459,7 +459,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
     )
     {
         (string genre, string scene, string category) = CategoryInfo(query.Genre);
-        var seen = query
+        string[] seen = query
             .Seen.Select(static id =>
                 id.StartsWith("hongguo:", StringComparison.Ordinal) ? id[8..] : id
             )
@@ -508,14 +508,14 @@ internal sealed partial class SearchService : PhoenixFeatureService
             );
         }
 
-        var hasMore = data.HasMore;
-        var next = data.NextOffset;
+        bool hasMore = data.HasMore;
+        int next = data.NextOffset;
         if (hasMore && (next <= query.Offset || next > 1_000_000 || output.Count == 0))
         {
             throw new PhoenixReadApiResponseException("红果推荐分页未前进。", "recommendations");
         }
 
-        var session = data.SessionId ?? string.Empty;
+        string session = data.SessionId ?? string.Empty;
         if (session.Length > 4096 || session.Any(static c => c is '\r' or '\n' or '\0'))
         {
             throw new PhoenixReadApiResponseException("红果推荐分页标记无效。", "recommendations");
@@ -544,12 +544,12 @@ internal sealed partial class SearchService : PhoenixFeatureService
         Dictionary<string, SeasonGroup> groups = new(StringComparer.Ordinal);
         foreach (Drama drama in dramas)
         {
-            if (!TryParseSeason(drama.Title, out var baseTitle, out var season, out var unit))
+            if (!TryParseSeason(drama.Title, out string baseTitle, out int season, out string unit))
             {
                 continue;
             }
 
-            var key = SearchText(baseTitle) + ":" + unit;
+            string key = SearchText(baseTitle) + ":" + unit;
             if (!groups.TryGetValue(key, out SeasonGroup? group))
             {
                 group = new SeasonGroup(baseTitle, SearchText(baseTitle), unit);
@@ -578,12 +578,12 @@ internal sealed partial class SearchService : PhoenixFeatureService
         );
         timeout.CancelAfter(TimeSpan.FromSeconds(25));
         HashSet<string> attempted = new(StringComparer.OrdinalIgnoreCase) { keyword };
-        var requestCount = 0;
+        int requestCount = 0;
         foreach (SeasonGroup group in incomplete)
         {
             while (requestCount < 32 && !timeout.IsCancellationRequested)
             {
-                var missing = Enumerable
+                int missing = Enumerable
                     .Range(1, group.Maximum)
                     .FirstOrDefault(number => !group.Known.Contains(number));
                 if (missing == 0)
@@ -591,12 +591,12 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     break;
                 }
 
-                var labels = new[]
+                string[] labels = new[]
                 {
                     ChineseSeason(missing),
                     missing.ToString(CultureInfo.InvariantCulture),
                 };
-                var queries =
+                string[] queries =
                     missing == 1
                         ? new[]
                         {
@@ -609,7 +609,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
                             group.Title + "第" + labels[0] + group.Unit,
                             group.Title + "第" + labels[1] + group.Unit,
                         ];
-                var query = queries.FirstOrDefault(attempted.Add);
+                string? query = queries.FirstOrDefault(attempted.Add);
                 if (query is null)
                 {
                     break;
@@ -636,9 +636,9 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     if (
                         !TryParseSeason(
                             match.Title,
-                            out var baseTitle,
-                            out var season,
-                            out var unit
+                            out string baseTitle,
+                            out int season,
+                            out string unit
                         )
                         || unit != group.Unit
                         || SearchText(baseTitle) != group.Key
@@ -661,20 +661,20 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     private static int CompareSearchDrama(Drama left, Drama right, string query)
     {
-        var leftRank = TitleRank(left.Title, query);
-        var rightRank = TitleRank(right.Title, query);
+        int leftRank = TitleRank(left.Title, query);
+        int rightRank = TitleRank(right.Title, query);
         if (leftRank != rightRank)
         {
             return leftRank.CompareTo(rightRank);
         }
 
         if (
-            TryParseSeason(left.Title, out var leftBase, out var leftSeason, out var leftUnit)
+            TryParseSeason(left.Title, out string leftBase, out int leftSeason, out string leftUnit)
             && TryParseSeason(
                 right.Title,
-                out var rightBase,
-                out var rightSeason,
-                out var rightUnit
+                out string rightBase,
+                out int rightSeason,
+                out string rightUnit
             )
             && leftUnit == rightUnit
             && SearchText(leftBase) == SearchText(rightBase)
@@ -707,7 +707,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             )
         )
         {
-            var label = match.Success ? match.Groups[2].Value : string.Empty;
+            string label = match.Success ? match.Groups[2].Value : string.Empty;
             season = ParseChineseSeason(label);
         }
 
@@ -746,10 +746,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
         };
         if (!value.Any(static c => c is '十' or '百'))
         {
-            var number = 0;
-            foreach (var c in value)
+            int number = 0;
+            foreach (char c in value)
             {
-                if (!digits.TryGetValue(c, out var digit))
+                if (!digits.TryGetValue(c, out int digit))
                 {
                     return 0;
                 }
@@ -759,18 +759,18 @@ internal sealed partial class SearchService : PhoenixFeatureService
             return number;
         }
 
-        var result = 0;
-        var current = 0;
-        var previousUnit = 1000;
-        foreach (var c in value)
+        int result = 0;
+        int current = 0;
+        int previousUnit = 1000;
+        foreach (char c in value)
         {
-            if (digits.TryGetValue(c, out var digit))
+            if (digits.TryGetValue(c, out int digit))
             {
                 current = current * 10 + digit;
                 continue;
             }
 
-            var unit = c == '百' ? 100 : 10;
+            int unit = c == '百' ? 100 : 10;
             if (unit >= previousUnit || current > 9)
             {
                 return 0;
@@ -786,7 +786,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     private static string ChineseSeason(int number)
     {
-        var digits = "零一二三四五六七八九";
+        string digits = "零一二三四五六七八九";
         if (number < 10)
         {
             return digits[number].ToString();
@@ -794,14 +794,14 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         if (number < 100)
         {
-            var prefix = number >= 20 ? digits[number / 10].ToString() : string.Empty;
+            string prefix = number >= 20 ? digits[number / 10].ToString() : string.Empty;
             return prefix
                 + "十"
                 + (number % 10 == 0 ? string.Empty : digits[number % 10].ToString());
         }
 
-        var hundreds = digits[number / 100] + "百";
-        var rest = number % 100;
+        string hundreds = digits[number / 100] + "百";
+        int rest = number % 100;
         if (rest == 0)
         {
             return hundreds;
@@ -844,8 +844,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     private static int TitleRank(string title, string query)
     {
-        var normalizedTitle = SearchText(title);
-        var normalizedQuery = SearchText(query);
+        string normalizedTitle = SearchText(title);
+        string normalizedQuery = SearchText(query);
         if (normalizedTitle == normalizedQuery)
         {
             return 0;
@@ -861,7 +861,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             return 2;
         }
 
-        var words = query
+        string[] words = query
             .Split(
                 (char[]?)null,
                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries

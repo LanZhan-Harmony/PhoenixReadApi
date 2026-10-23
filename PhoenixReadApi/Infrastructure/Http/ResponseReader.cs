@@ -13,10 +13,10 @@ internal static class ResponseReader
             .Content.ReadAsStreamAsync(cancellationToken)
             .ConfigureAwait(false);
         using MemoryStream buffer = new();
-        var chunk = new byte[16 * 1024];
+        byte[] chunk = new byte[16 * 1024];
         while (true)
         {
-            var read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false);
+            int read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false);
             if (read == 0)
             {
                 break;

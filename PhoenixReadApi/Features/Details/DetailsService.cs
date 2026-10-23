@@ -28,7 +28,7 @@ internal sealed class DetailsService : PhoenixFeatureService
 
     internal async Task<DramaDetails> GetAsync(string seriesId, CancellationToken cancellationToken)
     {
-        var normalizedId = NormalizeSeriesId(seriesId);
+        string normalizedId = NormalizeSeriesId(seriesId);
         if (TryGetCache(normalizedId, out DramaDetails? cached) && cached is not null)
         {
             return cached;
@@ -120,8 +120,8 @@ internal sealed class DetailsService : PhoenixFeatureService
         HashSet<int> usedEpisodes = [];
         foreach (DramaEpisodeDto item in detail.VideoList)
         {
-            var videoId = item.VideoId.Trim();
-            var episode = item.Episode;
+            string videoId = item.VideoId.Trim();
+            int episode = item.Episode;
             if (
                 !ValueNormalizer.IsNumericId(videoId)
                 || episode < 1
@@ -132,7 +132,7 @@ internal sealed class DetailsService : PhoenixFeatureService
                 throw new PhoenixReadApiResponseException("App 分集编号或视频 ID 无效。", "detail");
             }
 
-            var returnedSeriesId = item.SeriesId.Trim();
+            string returnedSeriesId = item.SeriesId.Trim();
             if (returnedSeriesId.Length > 0 && returnedSeriesId != seriesId)
             {
                 throw new PhoenixReadApiResponseException("App 返回了其他剧集的分集。", "detail");
@@ -142,7 +142,7 @@ internal sealed class DetailsService : PhoenixFeatureService
         }
 
         episodes.Sort(static (left, right) => left.Number.CompareTo(right.Number));
-        var total = detail.EpisodeCount;
+        int total = detail.EpisodeCount;
         if (
             episodes.Count == 0
             || total > episodes.Count
@@ -173,17 +173,17 @@ internal sealed class DetailsService : PhoenixFeatureService
         WebSeriesDetailDto? detail =
             (page?.SeriesDetail)
             ?? throw new PhoenixReadApiResponseException("网页详情为空。", "detail");
-        var title = ValueNormalizer.First(
+        string title = ValueNormalizer.First(
             detail.SeriesName,
             detail.SeriesTitle,
             detail.Name,
             seriesId
         );
         List<Episode> episodes = [];
-        var index = 1;
-        foreach (var item in detail.VideoIds)
+        int index = 1;
+        foreach (string item in detail.VideoIds)
         {
-            var videoId = item.Trim();
+            string videoId = item.Trim();
             if (!ValueNormalizer.IsNumericId(videoId))
             {
                 continue;

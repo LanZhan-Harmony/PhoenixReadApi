@@ -35,7 +35,7 @@ internal sealed class CatalogService : PhoenixFeatureService
         {
             List<string> warnings = [];
             List<Drama> items = [];
-            var usedWebFallback = category == PhoenixReadApiCategory.Comic;
+            bool usedWebFallback = category == PhoenixReadApiCategory.Comic;
             if (category != PhoenixReadApiCategory.Comic)
             {
                 try
@@ -144,7 +144,7 @@ internal sealed class CatalogService : PhoenixFeatureService
 
         List<Drama> output = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
-        for (var page = 0; page < _options.MaxPagesPerCategory && !cursor.Exhausted; page++)
+        for (int page = 0; page < _options.MaxPagesPerCategory && !cursor.Exhausted; page++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (
@@ -193,16 +193,16 @@ internal sealed class CatalogService : PhoenixFeatureService
                 );
             }
 
-            var hasMore = data.HasMore;
-            var nextOffset =
+            bool hasMore = data.HasMore;
+            int nextOffset =
                 data.NextOffset > 0 ? data.NextOffset : cursor.Offset + data.Items.Count;
-            var pageSignature = string.Join(
+            string pageSignature = string.Join(
                 "\n",
                 pageItems
                     .Select(static item => item.Id)
                     .OrderBy(static id => id, StringComparer.Ordinal)
             );
-            var signature =
+            string signature =
                 pageSignature.Length == 0
                     ? string.Empty
                     : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(pageSignature)));
@@ -219,7 +219,7 @@ internal sealed class CatalogService : PhoenixFeatureService
                 throw new PhoenixReadApiResponseException("App 分页未前进。", "catalog");
             }
 
-            var session = data.SessionId ?? string.Empty;
+            string session = data.SessionId ?? string.Empty;
             if (session.Length > 4096 || session.Any(static c => c is '\r' or '\n' or '\0'))
             {
                 throw new PhoenixReadApiResponseException("App 分页会话无效。", "catalog");
@@ -284,7 +284,7 @@ internal sealed class CatalogService : PhoenixFeatureService
     )
     {
         List<Drama> pages = [];
-        for (var page = 1; page <= _options.MaxPagesPerCategory; page++)
+        for (int page = 1; page <= _options.MaxPagesPerCategory; page++)
         {
             (List<Drama> items, int totalPages) = await FetchWebCategoryPageAsync(
                     route,
@@ -338,7 +338,7 @@ internal sealed class CatalogService : PhoenixFeatureService
             }
         }
 
-        var total = data.Pagination?.TotalPages ?? 0;
+        int total = data.Pagination?.TotalPages ?? 0;
         return (output, Math.Clamp(total <= 0 ? page : total, page, 500));
     }
 

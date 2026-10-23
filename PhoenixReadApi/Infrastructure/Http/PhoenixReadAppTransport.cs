@@ -23,7 +23,7 @@ internal sealed class PhoenixReadAppTransport
         StringComparer.OrdinalIgnoreCase
     );
     private readonly string? _sessionStateFilePath;
-    private readonly object _sessionFileLock = new();
+    private readonly Lock _sessionFileLock = new();
     private string _deviceId;
     private string _installId;
     private string _cdid = string.Empty;
@@ -36,12 +36,12 @@ internal sealed class PhoenixReadAppTransport
     private string _userDescription = string.Empty;
     private string _userMaskedPhone = string.Empty;
 
-    private const string AuthenticationVersionCode = "73932";
-    private const string AuthenticationVersionName = "7.3.9.32";
+    private const string AuthenticationVersionCode = "69132";
+    private const string AuthenticationVersionName = "6.9.1.32";
     private const string AuthenticationChannel = "69310258";
     private const string AuthenticationDeviceType = "AOSP on Intel Platform";
-    private const string AuthenticationDeviceBrand = "SAMSUNG";
-    private const string AuthenticationResolution = "1920*1080";
+    private const string AuthenticationDeviceBrand = "HONOR";
+    private const string AuthenticationResolution = "1320*2868";
     private const string AuthenticationRomVersion = "V417IR release-keys";
 
     internal PhoenixReadAppTransport(PhoenixReadHttpTransport http, PhoenixReadApiOptions options)
@@ -75,7 +75,7 @@ internal sealed class PhoenixReadAppTransport
         AppRequestRetryMode retryMode = AppRequestRetryMode.ReadOnly
     )
     {
-        var body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+        byte[] body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
         int attempts = retryMode == AppRequestRetryMode.NoRetry ? 1 : _options.RetryCount;
         return RetryPolicy.ExecuteAsync(
             (attempt, token) =>
@@ -159,16 +159,16 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
         ApplySession(request);
-        PhoenixReadRequestSigner.Sign(request, ReadOnlySpan<byte>.Empty, DateTimeOffset.UtcNow);
+        PhoenixReadRequestSigner.Sign(request, [], DateTimeOffset.UtcNow);
 
         using HttpResponseMessage response = await _http
             .SendAsync(request, cancellationToken)
             .ConfigureAwait(false);
         CaptureSession(response);
-        var bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            var transient = (int)response.StatusCode >= 500;
+            bool transient = (int)response.StatusCode >= 500;
             throw new PhoenixReadApiHttpException(
                 $"红果 App 接口 HTTP {(int)response.StatusCode}。",
                 path,
@@ -199,7 +199,7 @@ internal sealed class PhoenixReadAppTransport
             );
         }
 
-        var providerCode = result.Code;
+        string? providerCode = result.Code;
         if (string.IsNullOrWhiteSpace(providerCode))
         {
             providerCode = result.BaseResponse?.StatusCode;
@@ -240,7 +240,7 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
         ApplySession(request);
-        PhoenixReadRequestSigner.Sign(request, ReadOnlySpan<byte>.Empty, DateTimeOffset.UtcNow);
+        PhoenixReadRequestSigner.Sign(request, [], DateTimeOffset.UtcNow);
 
         using HttpResponseMessage response = await _http
             .SendAsync(request, cancellationToken)
@@ -442,10 +442,10 @@ internal sealed class PhoenixReadAppTransport
             .SendAsync(request, cancellationToken)
             .ConfigureAwait(false);
         CaptureSession(response);
-        var bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            var transient = (int)response.StatusCode >= 500;
+            bool transient = (int)response.StatusCode >= 500;
             throw new PhoenixReadApiHttpException(
                 $"红果 App 接口 HTTP {(int)response.StatusCode}。",
                 path,
@@ -476,7 +476,7 @@ internal sealed class PhoenixReadAppTransport
             );
         }
 
-        var providerCode = result.Code;
+        string? providerCode = result.Code;
         if (string.IsNullOrWhiteSpace(providerCode))
         {
             providerCode = result.BaseResponse?.StatusCode;
@@ -503,7 +503,7 @@ internal sealed class PhoenixReadAppTransport
     {
         EnsureAuthenticationSession();
         KeyValuePair<string, string>[] items = BuildAuthenticationFormValues(path, values);
-        var encoded = string.Join(
+        string encoded = string.Join(
             '&',
             items.Select(static pair =>
                 Uri.EscapeDataString(pair.Key) + "=" + Uri.EscapeDataString(pair.Value)
@@ -598,7 +598,7 @@ internal sealed class PhoenixReadAppTransport
             .SendAsync(request, cancellationToken)
             .ConfigureAwait(false);
         CaptureSession(response);
-        var bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
             SaveAuthenticationResponseDiagnostic(path, response, bytes);
@@ -679,11 +679,11 @@ internal sealed class PhoenixReadAppTransport
                 new("device_type", AuthenticationDeviceType),
                 new("device_brand", AuthenticationDeviceBrand),
                 new("language", "zh"),
-                new("os_api", "35"),
-                new("os_version", "15"),
+                new("os_api", "37"),
+                new("os_version", "17"),
                 new("manifest_version_code", AuthenticationVersionCode),
                 new("resolution", AuthenticationResolution),
-                new("dpi", "280"),
+                new("dpi", "360"),
                 new("update_version_code", AuthenticationVersionCode),
                 new("_rticket", ticket.ToString(CultureInfo.InvariantCulture)),
                 new("host_abi", "arm64-v8a"),
@@ -692,7 +692,6 @@ internal sealed class PhoenixReadAppTransport
                 new("compliance_status", "0"),
                 new("need_personal_recommend", "1"),
                 new("player_so_load", "1"),
-                new("is_android_pad_screen", "1"),
                 new("rom_version", AuthenticationRomVersion),
                 new("cdid", _cdid),
                 new("okhttp_version", "4.2.243.31-douyin"),
@@ -737,7 +736,7 @@ internal sealed class PhoenixReadAppTransport
             authenticationRequest ? _options.AuthenticationBaseUri : _options.AppBaseUri,
             path.TrimStart('/')
         );
-        var queryText = string.Join(
+        string queryText = string.Join(
             '&',
             query.Select(static pair =>
                 Uri.EscapeDataString(pair.Key) + "=" + Uri.EscapeDataString(pair.Value)
@@ -769,8 +768,8 @@ internal sealed class PhoenixReadAppTransport
 
     private static Uri AddQuery(Uri uri, string key, string value)
     {
-        var query = uri.Query.TrimStart('?');
-        var joined = query.Length == 0 ? string.Empty : query + "&";
+        string query = uri.Query.TrimStart('?');
+        string joined = query.Length == 0 ? string.Empty : query + "&";
         joined += Uri.EscapeDataString(key) + "=" + Uri.EscapeDataString(value);
         return new UriBuilder(uri) { Query = joined }.Uri;
     }
@@ -780,7 +779,7 @@ internal sealed class PhoenixReadAppTransport
 
     private void ApplySession(HttpRequestMessage request)
     {
-        if (_cookies.Count > 0)
+        if (!_cookies.IsEmpty)
         {
             request.Headers.TryAddWithoutValidation(
                 "Cookie",

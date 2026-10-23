@@ -18,7 +18,7 @@ internal static partial class ValueNormalizer
             QualityNumberRegex().Match(name).Value,
             NumberStyles.Integer,
             CultureInfo.InvariantCulture,
-            out var value
+            out int value
         )
             ? value
             : 0;

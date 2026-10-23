@@ -25,7 +25,7 @@ internal sealed class UserService : PhoenixFeatureService
     {
         ArgumentNullException.ThrowIfNull(credit);
         ArgumentNullException.ThrowIfNull(credit.User);
-        var userId = NormalizeUserId(credit.User.Id);
+        string userId = NormalizeUserId(credit.User.Id);
         return LoadAsync(
             new User
             {
@@ -315,7 +315,7 @@ internal sealed class UserService : PhoenixFeatureService
                 continue;
             }
 
-            var id = record.Video.Id.Trim();
+            string id = record.Video.Id.Trim();
             if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
             {
                 continue;
@@ -353,7 +353,7 @@ internal sealed class UserService : PhoenixFeatureService
             }
 
             AppUserVideo video = record.Video;
-            var id = video.Id.Trim();
+            string id = video.Id.Trim();
             if (id.Length == 0 || !seen.Add(id))
             {
                 continue;
@@ -391,7 +391,7 @@ internal sealed class UserService : PhoenixFeatureService
                 continue;
             }
 
-            var id = ValueNormalizer.First(item.Video.SeriesId, item.Video.VideoId).Trim();
+            string id = ValueNormalizer.First(item.Video.SeriesId, item.Video.VideoId).Trim();
             if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
             {
                 continue;
@@ -431,7 +431,7 @@ internal sealed class UserService : PhoenixFeatureService
 
             AppUserActionVideoData video = record.Video;
             AppUserActionSeriesDetail series = video.Series;
-            var id = ValueNormalizer.First(series.SeriesId, video.SeriesId).Trim();
+            string id = ValueNormalizer.First(series.SeriesId, video.SeriesId).Trim();
             if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
             {
                 continue;
