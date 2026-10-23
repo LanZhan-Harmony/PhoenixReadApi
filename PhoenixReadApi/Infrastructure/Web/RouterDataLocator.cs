@@ -18,7 +18,7 @@ internal static class RouterDataLocator
             return default;
         }
 
-        foreach (var name in names)
+        foreach (string name in names)
         {
             if (
                 loader.TryGetProperty(name, out JsonElement exact)
@@ -31,9 +31,9 @@ internal static class RouterDataLocator
 
         foreach (JsonProperty item in loader.EnumerateObject())
         {
-            foreach (var name in names)
+            foreach (string name in names)
             {
-                var prefix = name.TrimEnd('$');
+                string prefix = name.TrimEnd('$');
                 if (
                     prefix.Length > 0
                     && item.Name.StartsWith(prefix, StringComparison.Ordinal)

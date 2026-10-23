@@ -216,7 +216,8 @@ CommentPage? episodeComments = await TryWhenIdsAsync(
 );
 PrintComments("  分集评论", episodeComments);
 
-DramaComment? sampleComment = reviews?.Items[0] ?? episodeComments?.Items[0];
+DramaComment? sampleComment =
+    reviews?.Items.FirstOrDefault() ?? episodeComments?.Items.FirstOrDefault();
 CommentReplyPage? replies = sampleComment is null
     ? null
     : await TryAsync(
@@ -233,7 +234,7 @@ CommentReplyPage? reviewReplies = sampleComment is null
     );
 PrintCount("  剧评回复", reviewReplies?.Items.Count);
 
-string creditUserId = details?.Drama.Credits[0]?.User.Id ?? string.Empty;
+string creditUserId = details?.Drama.Credits.FirstOrDefault()?.User.Id ?? string.Empty;
 UserProfile? creditProfile = await TryWhenIdAsync(
     "GetUserProfileAsync(userId)",
     creditUserId,
@@ -241,7 +242,7 @@ UserProfile? creditProfile = await TryWhenIdAsync(
 );
 PrintProfile(creditProfile);
 
-if (details?.Drama.Credits[0] is { } credit)
+if (details?.Drama.Credits.FirstOrDefault() is { } credit)
 {
     UserProfile? creditProfileByCredit = await TryAsync(
         "GetUserProfileAsync(credit)",

@@ -11,9 +11,9 @@ internal static partial class DateNormalizer
         Match match = DateRegex().Match(value);
         if (
             !match.Success
-            || !int.TryParse(match.Groups[1].Value, out var year)
-            || !int.TryParse(match.Groups[2].Value, out var month)
-            || !int.TryParse(match.Groups[3].Value, out var day)
+            || !int.TryParse(match.Groups[1].Value, out int year)
+            || !int.TryParse(match.Groups[2].Value, out int month)
+            || !int.TryParse(match.Groups[3].Value, out int day)
             || year is < 2000 or > 2100
         )
         {

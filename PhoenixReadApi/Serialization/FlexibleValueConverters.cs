@@ -45,12 +45,12 @@ internal sealed class FlexibleIntConverter : JsonConverter<int>
         JsonSerializerOptions options
     )
     {
-        if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out var number))
+        if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out int number))
         {
             return number;
         }
 
-        var text = ReadText(ref reader);
+        string text = ReadText(ref reader);
         return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out number)
             ? number
             : 0;
@@ -80,12 +80,12 @@ internal sealed class FlexibleLongConverter : JsonConverter<long>
         JsonSerializerOptions options
     )
     {
-        if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt64(out var number))
+        if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt64(out long number))
         {
             return number;
         }
 
-        var text = ReadText(ref reader);
+        string text = ReadText(ref reader);
         return long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out number)
             ? number
             : 0;
@@ -115,12 +115,12 @@ internal sealed class FlexibleDoubleConverter : JsonConverter<double>
         JsonSerializerOptions options
     )
     {
-        if (reader.TokenType == JsonTokenType.Number && reader.TryGetDouble(out var number))
+        if (reader.TokenType == JsonTokenType.Number && reader.TryGetDouble(out double number))
         {
             return number;
         }
 
-        var text = ReadText(ref reader);
+        string text = ReadText(ref reader);
         return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number)
             ? number
             : 0;
@@ -162,7 +162,7 @@ internal sealed class VideoModelDtoConverter : JsonConverter<AppPlaybackModel>
 
         if (reader.TokenType == JsonTokenType.String)
         {
-            var text = reader.GetString() ?? string.Empty;
+            string text = reader.GetString() ?? string.Empty;
             if (text.Trim().Length == 0)
             {
                 return new AppPlaybackModel();
@@ -339,7 +339,7 @@ internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<
     )
     {
         writer.WriteStartArray();
-        foreach (var item in value)
+        foreach (string item in value)
         {
             writer.WriteStringValue(item);
         }
@@ -490,7 +490,7 @@ internal sealed class CategorySchemaConverter : JsonConverter<IReadOnlyList<stri
         JsonElement root = document.RootElement;
         if (root.ValueKind == JsonValueKind.String)
         {
-            var text = root.GetString();
+            string? text = root.GetString();
             if (string.IsNullOrWhiteSpace(text))
             {
                 return [];
@@ -517,7 +517,7 @@ internal sealed class CategorySchemaConverter : JsonConverter<IReadOnlyList<stri
     )
     {
         writer.WriteStartArray();
-        foreach (var item in value)
+        foreach (string item in value)
         {
             writer.WriteStringValue(item);
         }
@@ -533,7 +533,7 @@ internal sealed class CategorySchemaConverter : JsonConverter<IReadOnlyList<stri
 
         if (root.ValueKind == JsonValueKind.Object)
         {
-            foreach (var name in new[] { "name", "title", "label", "tag" })
+            foreach (string name in new[] { "name", "title", "label", "tag" })
             {
                 if (
                     root.TryGetProperty(name, out JsonElement value)
@@ -545,7 +545,7 @@ internal sealed class CategorySchemaConverter : JsonConverter<IReadOnlyList<stri
             }
         }
 
-        var text = root.ToString().Trim();
+        string text = root.ToString().Trim();
         return text.Length == 0 ? [] : [text];
     }
 }

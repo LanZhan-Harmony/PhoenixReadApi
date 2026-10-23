@@ -86,12 +86,12 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
 
     private static PlaybackMedia SelectAppMedia(AppPlaybackModel model)
     {
-        var durationSeconds = model.VideoDuration > 0 ? model.VideoDuration : model.Duration;
+        double durationSeconds = model.VideoDuration > 0 ? model.VideoDuration : model.Duration;
         List<ScoredMedia> choices = [];
         Exception? keyError = null;
         foreach (AppMediaVariantDto variant in model.Variants)
         {
-            var codec = variant.Metadata.CodecType.ToLowerInvariant();
+            string codec = variant.Metadata.CodecType.ToLowerInvariant();
             if (
                 codec == "bytevc2"
                 || variant.GearDescriptionKey.Contains(
@@ -109,9 +109,9 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
                 continue;
             }
 
-            var key = string.Empty;
+            string key = string.Empty;
             AppEncryptionDto encryption = variant.Encryption;
-            var spade = encryption.SpadeA;
+            string spade = encryption.SpadeA;
             if (spade.Length > 0 || encryption.Encrypt || encryption.Method == "cenc-aes-ctr")
             {
                 try
@@ -125,23 +125,23 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
                 }
             }
 
-            var height = variant.Metadata.Height;
-            var definition = ValueNormalizer.Quality(variant.Metadata.Definition);
+            int height = variant.Metadata.Height;
+            int definition = ValueNormalizer.Quality(variant.Metadata.Definition);
             if (definition > 0)
             {
                 height = definition;
             }
             else
             {
-                var width = variant.Metadata.Width;
+                int width = variant.Metadata.Width;
                 if (width > 0 && (height == 0 || width < height))
                 {
                     height = width;
                 }
             }
 
-            var qualityScore = height * 10 + (codec is "h264" or "avc1" ? 1 : 0);
-            foreach (var address in addresses)
+            int qualityScore = height * 10 + (codec is "h264" or "avc1" ? 1 : 0);
+            foreach (string address in addresses)
             {
                 choices.Add(
                     new ScoredMedia(
@@ -203,7 +203,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
             _options.WebBaseUri,
             $"player/{Uri.EscapeDataString(seriesId)}/{Uri.EscapeDataString(videoId)}"
         );
-        var html = await GetTextAsync(pageUri, _options.WebBaseUri, "media", cancellationToken)
+        string html = await GetTextAsync(pageUri, _options.WebBaseUri, "media", cancellationToken)
             .ConfigureAwait(false);
         using JsonDocument? document = RouterDataExtractor.Parse(html);
         WebPlayerPageDto? page = RouterDataLocator.Deserialize<WebPlayerPageDto>(
@@ -229,13 +229,13 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
 
         // 当前网页播放器把公开 MP4 放在 JSON-LD VideoObject.contentUrl，
         // loaderData.videoList 只是空对象，不能从旧的 video_player_info 字段读取。
-        var mediaUrl = FindPublicVideoUrl(html, pageUri, videoId);
+        string mediaUrl = FindPublicVideoUrl(html, pageUri, videoId);
         if (mediaUrl.Length == 0)
         {
             throw new PhoenixReadApiResponseException("该集未提供公开播放地址。", "media");
         }
 
-        var duration = page.PublicVideoSeo.DurationSeconds;
+        double duration = page.PublicVideoSeo.DurationSeconds;
         MediaVariant[] variants =
         [
             new() { Url = mediaUrl, Quality = ValueNormalizer.Quality(mediaUrl) },
@@ -253,7 +253,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
     {
         foreach (Match match in JsonLdScriptRegex().Matches(html))
         {
-            var rawJson = WebUtility.HtmlDecode(match.Groups["json"].Value).Trim();
+            string rawJson = WebUtility.HtmlDecode(match.Groups["json"].Value).Trim();
             if (rawJson.Length == 0)
             {
                 continue;
@@ -274,7 +274,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
                     continue;
                 }
 
-                var normalized = UrlNormalizer.NormalizeMediaUrl(contentUrl.GetString(), pageUri);
+                string normalized = UrlNormalizer.NormalizeMediaUrl(contentUrl.GetString(), pageUri);
                 if (
                     normalized.Length == 0
                     || !Uri.TryCreate(normalized, UriKind.Absolute, out Uri? mediaUri)
@@ -312,7 +312,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         List<string> addresses = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (
-            var raw in (info.MainUrls ?? [])
+            string raw in (info.MainUrls ?? [])
                 .Concat(info.BackupUrls ?? [])
                 .Concat(info.BackupUrls1 ?? [])
                 .Concat(info.BackupUrls2 ?? [])
@@ -326,7 +326,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
 
         void Add(string value)
         {
-            var text = value.Trim();
+            string text = value.Trim();
             if (!UrlNormalizer.IsHttpUrl(text))
             {
                 try

@@ -25,8 +25,8 @@ internal sealed class DanmakuService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        var series = NormalizeSeriesId(seriesId);
-        var video = NormalizeVideoId(videoId);
+        string series = NormalizeSeriesId(seriesId);
+        string video = NormalizeVideoId(videoId);
         if (
             startMs < 0
             || durationMs <= 0
@@ -51,14 +51,14 @@ internal sealed class DanmakuService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        var requestedEndMs = startMs + durationMs;
-        var currentMs = startMs;
-        var nextMs = startMs;
-        var total = 0L;
+        long requestedEndMs = startMs + durationMs;
+        long currentMs = startMs;
+        long nextMs = startMs;
+        long total = 0L;
         List<DanmakuItem> items = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
 
-        for (var request = 0; request < MaxDanmakuRequests && currentMs < requestedEndMs; request++)
+        for (int request = 0; request < MaxDanmakuRequests && currentMs < requestedEndMs; request++)
         {
             AppDanmakuData data = await RequestPageWithRetryAsync(
                     seriesId,
@@ -73,8 +73,8 @@ internal sealed class DanmakuService : PhoenixFeatureService
             total = Math.Max(total, cursor.DanmakuCount);
             total = Math.Max(total, data.ListInfo?.Total ?? 0);
 
-            var candidateNextMs = ResolveNextMs(currentMs, requestedEndMs, data, cursor);
-            var pageEndMs = Math.Min(candidateNextMs, requestedEndMs);
+            long candidateNextMs = ResolveNextMs(currentMs, requestedEndMs, data, cursor);
+            long pageEndMs = Math.Min(candidateNextMs, requestedEndMs);
             if (pageEndMs <= currentMs)
             {
                 // A missing or stale cursor means the server has finished this
@@ -96,7 +96,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
 
         items.Sort(static (left, right) =>
         {
-            var time = left.TimeMs.CompareTo(right.TimeMs);
+            int time = left.TimeMs.CompareTo(right.TimeMs);
             return time != 0 ? time : string.CompareOrdinal(left.Id, right.Id);
         });
 
@@ -119,7 +119,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
     )
     {
         AppDanmakuData? last = null;
-        for (var attempt = 0; attempt <= MaxEmptyDanmakuRetries; attempt++)
+        for (int attempt = 0; attempt <= MaxEmptyDanmakuRetries; attempt++)
         {
             last = await RequestPageAsync(
                     seriesId,
@@ -203,9 +203,9 @@ internal sealed class DanmakuService : PhoenixFeatureService
                 continue;
             }
 
-            var position = comment.Expand?.OffsetTime ?? 0;
-            var text = SanitizeText(common.Content?.Text ?? string.Empty);
-            var id = (comment.Id ?? string.Empty).Trim();
+            long position = comment.Expand?.OffsetTime ?? 0;
+            string text = SanitizeText(common.Content?.Text ?? string.Empty);
+            string id = (comment.Id ?? string.Empty).Trim();
             if (
                 position < startMs
                 || position >= endMs
@@ -241,7 +241,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
         AppDanmakuCursor cursor
     )
     {
-        var extraNextMs = data.Extra?.NextTime ?? 0;
+        long extraNextMs = data.Extra?.NextTime ?? 0;
         if (extraNextMs > currentMs)
         {
             return Math.Min(extraNextMs, requestedEndMs);

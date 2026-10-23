@@ -131,7 +131,7 @@ internal sealed class HistoryService : LibraryServiceBase
         ArgumentNullException.ThrowIfNull(update);
         string videoId = NormalizeVideoId(update.VideoId);
         string seriesId = NormalizeSeriesId(update.SeriesId);
-        var timestamp =
+        long timestamp =
             update.UpdatedAtUnixMilliseconds > 0
                 ? update.UpdatedAtUnixMilliseconds
                 : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
