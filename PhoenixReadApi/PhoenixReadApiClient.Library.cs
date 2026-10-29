@@ -126,18 +126,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _follows.GetFollowUpdatesAsync(count, cursor, cancellationToken);
 
-    /// <summary>获取当前账号全部关注动态；这是 GetFollowUpdatesAsync 的语义别名。</summary>
-    /// <param name="count">本页数量。</param>
-    /// <param name="cursor">上一页游标。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>关注动态分页结果。</returns>
-    [Obsolete("请使用 GetFollowUpdatesAsync。")]
-    public Task<FollowUpdatePage> GetAllFollowUpdatesAsync(
-        int count = 20,
-        string cursor = "",
-        CancellationToken cancellationToken = default
-    ) => GetFollowUpdatesAsync(count, cursor, cancellationToken);
-
     /// <summary>获取预约中的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量。</param>
@@ -200,16 +188,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _discovery.GetCategoryAsync(query, cancellationToken);
 
-    /// <summary>获取分类筛选面板和首屏内容；这是 GetCategoryAsync 的面向筛选场景别名。</summary>
-    /// <param name="query">分类和筛选条件。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>筛选项、剧集和分页状态。</returns>
-    [Obsolete("请使用 GetCategoryAsync。")]
-    public Task<CategoryPage> GetCategorySelectorAsync(
-        CategoryQuery query,
-        CancellationToken cancellationToken = default
-    ) => GetCategoryAsync(query, cancellationToken);
-
     /// <summary>获取“新剧”等剧库单元的一页。</summary>
     /// <param name="offset">分页偏移量；首次请求使用 0。</param>
     /// <param name="sessionId">上一页返回的会话 ID；首次请求传空字符串。</param>
@@ -243,26 +221,6 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>服务端返回的关联剧集；没有关联内容时为空列表。</returns>
     public Task<IReadOnlyList<Drama>> GetRelatedDramasAsync(
-        string seriesId,
-        int totalEpisodeCount = 0,
-        int currentEpisode = 0,
-        CancellationToken cancellationToken = default
-    ) =>
-        _discovery.GetRelatedDramasAsync(
-            seriesId,
-            totalEpisodeCount,
-            currentEpisode,
-            cancellationToken
-        );
-
-    /// <summary>获取一部剧的其他分季。</summary>
-    /// <param name="seriesId">剧集 ID。</param>
-    /// <param name="totalEpisodeCount">当前剧集总集数；未知时传 0。</param>
-    /// <param name="currentEpisode">当前集数；未知时传 0。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>其他分季剧集；没有分季时为空列表。</returns>
-    [Obsolete("请使用 GetRelatedDramasAsync。")]
-    public Task<IReadOnlyList<Drama>> GetSeriesSeasonsAsync(
         string seriesId,
         int totalEpisodeCount = 0,
         int currentEpisode = 0,

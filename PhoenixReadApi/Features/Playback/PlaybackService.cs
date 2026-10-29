@@ -68,15 +68,26 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        AppResponse<AppPlaybackData> result = await _appTransport
-            .PostAsync<AppMediaPayload, AppPlaybackData>(
-                "/novel/player/video_model/v1/",
-                new AppMediaPayload { VideoId = videoId },
+        AppMultiMediaPayload payload = new()
+        {
+            MixedVideoIdMap = new Dictionary<string, List<string>> { ["1004"] = [videoId] },
+        };
+
+        AppResponse<Dictionary<string, AppMultiPlaybackEntry>> result = await _appTransport
+            .PostAsync<AppMultiMediaPayload, Dictionary<string, AppMultiPlaybackEntry>>(
+                "/novel/player/multi_video_model/v1/",
+                payload,
                 commentRequest: false,
                 cancellationToken
             )
             .ConfigureAwait(false);
-        if (result.Data?.VideoModel is not { } model)
+
+        if (
+            result.Data is null
+            || !result.Data.TryGetValue(videoId, out AppMultiPlaybackEntry? entry)
+            || entry?.VideoModel is not { } model
+            || model.Variants.Count == 0
+        )
         {
             throw new PhoenixReadApiResponseException("App 播放信息格式异常。", "media");
         }
@@ -91,7 +102,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         Exception? keyError = null;
         foreach (AppMediaVariantDto variant in model.Variants)
         {
-            string codec = variant.Metadata.CodecType.ToLowerInvariant();
+            string codec = variant.EffectiveCodecType.ToLowerInvariant();
             if (
                 codec == "bytevc2"
                 || variant.GearDescriptionKey.Contains(
@@ -110,9 +121,12 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
             }
 
             string key = string.Empty;
-            AppEncryptionDto encryption = variant.Encryption;
-            string spade = encryption.SpadeA;
-            if (spade.Length > 0 || encryption.Encrypt || encryption.Method == "cenc-aes-ctr")
+            string spade = variant.EffectiveSpadeA;
+            if (
+                spade.Length > 0
+                || variant.EffectiveEncrypt
+                || variant.EffectiveEncryptionMethod == "cenc-aes-ctr"
+            )
             {
                 try
                 {
@@ -125,15 +139,15 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
                 }
             }
 
-            int height = variant.Metadata.Height;
-            int definition = ValueNormalizer.Quality(variant.Metadata.Definition);
+            int height = variant.EffectiveHeight;
+            int definition = ValueNormalizer.Quality(variant.EffectiveDefinition);
             if (definition > 0)
             {
                 height = definition;
             }
             else
             {
-                int width = variant.Metadata.Width;
+                int width = variant.EffectiveWidth;
                 if (width > 0 && (height == 0 || width < height))
                 {
                     height = width;
