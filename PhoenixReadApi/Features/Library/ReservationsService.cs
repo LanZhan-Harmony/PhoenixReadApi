@@ -93,12 +93,12 @@ internal sealed class ReservationsService : LibraryServiceBase
                 "/reading/user/subscribe/list/v:version/",
                 [
                     new("tab_type", "2"),
-                    new("req_type", "panel_only"),
                     new("limit", count.ToString(CultureInfo.InvariantCulture)),
                     new("offset", offset.ToString(CultureInfo.InvariantCulture)),
                     new("session_id", string.Empty),
-                    new("version", "0"),
+                    new("version", "1"),
                     new("gender_type", "2"),
+                    new("device_platform", "android"),
                 ],
                 cancellationToken
             )

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.Web.Auth;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
 using PhoenixReadApi.Internal.Serialization;
 
@@ -256,6 +257,111 @@ internal sealed class PhoenixReadPassportTransport
             {
                 result.Add(new(key, value));
             }
+        }
+    }
+
+    internal async Task<WebPassportResponse<TResponse>> GetWebJsonAsync<TResponse>(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    )
+    {
+        List<KeyValuePair<string, string>> fullQuery =
+        [
+            new("aid", "513755"),
+            new("passport_jssdk_version", "3.4.10"),
+            new("passport_jssdk_type", "normal"),
+            new("account_sdk_source", "web"),
+            new("is_from_ttaccountsdk", "1"),
+            new("language", "zh"),
+            .. query,
+        ];
+        Uri endpoint = HttpUriHelper.CreateRawUri(
+            new Uri("https://hongguoduanju.com"),
+            path,
+            fullQuery
+        );
+        using HttpRequestMessage request = new(HttpMethod.Get, endpoint);
+        request.Headers.TryAddWithoutValidation(
+            "User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+        );
+        request.Headers.TryAddWithoutValidation("Referer", "https://hongguoduanju.com/");
+        request.Headers.TryAddWithoutValidation("Origin", "https://hongguoduanju.com");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        _sessionStore.ApplySession(request);
+        using HttpResponseMessage response = await _http
+            .SendAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        _sessionStore.CaptureSession(response);
+        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new PhoenixReadApiHttpException(
+                $"红果 Web 认证接口 HTTP {(int)response.StatusCode}。",
+                path,
+                (int)response.StatusCode,
+                endpoint,
+                isTransient: (int)response.StatusCode >= 500
+            );
+        }
+
+        try
+        {
+            WebPassportResponse<TResponse> result =
+                JsonAotSerializer.Deserialize<WebPassportResponse<TResponse>>(bytes)
+                ?? throw new JsonException("The Web passport response was null.");
+            return result;
+        }
+        catch (JsonException exception)
+        {
+            throw new PhoenixReadApiDeserializationException(
+                "红果 Web 认证接口返回格式异常。",
+                path,
+                exception
+            );
+        }
+    }
+
+    internal async Task FollowRedirectAsync(string redirectUrl, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(redirectUrl))
+        {
+            return;
+        }
+
+        Uri currentUri = new(new Uri("https://hongguoduanju.com"), redirectUrl);
+        for (int i = 0; i < 5; i++)
+        {
+            if (
+                currentUri.Scheme != "https"
+                || !currentUri.Host.EndsWith("hongguoduanju.com", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                break;
+            }
+
+            using HttpRequestMessage request = new(HttpMethod.Get, currentUri);
+            request.Headers.TryAddWithoutValidation(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+            );
+            request.Headers.TryAddWithoutValidation("Referer", "https://hongguoduanju.com/");
+            _sessionStore.ApplySession(request);
+            using HttpResponseMessage response = await _http
+                .SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            _sessionStore.CaptureSession(response);
+
+            if (
+                (int)response.StatusCode is 301 or 302 or 303 or 307 or 308
+                && response.Headers.Location is not null
+            )
+            {
+                currentUri = new Uri(currentUri, response.Headers.Location);
+                continue;
+            }
+            break;
         }
     }
 

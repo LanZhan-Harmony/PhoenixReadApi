@@ -342,6 +342,155 @@ internal sealed class CatalogService : PhoenixFeatureService
         return (output, Math.Clamp(total <= 0 ? page : total, page, 500));
     }
 
+    internal async Task<IReadOnlyList<TagCategoryGroup>> GetTagCategoriesAsync(
+        CancellationToken cancellationToken
+    )
+    {
+        List<KeyValuePair<string, string>> query =
+        [
+            new("genre_type", "130"),
+            new("query_gender", "1"),
+            new("category_type", "5"),
+            new("page_version", "2"),
+            new("source", "detail"),
+            new("limit", "12"),
+            new("offset", "0"),
+            new("client_req_type", "3"),
+            new("category_id", "5000"),
+            new("selected_item_from_front_page", "5000"),
+            new("is_merged_landing_page", "true"),
+            new("category_new_page_715", "1"),
+        ];
+
+        AppResponse<AppTagLandingData> response = await _appTransport
+            .GetAsync<AppTagLandingData>(
+                "/reading/bookapi/new_category/landing/v/",
+                query,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        AppTagLandingData data = response.Data ?? new();
+        List<TagCategoryGroup> groups = [];
+        IReadOnlyList<AppTagSelectorRowDto> rows = data.Selector?.Rows ?? [];
+        foreach (AppTagSelectorRowDto row in rows)
+        {
+            if (row.Items is null)
+            {
+                continue;
+            }
+
+            List<TagCategoryItem> items = [];
+            foreach (AppTagSelectorItemDto item in row.Items)
+            {
+                if (!string.IsNullOrWhiteSpace(item.SelectorItemId))
+                {
+                    items.Add(
+                        new TagCategoryItem
+                        {
+                            Id = item.SelectorItemId.Trim(),
+                            Name = item.ShowName.Trim(),
+                        }
+                    );
+                }
+            }
+
+            if (items.Count > 0)
+            {
+                groups.Add(
+                    new TagCategoryGroup
+                    {
+                        Name = !string.IsNullOrWhiteSpace(row.RowName) ? row.RowName.Trim() : "分类",
+                        Items = items,
+                    }
+                );
+            }
+        }
+
+        return groups;
+    }
+
+    internal async Task<TagDramaPage> GetTagDramaPageAsync(
+        string tagItemId,
+        string sortType,
+        int offset,
+        int count,
+        CancellationToken cancellationToken
+    )
+    {
+        tagItemId = (tagItemId ?? string.Empty).Trim();
+        sortType = string.IsNullOrWhiteSpace(sortType) ? "new_sort_hot" : sortType.Trim();
+        offset = Math.Max(0, offset);
+        count = Math.Clamp(count, 1, 30);
+
+        List<KeyValuePair<string, string>> query =
+        [
+            new("genre_type", "130"),
+            new("query_gender", "1"),
+            new("category_type", "5"),
+            new("page_version", "2"),
+            new("source", "detail"),
+            new("limit", count.ToString(CultureInfo.InvariantCulture)),
+            new("offset", offset.ToString(CultureInfo.InvariantCulture)),
+            new("client_req_type", offset > 0 ? "2" : "3"),
+            new("category_id", "0"),
+            new("selected_order", sortType),
+        ];
+
+        if (tagItemId.Length > 0)
+        {
+            string cleanTag = tagItemId.StartsWith("tag:", StringComparison.OrdinalIgnoreCase)
+                ? tagItemId[4..]
+                : tagItemId;
+            query.Add(new("selected_items", cleanTag));
+        }
+
+        AppResponse<AppTagLandingData> response = await _appTransport
+            .GetAsync<AppTagLandingData>(
+                "/reading/bookapi/new_category/landing/v/",
+                query,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        AppTagLandingData data = response.Data ?? new();
+        IReadOnlyList<AppTagDramaItem> videoList = data.VideoInfo ?? [];
+        List<Drama> items = videoList.Select(MapTagDramaItem).ToList();
+
+        return new TagDramaPage
+        {
+            Items = items,
+            NextOffset = data.Offset,
+            HasMore = data.HasMore,
+            SessionId = data.SessionId,
+        };
+    }
+
+    private static Drama MapTagDramaItem(AppTagDramaItem item)
+    {
+        List<string> tags = [];
+        foreach (AppSubTitleItem sub in item.SubTitleList)
+        {
+            string content = sub.Content.Trim();
+            if (content.Length > 0)
+            {
+                tags.Add(content);
+            }
+        }
+
+        return new Drama
+        {
+            Id = item.SeriesId.Trim(),
+            Title = item.Title.Trim(),
+            Description = item.VideoDesc.Trim(),
+            CoverUrl = item.Cover.Trim(),
+            Score = item.Score.Trim(),
+            EpisodeCount = Math.Max(0, item.EpisodeCount),
+            Remark = item.SubTitle.Trim(),
+            Tags = tags,
+        };
+    }
+
     private readonly record struct CatalogCursor(
         int Offset,
         string SessionId,

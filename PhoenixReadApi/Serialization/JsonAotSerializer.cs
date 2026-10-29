@@ -9,7 +9,10 @@ using PhoenixReadApi.Internal.Contracts.App.Danmaku;
 using PhoenixReadApi.Internal.Contracts.App.Details;
 using PhoenixReadApi.Internal.Contracts.App.Library;
 using PhoenixReadApi.Internal.Contracts.App.Playback;
+using PhoenixReadApi.Internal.Contracts.App.Search;
+using PhoenixReadApi.Internal.Contracts.App.Users;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
+using PhoenixReadApi.Internal.Contracts.Web.Auth;
 using PhoenixReadApi.Internal.Contracts.Web.Catalog;
 using PhoenixReadApi.Internal.Contracts.Web.Details;
 using PhoenixReadApi.Internal.Contracts.Web.Playback;
@@ -46,7 +49,10 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppReadHistoryUpdatePayload))]
 [JsonSerializable(typeof(AppReadProgressItem))]
 [JsonSerializable(typeof(AppReadProgressResponse))]
-[JsonSerializable(typeof(AppRelatedDramaData))]
+[JsonSerializable(typeof(AppSearchTabResponse))]
+[JsonSerializable(typeof(AppSearchTabData))]
+[JsonSerializable(typeof(AppSearchTabItem))]
+[JsonSerializable(typeof(AppSearchTabCell))]
 [JsonSerializable(typeof(AppReplyListPayload))]
 [JsonSerializable(typeof(AppReservationActionPayload))]
 [JsonSerializable(typeof(AppSessionSnapshot))]
@@ -65,7 +71,6 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppResponse<AppLoginData>))]
 [JsonSerializable(typeof(AppResponse<AppOperationResponse>))]
 [JsonSerializable(typeof(AppResponse<AppPlaybackData>))]
-[JsonSerializable(typeof(AppResponse<AppRelatedDramaData>))]
 [JsonSerializable(typeof(AppResponse<AppReplyListData>))]
 [JsonSerializable(typeof(AppResponse<AppReservationData>))]
 [JsonSerializable(typeof(AppResponse<AppShareData>))]
@@ -74,6 +79,24 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppResponse<AppUserProfileData>))]
 [JsonSerializable(typeof(AppResponse<AppUserShelfData>))]
 [JsonSerializable(typeof(AppResponse<Dictionary<string, AppMultiPlaybackEntry>>))]
+[JsonSerializable(typeof(AppCurrentUserInfoData))]
+[JsonSerializable(typeof(AppVipInfoDto))]
+[JsonSerializable(typeof(AppMultiDetailItem))]
+[JsonSerializable(typeof(AppTagLandingData))]
+[JsonSerializable(typeof(AppTagSelectorContainer))]
+[JsonSerializable(typeof(AppTagSelectorRowDto))]
+[JsonSerializable(typeof(AppTagSelectorItemDto))]
+[JsonSerializable(typeof(AppTagDramaItem))]
+[JsonSerializable(typeof(AppSubTitleItem))]
+[JsonSerializable(typeof(AppResponse<AppCurrentUserInfoData>))]
+[JsonSerializable(typeof(AppResponse<IReadOnlyList<AppMultiDetailItem>>))]
+[JsonSerializable(typeof(AppResponse<AppTagLandingData>))]
+[JsonSerializable(typeof(WebQrCodeData))]
+[JsonSerializable(typeof(WebQrStatusData))]
+[JsonSerializable(typeof(WebPassportAccountInfoData))]
+[JsonSerializable(typeof(WebPassportResponse<WebQrCodeData>))]
+[JsonSerializable(typeof(WebPassportResponse<WebQrStatusData>))]
+[JsonSerializable(typeof(WebPassportResponse<WebPassportAccountInfoData>))]
 [JsonSerializable(typeof(DramaDto))]
 [JsonSerializable(typeof(DramaEpisodeDto))]
 [JsonSerializable(typeof(DramaTagDto))]

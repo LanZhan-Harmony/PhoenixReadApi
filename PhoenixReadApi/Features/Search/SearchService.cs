@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.App.Search;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Search;
 using PhoenixReadApi.Internal.Features.Shared;
@@ -332,6 +333,68 @@ internal sealed partial class SearchService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
+        try
+        {
+            AppSearchTabResponse tabResponse = await _appTransport
+                .GetSearchTabAsync(
+                    "/reading/bookapi/search/tab/v/",
+                    [
+                        new("query", keyword),
+                        new("offset", "0"),
+                        new("count", "10"),
+                        new("tab_type", "29"),
+                    ],
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            IReadOnlyList<AppSearchTabItem> allTabs = (tabResponse?.SearchTabs?.Count ?? 0) > 0
+                ? tabResponse!.SearchTabs
+                : tabResponse?.Data?.SearchTabs ?? [];
+            AppSearchTabItem? tab =
+                allTabs.FirstOrDefault(static t => t.TabType == "29") ?? allTabs.FirstOrDefault();
+            if (tab?.Data is { Count: > 0 } cells)
+            {
+                List<Drama> appOutput = [];
+                HashSet<string> appSeen = new(StringComparer.Ordinal);
+                foreach (AppSearchTabCell cell in cells)
+                {
+                    if (cell?.VideoData is not { Count: > 0 } videos)
+                    {
+                        continue;
+                    }
+
+                    foreach (DramaDto video in videos)
+                    {
+                        if (video is null)
+                        {
+                            continue;
+                        }
+
+                        Drama drama = DramaMapper.FromDto(video, "短剧");
+                        if (drama.Id.Length > 0 && appSeen.Add(drama.Id))
+                        {
+                            appOutput.Add(drama);
+                        }
+                    }
+                }
+
+                if (appOutput.Count > 0)
+                {
+                    return new SearchResult
+                    {
+                        Items = appOutput,
+                        Total = appOutput.Count,
+                        Limited = tab.HasMore,
+                    };
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // App 搜索接口不可用时回退到网页搜索
+        }
+
         Uri uri = new(_options.WebBaseUri, "search/" + Uri.EscapeDataString(keyword));
         using JsonDocument? document = RouterDataExtractor.Parse(
             await GetTextAsync(uri, _options.WebBaseUri, "search", cancellationToken)

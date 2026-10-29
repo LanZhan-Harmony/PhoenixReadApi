@@ -14,6 +14,10 @@ internal sealed class DramaDto
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string SeriesIdNumber { get; init; } = string.Empty;
 
+    [JsonPropertyName("book_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookId { get; init; } = string.Empty;
+
     [JsonPropertyName("keyword")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Keyword { get; init; } = string.Empty;

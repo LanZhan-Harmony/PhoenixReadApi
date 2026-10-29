@@ -11,13 +11,13 @@ internal static class DramaMapper
     internal static Drama FromDto(DramaDto value, string category, DateTimeOffset? now = null)
     {
         DramaDto data = value;
-        string sourceId = ValueNormalizer.First(data.SeriesId, data.SeriesIdNumber, data.Keyword);
+        string sourceId = ValueNormalizer.First(data.SeriesId, data.SeriesIdNumber, data.BookId, data.Keyword);
         if (!ValueNormalizer.IsNumericId(sourceId))
         {
             return new Drama();
         }
 
-        string title = ValueNormalizer.First(data.SeriesTitle, data.SeriesName, data.Title, sourceId);
+        string title = ValueNormalizer.First(data.SeriesTitle, data.SeriesName, data.Title, data.Name, sourceId);
         string remark = ValueNormalizer.First(data.EpisodeRemark);
         List<string> tags = DtoTags(data);
         string genre = ValueNormalizer.First(

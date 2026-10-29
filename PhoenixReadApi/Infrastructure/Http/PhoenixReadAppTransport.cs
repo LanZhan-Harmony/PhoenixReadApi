@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Search;
+using PhoenixReadApi.Internal.Contracts.Web.Auth;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
 using PhoenixReadApi.Internal.Serialization;
 
@@ -102,12 +104,34 @@ internal sealed class PhoenixReadAppTransport
             cancellationToken
         );
 
+    /// <summary>读取顶层 search_tabs 的短剧搜索 Tab 接口。</summary>
+    internal Task<AppSearchTabResponse> GetSearchTabAsync(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    ) =>
+        RetryPolicy.ExecuteAsync(
+            (_, token) => SendSearchTabOnceAsync(path, query, token),
+            _options.RetryCount,
+            RetryPolicy.IsTransient,
+            cancellationToken
+        );
+
     /// <summary>发送登录等接口使用的 application/x-www-form-urlencoded 请求。</summary>
     internal Task<AppResponse<TResponse>> PostFormAsync<TResponse>(
         string path,
         IEnumerable<KeyValuePair<string, string>> values,
         CancellationToken cancellationToken
     ) => _passportTransport.PostFormAsync<TResponse>(path, values, cancellationToken);
+
+    internal Task<WebPassportResponse<TResponse>> GetWebPassportJsonAsync<TResponse>(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    ) => _passportTransport.GetWebJsonAsync<TResponse>(path, query, cancellationToken);
+
+    internal Task FollowRedirectAsync(string redirectUrl, CancellationToken cancellationToken) =>
+        _passportTransport.FollowRedirectAsync(redirectUrl, cancellationToken);
 
     internal bool HasSession => _sessionStore.HasSession;
 
@@ -216,6 +240,8 @@ internal sealed class PhoenixReadAppTransport
             {
                 throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
             }
+
+
 
             AppResponse<TResponse> result;
             try
@@ -336,6 +362,94 @@ internal sealed class PhoenixReadAppTransport
                 isTransient: true
             );
         }
+        return result;
+    }
+
+    private async Task<AppSearchTabResponse> SendSearchTabOnceAsync(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    )
+    {
+        await _deviceManager
+            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        Uri endpoint = BuildAppUri(path);
+        foreach (KeyValuePair<string, string> pair in query)
+        {
+            endpoint = HttpUriHelper.AddQuery(endpoint, pair.Key, pair.Value);
+        }
+
+        Uri requestUri = HttpUriHelper.AddQuery(
+            endpoint,
+            "_rticket",
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+        );
+        using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
+        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+        _sessionStore.ApplySession(request);
+        PhoenixReadRequestSigner.SignPlayer(
+            request,
+            [],
+            _deviceManager.DeviceId,
+            DateTimeOffset.UtcNow
+        );
+
+        using HttpResponseMessage response = await _http
+            .SendAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        _sessionStore.CaptureSession(response);
+        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new PhoenixReadApiHttpException(
+                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                path,
+                (int)response.StatusCode,
+                requestUri,
+                (int)response.StatusCode >= 500
+            );
+        }
+        if (bytes.Length == 0)
+        {
+            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+        }
+
+        AppSearchTabResponse result;
+        try
+        {
+            result =
+                JsonAotSerializer.Deserialize<AppSearchTabResponse>(bytes)
+                ?? throw new JsonException("The App response was null.");
+        }
+        catch (JsonException exception)
+        {
+            throw new PhoenixReadApiDeserializationException(
+                "红果 App 接口返回格式异常。",
+                path,
+                exception
+            );
+        }
+
+        string providerCode = result.Code;
+        if (string.IsNullOrWhiteSpace(providerCode))
+        {
+            providerCode = result.BaseResponse?.StatusCode ?? string.Empty;
+        }
+        if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
+        {
+            throw new PhoenixReadApiProviderException(
+                $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
+                path,
+                providerCode,
+                isTransient: true
+            );
+        }
+
         return result;
     }
 

@@ -3,8 +3,8 @@ using PhoenixReadApi;
 
 const string keyword = "请君入我怀";
 string sampleDirectory = GetSampleDirectory();
-string phone = ReadPhone(sampleDirectory);
 string sessionPath = Path.Combine(sampleDirectory, ".auth", "phone-session.json");
+string phone = ReadPhone(sampleDirectory);
 Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
 
 using CancellationTokenSource timeout = new(TimeSpan.FromMinutes(15));
@@ -24,6 +24,90 @@ Console.WriteLine($"会话文件：{sessionPath}");
 
 AuthenticationState authentication = client.GetAuthenticationState();
 Console.WriteLine($"已有登录会话：{authentication.IsAuthenticated}");
+
+bool isSessionValid = await client.ValidateSessionAsync(timeout.Token);
+Console.WriteLine($"会话服务端校验有效性：{isSessionValid}");
+
+if (isSessionValid)
+{
+    CurrentUserInfo? currentUser = await TryAsync(
+        "GetCurrentUserInfoAsync",
+        () => client.GetCurrentUserInfoAsync(timeout.Token)
+    );
+    if (currentUser is not null)
+    {
+        Console.WriteLine(
+            $"  当前登录用户：{currentUser.Name} (ID: {currentUser.Id}), VIP: {currentUser.IsVip}"
+        );
+    }
+}
+
+// 演示二维码登录接口
+QrCodeLoginSession? qrSession = await TryAsync(
+    "CreateQrCodeLoginAsync",
+    () => client.CreateQrCodeLoginAsync(timeout.Token)
+);
+if (qrSession is not null)
+{
+    Console.WriteLine(
+        $"  获取到扫码 Token: {qrSession.Token[..Math.Min(16, qrSession.Token.Length)]}..., 有效秒数: {qrSession.ExpiresInSeconds}"
+    );
+    QrCodeCheckResult? qrStatus = await TryAsync(
+        "CheckQrCodeStatusAsync",
+        () => client.CheckQrCodeStatusAsync(qrSession.Token, timeout.Token)
+    );
+    if (qrStatus is not null)
+    {
+        Console.WriteLine($"  当前扫码状态：{qrStatus.Status}");
+    }
+}
+
+// 批量详情
+IReadOnlyList<Drama>? batchDramas = await TryAsync(
+    "GetBatchDramaDetailsAsync",
+    () =>
+        client.GetBatchDramaDetailsAsync(
+            ["7683879553894190105", "7690614743660235800"],
+            timeout.Token
+        )
+);
+PrintCount("  批量短剧详情", batchDramas?.Count);
+if (batchDramas is not null)
+{
+    foreach (Drama drama in batchDramas)
+    {
+        Console.WriteLine(
+            $"    [{drama.Id}] {drama.Title} - {drama.EpisodeCount}集 - 评分: {drama.Score}"
+        );
+    }
+}
+
+// 题材标签树
+IReadOnlyList<TagCategoryGroup>? tagGroups = await TryAsync(
+    "GetTagCategoriesAsync",
+    () => client.GetTagCategoriesAsync(timeout.Token)
+);
+PrintCount("  题材分类分组", tagGroups?.Count);
+if (tagGroups is { Count: > 0 })
+{
+    Console.WriteLine(
+        $"    首个分组: {tagGroups[0].Name}, 包含标签数: {tagGroups[0].Items.Count} (例如: {tagGroups[0].Items[0].Name}={tagGroups[0].Items[0].Id})"
+    );
+}
+
+// 题材标签落地列表
+TagDramaPage? tagPage = await TryAsync(
+    "GetTagDramaPageAsync",
+    () =>
+        client.GetTagDramaPageAsync(
+            "cate_261",
+            offset: 0,
+            count: 6,
+            cancellationToken: timeout.Token
+        )
+);
+PrintCount("  题材标签短剧页", tagPage?.Items.Count);
+
 if (!authentication.IsAuthenticated && phone.Length > 0)
 {
     VerificationCodeResult? sent = await TryAsync(
@@ -79,7 +163,9 @@ SearchResult? search = await TryAsync(
 );
 if (search is not null)
 {
-    Console.WriteLine($"  搜索结果：{search.Items.Count}/{search.Total}");
+    Console.WriteLine(
+        $"  搜索结果：{search.Items.Count}/{search.Total}, Warning='{search.Warning}'"
+    );
 }
 
 RecommendationPage? recommendationByQuery = await TryAsync(
@@ -150,32 +236,6 @@ string seriesId = details?.Drama.Id ?? selectedDrama?.Id ?? string.Empty;
 Episode? firstEpisode = details?.Episodes.FirstOrDefault(episode => episode.VideoId.Length > 0);
 string videoId = firstEpisode?.VideoId ?? string.Empty;
 Console.WriteLine($"剧集：{seriesId}，分集：{details?.Episodes.Count ?? 0}，首集：{videoId}");
-
-IReadOnlyList<Drama>? related = await TryWhenIdAsync(
-    "GetRelatedDramasAsync",
-    seriesId,
-    id =>
-        client.GetRelatedDramasAsync(
-            id,
-            details?.Episodes.Count ?? 0,
-            firstEpisode?.Number ?? 0,
-            timeout.Token
-        )
-);
-PrintCount("  关联剧集", related?.Count);
-
-IReadOnlyList<Drama>? seasons = await TryWhenIdAsync(
-    "GetRelatedDramasAsync",
-    seriesId,
-    id =>
-        client.GetRelatedDramasAsync(
-            id,
-            details?.Episodes.Count ?? 0,
-            firstEpisode?.Number ?? 0,
-            timeout.Token
-        )
-);
-PrintCount("  分季", seasons?.Count);
 
 PlaybackMedia? mediaByIds = await TryWhenIdsAsync(
     "ResolveMediaAsync(ids)",
@@ -455,7 +515,7 @@ static string GetSampleDirectory()
 
 static string ReadPhone(string sampleDirectory)
 {
-    string path = Path.Combine(sampleDirectory, "Phone.txt");
+    string path = Path.Combine(sampleDirectory, ".auth", "Phone.txt");
     return File.Exists(path) ? File.ReadAllText(path).Trim() : string.Empty;
 }
 
@@ -467,9 +527,11 @@ static Drama? FindDrama(SearchResult? search, IReadOnlyList<Drama>? catalog, str
         ?? search?.Items.FirstOrDefault(item =>
             item.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase)
         )
+        ?? search?.Items.FirstOrDefault()
         ?? catalog?.FirstOrDefault(item =>
             item.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-        );
+        )
+        ?? catalog?.FirstOrDefault();
 }
 
 static string FindOrdinaryUserId(CommentPage? comments, DramaDetails? details)

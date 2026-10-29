@@ -1,6 +1,9 @@
+using System.Globalization;
 using System.Text;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Auth;
+using PhoenixReadApi.Internal.Contracts.App.Users;
+using PhoenixReadApi.Internal.Contracts.Web.Auth;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
@@ -114,6 +117,195 @@ internal sealed class AuthenticationService : PhoenixFeatureService
     {
         _appTransport.ClearSession();
         _user = new AuthenticatedUser();
+    }
+
+    internal async Task<CurrentUserInfo> GetCurrentUserInfoAsync(
+        CancellationToken cancellationToken
+    )
+    {
+        AppResponse<AppCurrentUserInfoData> response = await _appTransport
+            .GetAsync<AppCurrentUserInfoData>("/reading/user/info/v1/", [], cancellationToken)
+            .ConfigureAwait(false);
+        AppCurrentUserInfoData data = response.Data ?? new();
+        string userId = !string.IsNullOrEmpty(data.UserId) ? data.UserId : data.BizUserId;
+        CurrentUserInfo info = new()
+        {
+            Id = userId,
+            Name = data.UserName,
+            AvatarUrl = data.AvatarUrl,
+            Description = data.Description,
+            Gender = data.Gender,
+            IsVip = data.VipInfo.IsVip == "1",
+        };
+
+        if (userId.Length > 0)
+        {
+            _user = new AuthenticatedUser
+            {
+                Id = info.Id,
+                Name = info.Name,
+                AvatarUrl = info.AvatarUrl,
+                Description = info.Description,
+                MaskedPhone = _user.MaskedPhone,
+            };
+            _appTransport.SaveAuthenticatedUser(_user);
+        }
+
+        return info;
+    }
+
+    internal async Task<bool> ValidateSessionAsync(CancellationToken cancellationToken)
+    {
+        if (!_appTransport.HasSession)
+        {
+            return false;
+        }
+
+        try
+        {
+            CurrentUserInfo info = await GetCurrentUserInfoAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return info.Id.Length > 0;
+        }
+        catch (PhoenixReadApiException)
+        {
+            Logout();
+            return false;
+        }
+    }
+
+    internal async Task<QrCodeLoginSession> CreateQrCodeLoginAsync(
+        CancellationToken cancellationToken
+    )
+    {
+        WebPassportResponse<WebQrCodeData> response = await _appTransport
+            .GetWebPassportJsonAsync<WebQrCodeData>(
+                "/passport/web/get_qrcode/",
+                [new("next", "https://hongguoduanju.com/")],
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        WebQrCodeData data = response.Data ?? new();
+        string token = data.Token.Trim();
+        string rawQr = data.QrCode.Trim();
+        if (token.Length == 0 || rawQr.Length == 0)
+        {
+            throw new PhoenixReadApiProviderException(
+                "获取网页登录二维码失败，返回数据不完整。",
+                "/passport/web/get_qrcode/",
+                "EMPTY_QR",
+                isTransient: true
+            );
+        }
+
+        string base64Only = rawQr.Contains("base64,", StringComparison.OrdinalIgnoreCase)
+            ? rawQr.Split("base64,")[^1]
+            : rawQr;
+
+        byte[] imageBytes;
+        try
+        {
+            imageBytes = Convert.FromBase64String(base64Only);
+        }
+        catch (FormatException)
+        {
+            imageBytes = [];
+        }
+
+        long rawExpiry = data.ExpireTime;
+        long nowSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        int expiresInSeconds = rawExpiry > 1_000_000_000
+            ? (int)Math.Max(0, Math.Min(600, rawExpiry - nowSeconds))
+            : (int)Math.Max(0, Math.Min(600, rawExpiry > 0 ? rawExpiry : 180));
+
+        return new QrCodeLoginSession
+        {
+            Token = token,
+            QrCodeBase64 = base64Only,
+            QrCodeImageBytes = imageBytes,
+            ExpiresInSeconds = expiresInSeconds,
+        };
+    }
+
+    internal async Task<QrCodeCheckResult> CheckQrCodeStatusAsync(
+        string token,
+        CancellationToken cancellationToken
+    )
+    {
+        token = (token ?? string.Empty).Trim();
+        if (token.Length == 0)
+        {
+            throw new ArgumentException("扫码凭证 Token 不能为空。", nameof(token));
+        }
+
+        WebPassportResponse<WebQrStatusData> response = await _appTransport
+            .GetWebPassportJsonAsync<WebQrStatusData>(
+                "/passport/web/check_qrconnect/",
+                [
+                    new("next", "https://hongguoduanju.com/"),
+                    new("token", token),
+                ],
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        WebQrStatusData data = response.Data ?? new();
+        string status = (data.Status ?? string.Empty).Trim();
+
+        if (status is "5" or "expired")
+        {
+            return new QrCodeCheckResult { Status = QrCodeLoginStatus.Expired };
+        }
+
+        if (status is "2" or "scanned")
+        {
+            return new QrCodeCheckResult { Status = QrCodeLoginStatus.Scanned };
+        }
+
+        if (status is "3" or "confirmed")
+        {
+            if (!string.IsNullOrWhiteSpace(data.RedirectUrl))
+            {
+                await _appTransport
+                    .FollowRedirectAsync(data.RedirectUrl, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            WebPassportResponse<WebPassportAccountInfoData> profileResponse = await _appTransport
+                .GetWebPassportJsonAsync<WebPassportAccountInfoData>(
+                    "/passport/account/info/v2/",
+                    [],
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            WebPassportAccountInfoData profile = profileResponse.Data ?? new();
+            string userId = !string.IsNullOrWhiteSpace(profile.UserIdStr)
+                ? profile.UserIdStr
+                : profile.UserId > 0
+                    ? profile.UserId.ToString(CultureInfo.InvariantCulture)
+                    : string.Empty;
+
+            _user = new AuthenticatedUser
+            {
+                Id = userId,
+                Name = !string.IsNullOrWhiteSpace(profile.Name)
+                    ? profile.Name
+                    : !string.IsNullOrWhiteSpace(profile.ScreenName)
+                        ? profile.ScreenName
+                        : "红果用户",
+                AvatarUrl = profile.AvatarUrl,
+                Description = string.Empty,
+                MaskedPhone = string.Empty,
+            };
+            _appTransport.SaveAuthenticatedUser(_user);
+
+            return new QrCodeCheckResult
+            {
+                Status = QrCodeLoginStatus.Confirmed,
+                User = _user,
+            };
+        }
+
+        return new QrCodeCheckResult { Status = QrCodeLoginStatus.WaitingForScan };
     }
 
     private static string NormalizePhone(string value)

@@ -16,4 +16,13 @@ public sealed partial class PhoenixReadApiClient
         string seriesId,
         CancellationToken cancellationToken = default
     ) => _details.GetAsync(seriesId, cancellationToken);
+
+    /// <summary>批量获取多部剧的基础元数据信息。</summary>
+    /// <param name="seriesIds">要获取的剧集 ID 列表（单次最多 50 部）。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>返回成功匹配的剧集列表。</returns>
+    public Task<IReadOnlyList<Drama>> GetBatchDramaDetailsAsync(
+        IEnumerable<string> seriesIds,
+        CancellationToken cancellationToken = default
+    ) => _details.GetBatchDramaDetailsAsync(seriesIds, cancellationToken);
 }
