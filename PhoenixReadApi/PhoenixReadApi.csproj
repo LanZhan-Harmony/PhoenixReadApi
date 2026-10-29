@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -28,6 +28,10 @@
     <Description>使用 C# 编写的 PhoenixRead 红果免费短剧 API</Description>
     <PackageReleaseNotes>首个剧库、搜索、播放和弹幕客户端版本。</PackageReleaseNotes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PhoenixReadApi.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="README.md" />

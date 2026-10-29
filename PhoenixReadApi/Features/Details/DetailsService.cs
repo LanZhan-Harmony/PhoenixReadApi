@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Details;
@@ -231,6 +232,103 @@ internal sealed class DetailsService : PhoenixFeatureService
             Title = $"第{number}集",
             Number = number,
         };
+
+    internal async Task<IReadOnlyList<Drama>> GetBatchDramaDetailsAsync(
+        IEnumerable<string> seriesIds,
+        CancellationToken cancellationToken
+    )
+    {
+        ArgumentNullException.ThrowIfNull(seriesIds);
+        List<string> ids = seriesIds
+            .Select(NormalizeSeriesId)
+            .Where(static id => id.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .Take(50)
+            .ToList();
+
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        List<KeyValuePair<string, string>> query = ids
+            .Select(static id => new KeyValuePair<string, string>("book_id", id))
+            .ToList();
+
+        AppResponse<IReadOnlyList<AppMultiDetailItem>> response = await _appTransport
+            .GetAsync<IReadOnlyList<AppMultiDetailItem>>(
+                "/reading/bookapi/multi-detail/v1/",
+                query,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        IReadOnlyList<AppMultiDetailItem> items = response.Data ?? [];
+        return items.Select(MapMultiDetailItem).ToList();
+    }
+
+    private static Drama MapMultiDetailItem(AppMultiDetailItem item)
+    {
+        int episodeCount = 0;
+        if (
+            !int.TryParse(
+                item.DramaChapterNumber,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out episodeCount
+            )
+            && !int.TryParse(
+                item.ChapterNumber,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out episodeCount
+            )
+        )
+        {
+            _ = int.TryParse(
+                item.SerialCount,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out episodeCount
+            );
+        }
+
+        string cover = ValueNormalizer.First(
+            item.ExpandThumbUrl,
+            item.ThumbUrl,
+            item.BookshelfThumbUrl
+        );
+        string desc = ValueNormalizer.First(item.BookAbstractV2, item.Abstract);
+        string score = ValueNormalizer.First(item.FinalScoreV2, item.Score);
+
+        List<string> tags = [];
+        if (!string.IsNullOrWhiteSpace(item.Category))
+        {
+            tags.Add(item.Category.Trim());
+        }
+        if (!string.IsNullOrWhiteSpace(item.Tags))
+        {
+            tags.AddRange(
+                item.Tags.Split(
+                    [',', '，', ' ', ';'],
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                )
+            );
+        }
+
+        return new Drama
+        {
+            Id = item.BookId.Trim(),
+            Title = item.BookName.Trim(),
+            Description = desc.Trim(),
+            CoverUrl = cover.Trim(),
+            Category = item.Category.Trim(),
+            Remark = item.SubInfo.Trim(),
+            Score = score.Trim(),
+            EpisodeCount = Math.Max(0, episodeCount),
+            Tags = [.. tags.Distinct(StringComparer.Ordinal)],
+        };
+    }
 
     private sealed record CachedValue<T>(T Value, DateTimeOffset ExpiresAt);
 }

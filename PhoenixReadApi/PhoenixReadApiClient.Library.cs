@@ -214,25 +214,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _discovery.GetBookPackFieldsAsync(channel, cancellationToken);
 
-    /// <summary>获取剧集的分季或关联剧集。</summary>
-    /// <param name="seriesId">剧集 ID。</param>
-    /// <param name="totalEpisodeCount">当前剧集总集数；未知时传 0。</param>
-    /// <param name="currentEpisode">当前集数；未知时传 0。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端返回的关联剧集；没有关联内容时为空列表。</returns>
-    public Task<IReadOnlyList<Drama>> GetRelatedDramasAsync(
-        string seriesId,
-        int totalEpisodeCount = 0,
-        int currentEpisode = 0,
-        CancellationToken cancellationToken = default
-    ) =>
-        _discovery.GetRelatedDramasAsync(
-            seriesId,
-            totalEpisodeCount,
-            currentEpisode,
-            cancellationToken
-        );
-
     /// <summary>创建剧集分集分享链接。</summary>
     /// <param name="seriesId">剧集 ID。</param>
     /// <param name="videoId">分集视频 ID。</param>

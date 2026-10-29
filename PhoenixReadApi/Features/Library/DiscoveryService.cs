@@ -159,59 +159,6 @@ internal sealed class DiscoveryService : LibraryServiceBase
         };
     }
 
-    internal async Task<IReadOnlyList<Drama>> GetRelatedDramasAsync(
-        string seriesId,
-        int totalEpisodeCount,
-        int currentEpisode,
-        CancellationToken cancellationToken
-    )
-    {
-        seriesId = NormalizeSeriesId(seriesId);
-        AppResponse<AppRelatedDramaData> response;
-        try
-        {
-            response = await _appTransport
-                .GetAsync<AppRelatedDramaData>(
-                    "/reading/bookapi/plan/v",
-                    [
-                        new("book_id", seriesId),
-                        new(
-                            "total_chapter_num",
-                            Math.Max(0, totalEpisodeCount).ToString(CultureInfo.InvariantCulture)
-                        ),
-                        new(
-                            "current_chapter_num",
-                            Math.Max(0, currentEpisode).ToString(CultureInfo.InvariantCulture)
-                        ),
-                        new("is_horizontal_screen", "false"),
-                        new("bookstore_tab_type", "4"),
-                    ],
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-        }
-        catch (PhoenixReadApiProviderException exception) when (exception.ProviderCode == "100103")
-        {
-            return [];
-        }
-        return
-        [
-            .. (response.Data?.Items ?? [])
-                .SelectMany(FlattenRelatedDramas)
-                .GroupBy(static item => item.Id, StringComparer.Ordinal)
-                .Select(static group => group.First())
-                .Select(static item => new Drama
-                {
-                    Id = item.Id,
-                    Title = item.Title,
-                    Description = item.Description,
-                    CoverUrl = item.CoverUrl,
-                    Category = item.Category,
-                    EpisodeCount = item.EpisodeCount,
-                }),
-        ];
-    }
-
     internal async Task<ShareLink> CreateShareLinkAsync(
         string seriesId,
         string videoId,
@@ -297,15 +244,6 @@ internal sealed class DiscoveryService : LibraryServiceBase
             SessionId = sessionId ?? string.Empty,
             HasMore = hasMore,
         };
-
-    private static IEnumerable<AppRelatedDramaItem> FlattenRelatedDramas(AppRelatedDramaItem item)
-    {
-        yield return item;
-        foreach (AppRelatedDramaItem child in item.Children.SelectMany(FlattenRelatedDramas))
-        {
-            yield return child;
-        }
-    }
 
     private static IReadOnlyList<FeedSection> MapFeedSections(
         IReadOnlyList<AppFeedCell> cells,
