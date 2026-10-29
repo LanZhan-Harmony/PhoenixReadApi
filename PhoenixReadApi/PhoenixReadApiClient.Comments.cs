@@ -71,20 +71,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _comments.GetRepliesAsync(commentId, count, cursor, cancellationToken);
 
-    /// <summary>获取一条剧评下的回复；这是 GetCommentRepliesAsync 的语义别名。</summary>
-    /// <param name="commentId">剧评评论 ID。</param>
-    /// <param name="count">本页数量。</param>
-    /// <param name="cursor">上一页游标。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>回复分页结果。</returns>
-    [Obsolete("请使用 GetCommentRepliesAsync。")]
-    public Task<CommentReplyPage> GetReviewRepliesAsync(
-        string commentId,
-        int count = 20,
-        string cursor = "",
-        CancellationToken cancellationToken = default
-    ) => GetCommentRepliesAsync(commentId, count, cursor, cancellationToken);
-
     /// <summary>发送一条分集评论。</summary>
     /// <param name="seriesId">所属剧集 ID。</param>
     /// <param name="videoId">分集视频 ID。</param>
@@ -193,30 +179,6 @@ public sealed partial class PhoenixReadApiClient
         string replyToUserId,
         CancellationToken cancellationToken = default
     ) => _comments.SendReplyAsync(commentId, groupId, text, replyToUserId, cancellationToken);
-
-    /// <summary>回复评论；这是 SendCommentReplyAsync 的简短别名。</summary>
-    /// <param name="commentId">目标评论 ID。</param>
-    /// <param name="text">回复文本。</param>
-    /// <param name="replyToUserId">回复目标用户 ID。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    [Obsolete("请使用 SendCommentReplyAsync。")]
-    public Task<PhoenixOperationResult> SendReplyAsync(
-        string commentId,
-        string text,
-        string replyToUserId = "",
-        CancellationToken cancellationToken = default
-    ) => SendCommentReplyAsync(commentId, text, replyToUserId, cancellationToken);
-
-    /// <summary>按所属视频回复一条评论；这是 SendCommentReplyAsync 的别名。</summary>
-    [Obsolete("请使用 SendCommentReplyAsync。")]
-    public Task<PhoenixOperationResult> SendReplyAsync(
-        string commentId,
-        string groupId,
-        string text,
-        string replyToUserId,
-        CancellationToken cancellationToken = default
-    ) => SendCommentReplyAsync(commentId, groupId, text, replyToUserId, cancellationToken);
 
     /// <summary>点赞或取消点赞剧评。</summary>
     /// <param name="commentId">剧评评论 ID。</param>

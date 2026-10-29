@@ -45,7 +45,7 @@ internal sealed class DiscoveryService : LibraryServiceBase
         };
         AppResponse<AppCatalogData> response = await _appTransport
             .PostAsync<AppCategoryPayload, AppCatalogData>(
-                "/reading/distribution/category/landpage/v1/",
+                "/reading/distribution/category/landpage/v/",
                 payload,
                 commentRequest: false,
                 cancellationToken

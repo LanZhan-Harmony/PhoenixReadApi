@@ -57,7 +57,7 @@ public sealed class PhoenixReadApiOptions
 
     /// <summary>发送请求时使用的应用 User-Agent。</summary>
     public string UserAgent { get; init; } =
-        "com.phoenix.read/73932 (Linux; U; Android 15; zh_CN_#Hans; AOSP on Intel Platform; Build/SQ1A.220205.002;tt-ok/3.12.13.20)";
+        "com.phoenix.read/73532 (Linux; U; Android 16; zh_CN; 25053RT47C; Build/BP2A.250605.031.A3; Cronet/TTNetVersion:04657795 2026-01-23 QuicVersion:c67e9834 2025-09-08)";
 
     internal PhoenixReadApiOptions Normalize()
     {
@@ -90,7 +90,7 @@ public sealed class PhoenixReadApiOptions
             DeviceId = NormalizeNumericId(DeviceId) ?? DeviceIdGenerator.Create(),
             InstallId = NormalizeNumericId(InstallId) ?? DeviceIdGenerator.Create(),
             UserAgent = string.IsNullOrWhiteSpace(UserAgent)
-                ? "com.phoenix.read/73932 (Linux; U; Android 15; zh_CN_#Hans; AOSP on Intel Platform; Build/SQ1A.220205.002;tt-ok/3.12.13.20)"
+                ? "com.phoenix.read/73532 (Linux; U; Android 16; zh_CN; 25053RT47C; Build/BP2A.250605.031.A3; Cronet/TTNetVersion:04657795 2026-01-23 QuicVersion:c67e9834 2025-09-08)"
                 : UserAgent.Trim(),
         };
     }

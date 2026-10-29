@@ -27,7 +27,7 @@ internal sealed class PhoenixReadAppTransport
     private string _deviceId;
     private string _installId;
     private string _cdid = string.Empty;
-    private string _klinkEgdi = "AAJJM_WQMzpUFSGpW0di3XOPy8QZX_ge-bxBdCmFsijoUL4RQJ0-xSCG";
+    private string _klinkEgdi = string.Empty;
     private string _passportCsrfToken = string.Empty;
     private string _ttReq = string.Empty;
     private string _userId = string.Empty;
@@ -35,14 +35,9 @@ internal sealed class PhoenixReadAppTransport
     private string _userAvatarUrl = string.Empty;
     private string _userDescription = string.Empty;
     private string _userMaskedPhone = string.Empty;
-
-    private const string AuthenticationVersionCode = "69132";
-    private const string AuthenticationVersionName = "6.9.1.32";
-    private const string AuthenticationChannel = "69310258";
-    private const string AuthenticationDeviceType = "AOSP on Intel Platform";
-    private const string AuthenticationDeviceBrand = "HONOR";
-    private const string AuthenticationResolution = "1320*2868";
-    private const string AuthenticationRomVersion = "V417IR release-keys";
+    private bool _registered;
+    private readonly SemaphoreSlim _deviceLock = new(1, 1);
+    private DateTimeOffset _registerPausedUntil = DateTimeOffset.MinValue;
 
     internal PhoenixReadAppTransport(PhoenixReadHttpTransport http, PhoenixReadApiOptions options)
     {
@@ -136,85 +131,267 @@ internal sealed class PhoenixReadAppTransport
             cancellationToken
         );
 
+    internal async Task EnsureDeviceRegisteredAsync(
+        bool forceNew,
+        CancellationToken cancellationToken
+    )
+    {
+        if (
+            !forceNew
+            && _registered
+            && DeviceIdGenerator.IsValid(_deviceId)
+            && DeviceIdGenerator.IsValid(_installId)
+        )
+        {
+            return;
+        }
+
+        await _deviceLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (
+                !forceNew
+                && _registered
+                && DeviceIdGenerator.IsValid(_deviceId)
+                && DeviceIdGenerator.IsValid(_installId)
+            )
+            {
+                return;
+            }
+
+            if (DateTimeOffset.UtcNow < _registerPausedUntil)
+            {
+                return;
+            }
+
+            await RegisterDeviceCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _deviceLock.Release();
+        }
+    }
+
+    private async Task RegisterDeviceCoreAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            string newCdid = Guid.NewGuid().ToString();
+            string clientUdid = Guid.NewGuid().ToString();
+            string openUdid = Convert
+                .ToHexString(RandomNumberGenerator.GetBytes(8))
+                .ToLowerInvariant();
+
+            AppDeviceRegisterPayload payload = new()
+            {
+                MagicTag = "ss_app_log",
+                GenTime = nowMs,
+                Header = new AppDeviceRegisterHeader
+                {
+                    OpenUdid = openUdid,
+                    ClientUdid = clientUdid,
+                    Cdid = newCdid,
+                },
+            };
+
+            byte[] body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+            KeyValuePair<string, string>[] registerQuery =
+            [
+                new("aid", "8662"),
+                new("app_name", "novelread"),
+                new("version_code", "69132"),
+                new("version_name", "6.9.1.32"),
+                new("manifest_version_code", "69132"),
+                new("update_version_code", "69132"),
+                new("channel", "update_64"),
+                new("device_platform", "android"),
+                new("os", "android"),
+                new("ssmix", "a"),
+                new("device_type", "WKL-AN20"),
+                new("device_brand", "HONOR"),
+                new("language", "zh"),
+                new("os_api", "37"),
+                new("os_version", "17"),
+                new("resolution", "1320*2868"),
+                new("dpi", "360"),
+                new("ac", "wifi"),
+                new("req_id", Guid.NewGuid().ToString()),
+                new("_rticket", nowMs.ToString(CultureInfo.InvariantCulture)),
+            ];
+
+            Uri registerUri = CreateRawUri(
+                new Uri("https://log.snssdk.com/"),
+                "service/2/device_register/",
+                registerQuery
+            );
+            using HttpRequestMessage request = new(HttpMethod.Post, registerUri);
+            request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+            request.Headers.TryAddWithoutValidation("Accept", "application/json");
+            request.Content = new ByteArrayContent(body);
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+            {
+                CharSet = "utf-8",
+            };
+
+            using HttpResponseMessage response = await _http
+                .SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(10);
+                return;
+            }
+
+            byte[] bytes = await _http
+                .ReadBodyAsync(response, cancellationToken)
+                .ConfigureAwait(false);
+            if (bytes.Length == 0)
+            {
+                _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(10);
+                return;
+            }
+
+            AppDeviceRegisterResponse? reg =
+                JsonAotSerializer.Deserialize<AppDeviceRegisterResponse>(bytes);
+            if (reg is not null)
+            {
+                string devId = reg.EffectiveDeviceId;
+                string instId = reg.EffectiveInstallId;
+                if (DeviceIdGenerator.IsValid(devId) && DeviceIdGenerator.IsValid(instId))
+                {
+                    _deviceId = devId;
+                    _installId = instId;
+                    _cdid = newCdid;
+                    if (!string.IsNullOrWhiteSpace(reg.KlinkEgdi))
+                    {
+                        _klinkEgdi = reg.KlinkEgdi;
+                    }
+                    _registered = true;
+                    SaveSessionSnapshot();
+                }
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(10);
+        }
+    }
+
     private async Task<AppResponse<TResponse>> SendGetOnceAsync<TResponse>(
         string path,
         IEnumerable<KeyValuePair<string, string>> query,
         CancellationToken cancellationToken
     )
     {
-        Uri endpoint = BuildAppUri(path);
-        foreach (KeyValuePair<string, string> pair in query)
-        {
-            endpoint = AddQuery(endpoint, pair.Key, pair.Value);
-        }
-
-        Uri requestUri = AddQuery(
-            endpoint,
-            "_rticket",
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+        bool isBookmallTab = path.Contains(
+            "/reading/bookapi/bookmall/tab/",
+            StringComparison.Ordinal
         );
-        using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
-        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
-        request.Headers.TryAddWithoutValidation("Accept", "application/json");
-        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
-        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-        ApplySession(request);
-        PhoenixReadRequestSigner.Sign(request, [], DateTimeOffset.UtcNow);
-
-        using HttpResponseMessage response = await _http
-            .SendAsync(request, cancellationToken)
-            .ConfigureAwait(false);
-        CaptureSession(response);
-        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+        if (!isBookmallTab)
         {
-            bool transient = (int)response.StatusCode >= 500;
-            throw new PhoenixReadApiHttpException(
-                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
-                path,
-                (int)response.StatusCode,
-                requestUri,
-                transient
+            await EnsureDeviceRegisteredAsync(forceNew: false, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        int rotations = 0;
+        while (true)
+        {
+            Uri endpoint = BuildAppUri(path);
+            foreach (KeyValuePair<string, string> pair in query)
+            {
+                endpoint = AddQuery(endpoint, pair.Key, pair.Value);
+            }
+
+            Uri requestUri = AddQuery(
+                endpoint,
+                "_rticket",
+                DateTimeOffset
+                    .UtcNow.ToUnixTimeMilliseconds()
+                    .ToString(CultureInfo.InvariantCulture)
             );
-        }
+            using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
+            request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+            request.Headers.TryAddWithoutValidation("Accept", "application/json");
+            request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+            request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+            ApplySession(request);
 
-        if (bytes.Length == 0)
-        {
-            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
-        }
+            if (!isBookmallTab)
+            {
+                PhoenixReadRequestSigner.SignPlayer(request, [], _deviceId, DateTimeOffset.UtcNow);
+            }
 
-        AppResponse<TResponse> result;
-        try
-        {
-            result =
-                JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
-                ?? throw new JsonException("The App response was null.");
-        }
-        catch (JsonException exception)
-        {
-            throw new PhoenixReadApiDeserializationException(
-                "红果 App 接口返回格式异常。",
-                path,
-                exception
-            );
-        }
+            using HttpResponseMessage response = await _http
+                .SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            CaptureSession(response);
+            byte[] bytes = await _http
+                .ReadBodyAsync(response, cancellationToken)
+                .ConfigureAwait(false);
 
-        string? providerCode = result.Code;
-        if (string.IsNullOrWhiteSpace(providerCode))
-        {
-            providerCode = result.BaseResponse?.StatusCode;
-        }
-        if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
-        {
-            throw new PhoenixReadApiProviderException(
-                $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
-                path,
-                providerCode,
-                isTransient: true
-            );
-        }
+            if (
+                !isBookmallTab
+                && (bytes.Length == 0 || (int)response.StatusCode == 403)
+                && rotations < 2
+            )
+            {
+                rotations++;
+                await EnsureDeviceRegisteredAsync(forceNew: true, cancellationToken)
+                    .ConfigureAwait(false);
+                continue;
+            }
 
-        return result;
+            if (!response.IsSuccessStatusCode)
+            {
+                bool transient = (int)response.StatusCode >= 500;
+                throw new PhoenixReadApiHttpException(
+                    $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                    path,
+                    (int)response.StatusCode,
+                    requestUri,
+                    transient
+                );
+            }
+
+            if (bytes.Length == 0)
+            {
+                throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+            }
+
+            AppResponse<TResponse> result;
+            try
+            {
+                result =
+                    JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
+                    ?? throw new JsonException("The App response was null.");
+            }
+            catch (JsonException exception)
+            {
+                throw new PhoenixReadApiDeserializationException(
+                    "红果 App 接口返回格式异常。",
+                    path,
+                    exception
+                );
+            }
+
+            string? providerCode = result.Code;
+            if (string.IsNullOrWhiteSpace(providerCode))
+            {
+                providerCode = result.BaseResponse?.StatusCode;
+            }
+            if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
+            {
+                throw new PhoenixReadApiProviderException(
+                    $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
+                    path,
+                    providerCode,
+                    isTransient: true
+                );
+            }
+
+            return result;
+        }
     }
 
     private async Task<AppReadProgressResponse> SendReadProgressOnceAsync(
@@ -223,6 +400,8 @@ internal sealed class PhoenixReadAppTransport
         CancellationToken cancellationToken
     )
     {
+        await EnsureDeviceRegisteredAsync(forceNew: false, cancellationToken).ConfigureAwait(false);
+
         Uri endpoint = BuildAppUri(path);
         foreach (KeyValuePair<string, string> pair in query)
         {
@@ -240,7 +419,7 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
         ApplySession(request);
-        PhoenixReadRequestSigner.Sign(request, [], DateTimeOffset.UtcNow);
+        PhoenixReadRequestSigner.SignPlayer(request, [], _deviceId, DateTimeOffset.UtcNow);
 
         using HttpResponseMessage response = await _http
             .SendAsync(request, cancellationToken)
@@ -301,6 +480,8 @@ internal sealed class PhoenixReadAppTransport
         CancellationToken cancellationToken
     )
     {
+        await EnsureDeviceRegisteredAsync(forceNew: false, cancellationToken).ConfigureAwait(false);
+
         Uri endpoint = BuildAppUri(path);
         Uri requestUri = AddQuery(
             endpoint,
@@ -318,7 +499,7 @@ internal sealed class PhoenixReadAppTransport
         {
             CharSet = "utf-8",
         };
-        PhoenixReadRequestSigner.Sign(request, body, DateTimeOffset.UtcNow);
+        PhoenixReadRequestSigner.SignPlayer(request, body, _deviceId, DateTimeOffset.UtcNow);
 
         using HttpResponseMessage response = await _http
             .SendAsync(request, cancellationToken)
@@ -381,117 +562,157 @@ internal sealed class PhoenixReadAppTransport
         CancellationToken cancellationToken
     )
     {
-        Uri endpoint = BuildAppUri(path);
-        Uri requestUri = AddQuery(
-            endpoint,
-            "_rticket",
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+        bool isBookmallTab = path.Contains(
+            "/reading/bookapi/bookmall/tab/",
+            StringComparison.Ordinal
         );
-        using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
-        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
-        request.Headers.TryAddWithoutValidation("Accept", "application/json");
-        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
-        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-        ApplySession(request);
-        if (commentRequest)
+        bool isPassport =
+            path.Contains("/passport/", StringComparison.Ordinal)
+            || path.Contains("/novel/articleapi/do_action", StringComparison.Ordinal)
+            || path.Contains("/reading/bookapi/read_history/update", StringComparison.Ordinal);
+        bool isMultiVideo = path.Contains(
+            "/novel/player/multi_video_model/",
+            StringComparison.Ordinal
+        );
+
+        if (!commentRequest && !isPassport && !isBookmallTab)
         {
-            request.Headers.TryAddWithoutValidation(
-                "Comment-Source",
-                commentSource.ToString(CultureInfo.InvariantCulture)
+            await EnsureDeviceRegisteredAsync(forceNew: false, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        int rotations = 0;
+        while (true)
+        {
+            Uri endpoint = BuildAppUri(path);
+            Uri requestUri = AddQuery(
+                endpoint,
+                "_rticket",
+                DateTimeOffset
+                    .UtcNow.ToUnixTimeMilliseconds()
+                    .ToString(CultureInfo.InvariantCulture)
             );
-            if (serverChannel is { } channel)
+            using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
+            request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+            request.Headers.TryAddWithoutValidation("Accept", "application/json");
+            request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+            request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+            ApplySession(request);
+            if (commentRequest)
             {
                 request.Headers.TryAddWithoutValidation(
-                    "Server-Channel",
-                    channel.ToString(CultureInfo.InvariantCulture)
+                    "Comment-Source",
+                    commentSource.ToString(CultureInfo.InvariantCulture)
+                );
+                if (serverChannel is { } channel)
+                {
+                    request.Headers.TryAddWithoutValidation(
+                        "Server-Channel",
+                        channel.ToString(CultureInfo.InvariantCulture)
+                    );
+                }
+            }
+
+            request.Content = new ByteArrayContent(body);
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+            {
+                CharSet = "utf-8",
+            };
+
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            if (commentRequest)
+            {
+                PhoenixReadRequestSigner.SignComment(
+                    request,
+                    PhoenixReadRequestSigner.CreateCommentNonce(),
+                    now
                 );
             }
-        }
-
-        request.Content = new ByteArrayContent(body);
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
-        {
-            CharSet = "utf-8",
-        };
-
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        if (commentRequest)
-        {
-            PhoenixReadRequestSigner.SignComment(
-                request,
-                PhoenixReadRequestSigner.CreateCommentNonce(),
-                now
-            );
-        }
-        else if (!path.Contains("/novel/player/video_model/", StringComparison.Ordinal))
-        {
-            if (
-                path.Contains("/novel/articleapi/do_action", StringComparison.Ordinal)
-                || path.Contains("/reading/bookapi/read_history/update", StringComparison.Ordinal)
-            )
+            else if (isPassport)
             {
                 PhoenixReadRequestSigner.SignPassport(request, body, now);
             }
+            else if (isBookmallTab || isMultiVideo)
+            {
+                // MultiVideo and Bookmall Tab do not require Gorgon/Argus signatures
+            }
             else
             {
-                PhoenixReadRequestSigner.Sign(request, body, now);
+                PhoenixReadRequestSigner.SignPlayer(request, body, _deviceId, now);
             }
-        }
 
-        using HttpResponseMessage response = await _http
-            .SendAsync(request, cancellationToken)
-            .ConfigureAwait(false);
-        CaptureSession(response);
-        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-        {
-            bool transient = (int)response.StatusCode >= 500;
-            throw new PhoenixReadApiHttpException(
-                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
-                path,
-                (int)response.StatusCode,
-                requestUri,
-                transient
-            );
-        }
+            using HttpResponseMessage response = await _http
+                .SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            CaptureSession(response);
+            byte[] bytes = await _http
+                .ReadBodyAsync(response, cancellationToken)
+                .ConfigureAwait(false);
 
-        if (bytes.Length == 0)
-        {
-            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
-        }
+            if (
+                !commentRequest
+                && !isPassport
+                && !isBookmallTab
+                && (bytes.Length == 0 || (int)response.StatusCode == 403)
+                && rotations < 2
+            )
+            {
+                rotations++;
+                await EnsureDeviceRegisteredAsync(forceNew: true, cancellationToken)
+                    .ConfigureAwait(false);
+                continue;
+            }
 
-        AppResponse<TResponse> result;
-        try
-        {
-            result =
-                JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
-                ?? throw new JsonException("The App response was null.");
-        }
-        catch (JsonException exception)
-        {
-            throw new PhoenixReadApiDeserializationException(
-                "红果 App 接口返回格式异常。",
-                path,
-                exception
-            );
-        }
+            if (!response.IsSuccessStatusCode)
+            {
+                bool transient = (int)response.StatusCode >= 500;
+                throw new PhoenixReadApiHttpException(
+                    $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                    path,
+                    (int)response.StatusCode,
+                    requestUri,
+                    transient
+                );
+            }
 
-        string? providerCode = result.Code;
-        if (string.IsNullOrWhiteSpace(providerCode))
-        {
-            providerCode = result.BaseResponse?.StatusCode;
-        }
-        if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
-        {
-            throw new PhoenixReadApiProviderException(
-                $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
-                path,
-                providerCode,
-                isTransient: true
-            );
-        }
+            if (bytes.Length == 0)
+            {
+                throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+            }
 
-        return result;
+            AppResponse<TResponse> result;
+            try
+            {
+                result =
+                    JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
+                    ?? throw new JsonException("The App response was null.");
+            }
+            catch (JsonException exception)
+            {
+                throw new PhoenixReadApiDeserializationException(
+                    "红果 App 接口返回格式异常。",
+                    path,
+                    exception
+                );
+            }
+
+            string? providerCode = result.Code;
+            if (string.IsNullOrWhiteSpace(providerCode))
+            {
+                providerCode = result.BaseResponse?.StatusCode;
+            }
+            if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
+            {
+                throw new PhoenixReadApiProviderException(
+                    $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
+                    path,
+                    providerCode,
+                    isTransient: true
+                );
+            }
+
+            return result;
+        }
     }
 
     /// <summary>发送登录等接口使用的 application/x-www-form-urlencoded 请求。</summary>
@@ -577,7 +798,7 @@ internal sealed class PhoenixReadAppTransport
         using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
         request.Headers.TryAddWithoutValidation(
             "User-Agent",
-            "com.phoenix.read/73932 (Linux; U; Android 15; zh_CN_#Hans; AOSP on Intel Platform; Build/SQ1A.220205.002;tt-ok/3.12.13.20)"
+            "com.phoenix.read/69132 (Linux; U; Android 17; zh_CN_#Hans; WKL-AN20; Build/CP2A.260605.012;tt-ok/3.12.13.20)"
         );
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
@@ -653,9 +874,7 @@ internal sealed class PhoenixReadAppTransport
         }
     }
 
-    private Uri BuildAppUri(string path) => BuildAppUri(path, authenticationRequest: false);
-
-    private Uri BuildAppUri(string path, bool authenticationRequest)
+    private Uri BuildAppUri(string path, bool authenticationRequest = false)
     {
         if (authenticationRequest)
         {
@@ -668,31 +887,31 @@ internal sealed class PhoenixReadAppTransport
                 new("iid", _installId),
                 new("device_id", _deviceId),
                 new("ac", "wifi"),
-                new("channel", AuthenticationChannel),
+                new("channel", "69310258"),
                 new("aid", "8662"),
                 new("app_name", "novelread"),
-                new("version_code", AuthenticationVersionCode),
-                new("version_name", AuthenticationVersionName),
+                new("version_code", "69132"),
+                new("version_name", "6.9.1.32"),
                 new("device_platform", "android"),
                 new("os", "android"),
                 new("ssmix", "a"),
-                new("device_type", AuthenticationDeviceType),
-                new("device_brand", AuthenticationDeviceBrand),
+                new("device_type", "WKL-AN20"),
+                new("device_brand", "HONOR"),
                 new("language", "zh"),
                 new("os_api", "37"),
                 new("os_version", "17"),
-                new("manifest_version_code", AuthenticationVersionCode),
-                new("resolution", AuthenticationResolution),
+                new("manifest_version_code", "69132"),
+                new("resolution", "1320*2868"),
                 new("dpi", "360"),
-                new("update_version_code", AuthenticationVersionCode),
+                new("update_version_code", "69132"),
                 new("_rticket", ticket.ToString(CultureInfo.InvariantCulture)),
                 new("host_abi", "arm64-v8a"),
                 new("dragon_device_type", "pad"),
-                new("pv_player", AuthenticationVersionCode),
+                new("pv_player", "69132"),
                 new("compliance_status", "0"),
                 new("need_personal_recommend", "1"),
                 new("player_so_load", "1"),
-                new("rom_version", AuthenticationRomVersion),
+                new("rom_version", "CP2A.260605.012"),
                 new("cdid", _cdid),
                 new("okhttp_version", "4.2.243.31-douyin"),
                 new("use_store_region_cookie", "1"),
@@ -702,35 +921,26 @@ internal sealed class PhoenixReadAppTransport
 
         KeyValuePair<string, string>[] query =
         [
-            new KeyValuePair<string, string>("aid", "8662"),
+            new("aid", "8662"),
             new("app_name", "novelread"),
-            new("version_code", AuthenticationVersionCode),
-            new("version_name", AuthenticationVersionName),
-            new("manifest_version_code", AuthenticationVersionCode),
-            new("update_version_code", AuthenticationVersionCode),
-            new("channel", AuthenticationChannel),
+            new("version_code", "69132"),
+            new("version_name", "6.9.1.32"),
+            new("manifest_version_code", "69132"),
+            new("update_version_code", "69132"),
+            new("channel", "update_64"),
             new("device_platform", "android"),
             new("os", "android"),
             new("ssmix", "a"),
-            new("device_type", AuthenticationDeviceType),
-            new("device_brand", AuthenticationDeviceBrand),
+            new("device_type", "WKL-AN20"),
+            new("device_brand", "HONOR"),
             new("language", "zh"),
-            new("os_api", "35"),
-            new("os_version", "15"),
-            new("resolution", AuthenticationResolution),
-            new("dpi", "280"),
+            new("os_api", "37"),
+            new("os_version", "17"),
+            new("resolution", "1320*2868"),
+            new("dpi", "360"),
             new("ac", "wifi"),
             new("device_id", _deviceId),
             new("iid", _installId),
-            new("host_abi", "arm64-v8a"),
-            new("dragon_device_type", "pad"),
-            new("pv_player", AuthenticationVersionCode),
-            new("compliance_status", "0"),
-            new("need_personal_recommend", "1"),
-            new("player_so_load", "1"),
-            new("is_android_pad_screen", "1"),
-            new("rom_version", AuthenticationRomVersion),
-            new("cdid", _cdid),
         ];
         Uri baseUri = new(
             authenticationRequest ? _options.AuthenticationBaseUri : _options.AppBaseUri,
@@ -850,23 +1060,23 @@ internal sealed class PhoenixReadAppTransport
         Add("iid", _installId);
         Add("device_id", _deviceId);
         Add("ac", "wifi");
-        Add("channel", AuthenticationChannel);
+        Add("channel", "69310258");
         Add("aid", "8662");
         Add("app_name", "novelread");
-        Add("version_code", AuthenticationVersionCode);
-        Add("version_name", AuthenticationVersionName);
+        Add("version_code", "69132");
+        Add("version_name", "6.9.1.32");
         Add("device_platform", "android");
         Add("os", "android");
         Add("ssmix", "a");
-        Add("device_type", AuthenticationDeviceType);
-        Add("device_brand", AuthenticationDeviceBrand);
+        Add("device_type", "WKL-AN20");
+        Add("device_brand", "HONOR");
         Add("language", "zh");
-        Add("os_api", "35");
-        Add("os_version", "15");
-        Add("manifest_version_code", AuthenticationVersionCode);
-        Add("resolution", AuthenticationResolution);
-        Add("dpi", "280");
-        Add("update_version_code", AuthenticationVersionCode);
+        Add("os_api", "37");
+        Add("os_version", "17");
+        Add("manifest_version_code", "69132");
+        Add("resolution", "1320*2868");
+        Add("dpi", "360");
+        Add("update_version_code", "69132");
         Add("_rticket", ticket.ToString(CultureInfo.InvariantCulture));
         Add("normal_session_cnt_in_day", "1");
         Add("gender", "0");
@@ -874,7 +1084,7 @@ internal sealed class PhoenixReadAppTransport
         Add("host_abi", "arm64-v8a");
         Add("dragon_device_type", "pad");
         Add("sys_mini_window", "0");
-        Add("pv_player", AuthenticationVersionCode);
+        Add("pv_player", "69132");
         Add("app_mini_window", "0");
         Add("normal_session_id", _cdid + "#1");
         Add("compliance_status", "0");
@@ -894,7 +1104,7 @@ internal sealed class PhoenixReadAppTransport
         Add("font_scale", "100");
         Add("is_android_pad_screen", "1");
         Add("network_type", "4");
-        Add("rom_version", AuthenticationRomVersion);
+        Add("rom_version", "CP2A.260605.012");
         Add("current_volume", "100");
         Add("cdid", _cdid);
         return [.. result];
@@ -973,6 +1183,10 @@ internal sealed class PhoenixReadAppTransport
             _klinkEgdi = string.IsNullOrWhiteSpace(snapshot.KlinkEgdi)
                 ? _klinkEgdi
                 : snapshot.KlinkEgdi;
+            _registered =
+                snapshot.Registered
+                && DeviceIdGenerator.IsValid(_deviceId)
+                && DeviceIdGenerator.IsValid(_installId);
             _passportCsrfToken = snapshot.PassportCsrfToken;
             _ttReq = snapshot.TtReq;
             _userId = snapshot.UserId;
@@ -1029,6 +1243,7 @@ internal sealed class PhoenixReadAppTransport
                     RetryAfterSeconds = retryAfterSeconds ?? old.RetryAfterSeconds,
                     Cdid = _cdid,
                     KlinkEgdi = _klinkEgdi,
+                    Registered = _registered,
                     PassportCsrfToken = _passportCsrfToken,
                     TtReq = _ttReq,
                     DeviceId = _deviceId,

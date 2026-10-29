@@ -551,17 +551,261 @@ internal static class PhoenixReadRequestSigner
         array12[1] = 204;
         array11.CopyTo(array12, 2);
         return Convert.ToBase64String(array12);
-        static void Bytes(List<byte> target, ulong field, ReadOnlySpan<byte> value)
+    }
+
+    internal static void SignPlayer(
+        HttpRequestMessage request,
+        ReadOnlySpan<byte> body,
+        string deviceId,
+        DateTimeOffset now
+    )
+    {
+        uint timestamp = checked((uint)now.ToUnixTimeSeconds());
+        string query = request.RequestUri?.Query.TrimStart('?') ?? string.Empty;
+        byte[] queryHash = MD5.HashData(Encoding.UTF8.GetBytes(query));
+        Span<byte> payload = stackalloc byte[20];
+        queryHash.AsSpan(0, 4).CopyTo(payload[..4]);
+        if (!body.IsEmpty)
         {
-            WriteVarint(target, field * 8 + 2);
-            WriteVarint(target, (ulong)value.Length);
-            target.AddRange(value.ToArray());
+            byte[] bodyHash = MD5.HashData(body);
+            bodyHash.AsSpan(0, 4).CopyTo(payload[4..8]);
+            SetHeader(request, "X-SS-STUB", Convert.ToHexString(bodyHash));
         }
-        static void Varint(List<byte> target, ulong field, ulong value)
+
+        payload[12] = 0;
+        payload[13] = 6;
+        payload[14] = 11;
+        payload[15] = 28;
+        BinaryPrimitives.WriteUInt32BigEndian(payload[16..], timestamp);
+
+        for (int i = 0; i < payload.Length; i++)
         {
-            WriteVarint(target, field * 8);
-            WriteVarint(target, value);
+            payload[i] ^= RequestKey[i];
         }
+
+        for (int j = 0; j < payload.Length; j++)
+        {
+            int mixed = RotateLeft(payload[j], 4) ^ payload[(j + 1) % payload.Length];
+            payload[j] = (byte)(ReverseBits((byte)mixed) ^ 0xFF ^ payload.Length);
+        }
+
+        byte[] signature = new byte[26];
+        signature[0] = 0x84;
+        signature[1] = 0x04;
+        signature[2] = 0x40;
+        signature[3] = 0x1C;
+        signature[4] = 0;
+        signature[5] = 0;
+        payload.CopyTo(signature.AsSpan(6));
+
+        SetHeader(request, "X-Khronos", timestamp.ToString(CultureInfo.InvariantCulture));
+        SetHeader(request, "X-Gorgon", Convert.ToHexString(signature).ToLowerInvariant());
+        SetHeader(
+            request,
+            "X-SS-Req-Ticket",
+            now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+        );
+
+        byte[] nonce = new byte[11];
+        RandomNumberGenerator.Fill(nonce);
+
+        string effectiveDeviceId = !string.IsNullOrEmpty(deviceId)
+            ? deviceId
+            : GetQueryValue(request.RequestUri, "device_id");
+        string aid = GetQueryValue(request.RequestUri, "aid");
+        if (string.IsNullOrEmpty(aid))
+        {
+            aid = "8662";
+        }
+
+        SetHeader(
+            request,
+            "X-Argus",
+            PlayerArgus(query, body, timestamp, effectiveDeviceId, nonce)
+        );
+        SetHeader(
+            request,
+            "X-Ladon",
+            PlayerLadon(aid, timestamp, nonce.AsSpan(2, 4))
+        );
+    }
+
+    private static string PlayerLadon(string aid, uint timestamp, ReadOnlySpan<byte> prefix)
+    {
+        byte[] array = new byte[prefix.Length + Encoding.UTF8.GetByteCount(aid)];
+        prefix.CopyTo(array);
+        Encoding.UTF8.GetBytes(aid, array.AsSpan(prefix.Length));
+        string s = Convert.ToHexString(MD5.HashData(array)).ToLowerInvariant();
+        byte[] bytes = Encoding.ASCII.GetBytes(s);
+        ulong num = BinaryPrimitives.ReadUInt64LittleEndian(bytes);
+        ulong value = BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(8));
+        Queue<ulong> queue = new([
+            BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(16)),
+            BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(24)),
+        ]);
+        ulong[] array2 = new ulong[34];
+        for (int i = 0; i < array2.Length; i++)
+        {
+            array2[i] = num;
+            ulong num2 = (BitOperations.RotateRight(value, 8) + num) ^ (ulong)i;
+            queue.Enqueue(num2);
+            num = num2 ^ BitOperations.RotateLeft(num, 3);
+            value = queue.Dequeue();
+        }
+        byte[] array3 = Pad(
+            Encoding.UTF8.GetBytes(
+                timestamp.ToString(CultureInfo.InvariantCulture) + "-1611921764-" + aid
+            )
+        );
+        for (int j = 0; j < array3.Length; j += 16)
+        {
+            num = BinaryPrimitives.ReadUInt64LittleEndian(array3.AsSpan(j));
+            value = BinaryPrimitives.ReadUInt64LittleEndian(array3.AsSpan(j + 8));
+            foreach (ulong num3 in array2)
+            {
+                value = num3 ^ (num + BitOperations.RotateRight(value, 8));
+                num = value ^ BitOperations.RotateLeft(num, 3);
+            }
+            BinaryPrimitives.WriteUInt64LittleEndian(array3.AsSpan(j), num);
+            BinaryPrimitives.WriteUInt64LittleEndian(array3.AsSpan(j + 8), value);
+        }
+        byte[] array5 = new byte[prefix.Length + array3.Length];
+        prefix.CopyTo(array5);
+        array3.CopyTo(array5.AsSpan(prefix.Length));
+        return Convert.ToBase64String(array5);
+    }
+
+    private static string PlayerArgus(
+        string query,
+        ReadOnlySpan<byte> body,
+        uint timestamp,
+        string deviceId,
+        ReadOnlySpan<byte> nonce
+    )
+    {
+        byte[] bodyHash = body.IsEmpty ? Sm3(new byte[16]) : Sm3(MD5.HashData(body));
+        byte[] queryHash = Sm3(Encoding.UTF8.GetBytes(query));
+
+        List<byte> counters = new(32);
+        Varint(counters, 1uL, 1uL);
+        Varint(counters, 2uL, 1uL);
+        Varint(counters, 3uL, 1uL);
+        Varint(counters, 7uL, 3348294860uL);
+
+        List<byte> environment = new(64);
+        Bytes(environment, 1uL, "25053RT47C"u8);
+        Bytes(environment, 2uL, "16"u8);
+        Bytes(environment, 3uL, "update_64"u8);
+        Varint(environment, 4uL, 2147483648uL);
+
+        List<byte> message = new(256);
+        Varint(message, 1uL, 0x20200929uL * 2uL);
+        Varint(message, 2uL, 2uL);
+        Varint(message, 3uL, BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(6, 4)) & 0x7fffffffu);
+        Bytes(message, 4uL, "8662"u8);
+        Bytes(message, 5uL, Encoding.UTF8.GetBytes(deviceId));
+        Bytes(message, 6uL, "1611921764"u8);
+        Bytes(message, 7uL, "7.3.5.32"u8);
+        Bytes(message, 8uL, "v04.07.01-ml-android"u8);
+        Varint(message, 9uL, 135135744uL);
+        Bytes(message, 10uL, new byte[8]);
+        Varint(message, 11uL, 0uL);
+        Varint(message, 12uL, (ulong)timestamp * 2uL);
+        Bytes(message, 13uL, bodyHash.AsSpan(0, 6));
+        Bytes(message, 14uL, queryHash.AsSpan(0, 6));
+        Bytes(message, 15uL, counters.ToArray());
+        Bytes(message, 16uL, []);
+        Bytes(message, 20uL, "none"u8);
+        Varint(message, 21uL, 738uL);
+        Bytes(message, 23uL, environment.ToArray());
+        Varint(message, 25uL, 2uL);
+
+        byte[] data = Pad([.. message]);
+        byte[] seed = new byte[CommentArgusKey.Length * 2 + 4];
+        CommentArgusKey.CopyTo(seed, 0);
+        seed[32] = 0x3C;
+        seed[33] = 0xCC;
+        seed[34] = 0x56;
+        seed[35] = 0x7B;
+        CommentArgusKey.CopyTo(seed, 36);
+        byte[] derived = Sm3(seed);
+
+        ulong[] rounds = new ulong[72];
+        for (int i = 0; i < 4; i++)
+        {
+            rounds[i] = BinaryPrimitives.ReadUInt64LittleEndian(derived.AsSpan(i * 8));
+        }
+        for (int k = 4; k < 72; k++)
+        {
+            ulong mixed = BitOperations.RotateRight(rounds[k - 1], 3) ^ rounds[k - 3];
+            mixed ^= BitOperations.RotateRight(mixed, 1);
+            rounds[k] =
+                ~rounds[k - 4] ^ mixed ^ (ulong)((0x3dc94c3a046d678bUL >>> ((k - 4) % 62)) & 1) ^ 3;
+        }
+
+        for (int l = 0; l < data.Length; l += 16)
+        {
+            ulong left = BinaryPrimitives.ReadUInt64LittleEndian(data.AsSpan(l));
+            ulong right = BinaryPrimitives.ReadUInt64LittleEndian(data.AsSpan(l + 8));
+            foreach (ulong round in rounds)
+            {
+                ulong nextRight =
+                    left
+                    ^ (BitOperations.RotateLeft(right, 1) & BitOperations.RotateLeft(right, 8))
+                    ^ BitOperations.RotateLeft(right, 2)
+                    ^ round;
+                left = right;
+                right = nextRight;
+            }
+            BinaryPrimitives.WriteUInt64LittleEndian(data.AsSpan(l), left);
+            BinaryPrimitives.WriteUInt64LittleEndian(data.AsSpan(l + 8), right);
+        }
+
+        ReadOnlySpan<byte> xor = [0xD0, 0x4F, 0xFD, 0xFF, 0xD0, 0x4F, 0xFD, 0xFF];
+        for (int n = 0; n < data.Length; n++)
+        {
+            data[n] ^= xor[n % xor.Length];
+        }
+
+        byte[] combined = new byte[xor.Length + data.Length];
+        xor.CopyTo(combined);
+        data.CopyTo(combined.AsSpan(xor.Length));
+        Array.Reverse(combined);
+
+        byte[] container = new byte[9 + combined.Length + 2];
+        new byte[9] { 0xA6, 0xE7, 0x83, 0xEE, 0x70, 0x01, 0x10, 0x09, 0x18 }.CopyTo(container, 0);
+        combined.CopyTo(container, 9);
+        container[^2] = 0x56;
+        container[^1] = 0x7B;
+        container = Pad(container);
+
+        byte[] aesKey = MD5.HashData(CommentArgusKey[..16]);
+        byte[] iv = MD5.HashData(CommentArgusKey[16..]);
+        using Aes aes = Aes.Create();
+        aes.Key = aesKey;
+        aes.IV = iv;
+        aes.Mode = CipherMode.CBC;
+        aes.Padding = PaddingMode.None;
+        byte[] encrypted = aes.CreateEncryptor().TransformFinalBlock(container, 0, container.Length);
+
+        byte[] result = new byte[2 + encrypted.Length];
+        result[0] = 0x3C;
+        result[1] = 0xCC;
+        encrypted.CopyTo(result, 2);
+        return Convert.ToBase64String(result);
+    }
+
+    private static void Bytes(List<byte> target, ulong field, ReadOnlySpan<byte> value)
+    {
+        WriteVarint(target, field * 8 + 2);
+        WriteVarint(target, (ulong)value.Length);
+        target.AddRange(value.ToArray());
+    }
+
+    private static void Varint(List<byte> target, ulong field, ulong value)
+    {
+        WriteVarint(target, field * 8);
+        WriteVarint(target, value);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

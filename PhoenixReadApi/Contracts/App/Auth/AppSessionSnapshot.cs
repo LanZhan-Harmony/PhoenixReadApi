@@ -31,6 +31,9 @@ internal sealed class AppSessionSnapshot
     [JsonPropertyName("klink_egdi")]
     public string KlinkEgdi { get; init; } = string.Empty;
 
+    [JsonPropertyName("registered")]
+    public bool Registered { get; init; }
+
     [JsonPropertyName("passport_csrf_token")]
     public string PassportCsrfToken { get; init; } = string.Empty;
 
