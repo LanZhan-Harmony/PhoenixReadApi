@@ -13,7 +13,7 @@ internal sealed class AppResponse<T>
     public string Code { get; init; } = string.Empty;
 
     [JsonPropertyName("data")]
-    public T? Data { get; init; } 
+    public T? Data { get; init; }
 
     [JsonPropertyName("message")]
     [JsonConverter(typeof(FlexibleStringConverter))]
