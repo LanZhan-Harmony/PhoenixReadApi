@@ -86,41 +86,14 @@ internal sealed class HistoryService : LibraryServiceBase
             throw new ArgumentException("播放进度查询 ID 无效。", nameof(seriesOrVideoIds));
         }
 
-        long[] numericIds = [.. ids.Select(long.Parse)];
-        try
-        {
-            AppReadProgressResponse response = await _appTransport
-                .PostReadProgressAsync(
-                    "/reading/bookapi/read_progress/get/v",
-                    new AppProgressForPayload { BookIds = numericIds },
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-            return MapProgress(response);
-        }
-        catch (PhoenixReadApiProviderException exception) when (exception.ProviderCode == "100103")
-        {
-            // Some nodes reject the batch endpoint for anonymous devices. The list endpoint
-            // contains the same records and is safe to filter locally.
-            ReadProgressPage all = await GetReadProgressAsync(cancellationToken)
-                .ConfigureAwait(false);
-            HashSet<string> wanted = ids.ToHashSet(StringComparer.Ordinal);
-            return new ReadProgressPage
-            {
-                Items =
-                [
-                    .. all.Items.Where(item =>
-                        wanted.Contains(item.SeriesId) || wanted.Contains(item.VideoId)
-                    ),
-                ],
-                LocalItems =
-                [
-                    .. all.LocalItems.Where(item =>
-                        wanted.Contains(item.SeriesId) || wanted.Contains(item.VideoId)
-                    ),
-                ],
-            };
-        }
+        AppReadProgressResponse response = await _appTransport
+            .GetReadProgressAsync(
+                "/reading/bookapi/read_progress/list/v",
+                [new("book_ids", string.Join(",", ids))],
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return MapProgress(response);
     }
 
     internal async Task<PhoenixOperationResult> ReportProgressAsync(

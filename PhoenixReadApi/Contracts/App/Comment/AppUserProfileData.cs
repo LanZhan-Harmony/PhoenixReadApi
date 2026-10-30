@@ -13,6 +13,9 @@ internal sealed class AppUserProfileData
 
     [JsonPropertyName("tabs")]
     public IReadOnlyList<AppUserProfileTab> Tabs { get; init; } = [];
+
+    [JsonPropertyName("user_info")]
+    public AppCommentUserInfo UserInfo { get; init; } = new();
 }
 
 internal sealed class AppUserListInfo

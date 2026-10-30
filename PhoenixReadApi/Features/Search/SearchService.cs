@@ -341,8 +341,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     [
                         new("query", keyword),
                         new("offset", "0"),
-                        new("count", "10"),
-                        new("tab_type", "29"),
+                        new("count", "20"),
+                        new("tab_type", "11"),
+                        new("bookshelf_search_plan", "4"),
+                        new("use_correct", "true"),
                     ],
                     cancellationToken
                 )
@@ -352,7 +354,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 ? tabResponse!.SearchTabs
                 : tabResponse?.Data?.SearchTabs ?? [];
             AppSearchTabItem? tab =
-                allTabs.FirstOrDefault(static t => t.TabType == "29") ?? allTabs.FirstOrDefault();
+                allTabs.FirstOrDefault(static t => t.TabType == "11" || t.TabType == "29")
+                ?? allTabs.FirstOrDefault();
             if (tab?.Data is { Count: > 0 } cells)
             {
                 List<Drama> appOutput = [];
@@ -554,16 +557,21 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         List<Drama> output = [];
         HashSet<string> seenIds = new(seen, StringComparer.Ordinal);
+        int validDramaCount = 0;
         foreach (DramaDto row in data.Items)
         {
             Drama drama = DramaMapper.FromDto(row, category);
-            if (drama.Id.Length > 0 && seenIds.Add(drama.Id))
+            if (drama.Id.Length > 0)
             {
-                output.Add(drama);
+                validDramaCount++;
+                if (seenIds.Add(drama.Id))
+                {
+                    output.Add(drama);
+                }
             }
         }
 
-        if (data.Items.Count > 0 && output.Count == 0)
+        if (data.Items.Count > 0 && validDramaCount == 0)
         {
             throw new PhoenixReadApiResponseException(
                 "红果推荐未返回可识别的剧集。",
@@ -573,7 +581,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         bool hasMore = data.HasMore;
         int next = data.NextOffset;
-        if (hasMore && (next <= query.Offset || next > 1_000_000 || output.Count == 0))
+        if (hasMore && (next <= query.Offset || next > 1_000_000))
         {
             throw new PhoenixReadApiResponseException("红果推荐分页未前进。", "recommendations");
         }

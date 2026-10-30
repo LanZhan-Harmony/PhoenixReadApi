@@ -114,17 +114,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _likes.GetLikesAsync(count, offset, cancellationToken);
 
-    /// <summary>获取当前账号关注动态。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
-    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>关注动态和游标分页状态。</returns>
-    /// <remarks>该接口属于账号动态区域，需要登录；未登录时服务端会返回登录错误。</remarks>
-    public Task<FollowUpdatePage> GetFollowUpdatesAsync(
-        int count = 20,
-        string cursor = "",
-        CancellationToken cancellationToken = default
-    ) => _follows.GetFollowUpdatesAsync(count, cursor, cancellationToken);
 
     /// <summary>获取预约中的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -179,15 +168,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _reservations.SetReservationAsync(seriesId, active: false, cancellationToken);
 
-    /// <summary>根据筛选条件获取一页分类剧集。</summary>
-    /// <param name="query">分类、筛选项和分页会话；不能为 null。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>剧集、可用筛选项和分页状态。</returns>
-    public Task<CategoryPage> GetCategoryAsync(
-        CategoryQuery query,
-        CancellationToken cancellationToken = default
-    ) => _discovery.GetCategoryAsync(query, cancellationToken);
-
     /// <summary>获取“新剧”等剧库单元的一页。</summary>
     /// <param name="offset">分页偏移量；首次请求使用 0。</param>
     /// <param name="sessionId">上一页返回的会话 ID；首次请求传空字符串。</param>
@@ -204,15 +184,6 @@ public sealed partial class PhoenixReadApiClient
     /// <returns>按服务端分组返回的剧集。</returns>
     public Task<FeedPage> GetFeedCategoriesAsync(CancellationToken cancellationToken = default) =>
         _discovery.GetFeedCategoriesAsync(cancellationToken);
-
-    /// <summary>获取剧库书架字段。</summary>
-    /// <param name="channel">书架字段频道，例如短剧页面使用的频道标识。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端返回的字段键值。</returns>
-    public Task<BookPackFields> GetBookPackFieldsAsync(
-        string channel = "short_video",
-        CancellationToken cancellationToken = default
-    ) => _discovery.GetBookPackFieldsAsync(channel, cancellationToken);
 
     /// <summary>创建剧集分集分享链接。</summary>
     /// <param name="seriesId">剧集 ID。</param>

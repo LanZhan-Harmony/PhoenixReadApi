@@ -23,16 +23,14 @@ internal sealed class ReservationsService : LibraryServiceBase
         seriesId = NormalizeSeriesId(seriesId);
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppReservationActionPayload, AppOperationResponse>(
-                active
-                    ? "/reading/bookapi/search/uncover_subscribe/v"
-                    : "/reading/user/subscribe/delete/v",
+                "/reading/bookapi/search/uncover_subscribe/v",
                 new AppReservationActionPayload
                 {
                     ItemId = seriesId,
                     ItemType = 14,
                     OperationType = active ? 1 : 2,
                     WishListAllDelete = 0,
-                    NotDeleteItemId = active ? string.Empty : seriesId,
+                    NotDeleteItemId = string.Empty,
                     SharkParameter = new AppSharkParameter
                     {
                         EnterFrom = "ShortSeriesActivity",
@@ -135,9 +133,9 @@ internal sealed class ReservationsService : LibraryServiceBase
         {
             Id = ValueNormalizer.First(item.Id, item.ItemId),
             SeriesId = ValueNormalizer.First(item.SeriesId, item.ItemId),
-            VideoId = item.VideoId,
+            VideoId = item.VideoId ?? string.Empty,
             Title = ValueNormalizer.First(item.Title, item.Name),
-            CoverUrl = item.CoverUrl,
+            CoverUrl = item.CoverUrl ?? string.Empty,
             ReservedAtUnixSeconds = Math.Max(0, item.ReservedAt),
             ReleaseAtUnixSeconds = Math.Max(item.ReleaseAt, item.ExpectedPublishAt),
             IsActive = item.IsOnline || item.ReleaseAt > 0,

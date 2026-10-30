@@ -30,6 +30,7 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="seriesId">剧集 ID。</param>
     /// <param name="count">本页最多返回的评论数，范围为 1 到 90。</param>
     /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
+    /// <param name="sort">排序方式：默认为 <see cref="CommentSortOrder.Hot"/>（最热）。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>包含评论、总数、下一页游标和 HasMore 状态的 <see cref="CommentPage"/>。</returns>
     /// <remarks>
@@ -39,14 +40,16 @@ public sealed partial class PhoenixReadApiClient
         string seriesId,
         int count = 10,
         string cursor = "",
+        CommentSortOrder sort = CommentSortOrder.Hot,
         CancellationToken cancellationToken = default
-    ) => _comments.GetDramaReviewsAsync(seriesId, count, cursor, cancellationToken);
+    ) => _comments.GetDramaReviewsAsync(seriesId, count, cursor, cancellationToken, sort);
 
     /// <summary>获取指定分集的一页评论。</summary>
     /// <param name="seriesId">所属剧集 ID。</param>
     /// <param name="videoId">分集视频 ID。</param>
     /// <param name="count">本页最多返回的评论数，范围为 1 到 90。</param>
     /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
+    /// <param name="sort">排序方式：默认为 <see cref="CommentSortOrder.Hot"/>（最热）。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>包含评论、作者、总数、下一页游标和 HasMore 状态的 <see cref="CommentPage"/>。</returns>
     /// <remarks>当 HasMore 为 true 时，将 Cursor 原样传给下一次调用。</remarks>
@@ -55,8 +58,9 @@ public sealed partial class PhoenixReadApiClient
         string videoId,
         int count = 10,
         string cursor = "",
+        CommentSortOrder sort = CommentSortOrder.Hot,
         CancellationToken cancellationToken = default
-    ) => _comments.GetEpisodeCommentsAsync(seriesId, videoId, count, cursor, cancellationToken);
+    ) => _comments.GetEpisodeCommentsAsync(seriesId, videoId, count, cursor, cancellationToken, sort);
 
     /// <summary>获取一条评论下的回复。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -69,7 +73,71 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) => _comments.GetRepliesAsync(commentId, count, cursor, cancellationToken);
+    ) => _comments.GetRepliesAsync(commentId, string.Empty, string.Empty, count, cursor, cancellationToken);
+
+    /// <summary>获取一条评论下的回复（带所属剧集或视频 ID）。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="groupId">所属剧集 ID 或视频 ID。</param>
+    /// <param name="count">本页最多返回的回复数，范围为 1 到 90。</param>
+    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>回复、总数、下一页游标和 HasMore 状态。</returns>
+    public Task<CommentReplyPage> GetCommentRepliesAsync(
+        string commentId,
+        string groupId,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _comments.GetRepliesAsync(commentId, groupId, string.Empty, count, cursor, cancellationToken);
+
+    /// <summary>获取一条分集评论下的回复（同时指定剧集 ID 与分集视频 ID）。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="seriesId">所属剧集 ID。</param>
+    /// <param name="videoId">分集视频 ID。</param>
+    /// <param name="count">本页最多返回的回复数，范围为 1 到 90。</param>
+    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>回复、总数、下一页游标和 HasMore 状态。</returns>
+    public Task<CommentReplyPage> GetCommentRepliesAsync(
+        string commentId,
+        string seriesId,
+        string videoId,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _comments.GetRepliesAsync(commentId, seriesId, videoId, count, cursor, cancellationToken);
+
+    /// <summary>获取一条剧评下的回复。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="seriesId">所属剧集 ID。</param>
+    /// <param name="count">本页最多返回的回复数，范围为 1 到 90。</param>
+    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>回复、总数、下一页游标和 HasMore 状态。</returns>
+    public Task<CommentReplyPage> GetDramaReviewRepliesAsync(
+        string commentId,
+        string seriesId,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _comments.GetDramaReviewRepliesAsync(commentId, seriesId, count, cursor, cancellationToken);
+
+    /// <summary>获取一条分集评论下的回复。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="seriesId">所属剧集 ID。</param>
+    /// <param name="videoId">分集视频 ID。</param>
+    /// <param name="count">本页最多返回的回复数，范围为 1 到 90。</param>
+    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>回复、总数、下一页游标和 HasMore 状态。</returns>
+    public Task<CommentReplyPage> GetEpisodeCommentRepliesAsync(
+        string commentId,
+        string seriesId,
+        string videoId,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _comments.GetEpisodeCommentRepliesAsync(commentId, seriesId, videoId, count, cursor, cancellationToken);
 
     /// <summary>发送一条分集评论。</summary>
     /// <param name="seriesId">所属剧集 ID。</param>
@@ -267,7 +335,8 @@ public sealed partial class PhoenixReadApiClient
             seriesId,
             cancellationToken,
             dataType: 4,
-            serviceId: 2
+            serviceId: 2,
+            groupType: 1
         );
 
     /// <summary>删除一条弹幕。</summary>
@@ -285,6 +354,7 @@ public sealed partial class PhoenixReadApiClient
             videoId,
             cancellationToken,
             dataType: 4,
-            serviceId: 20
+            serviceId: 20,
+            groupType: 30
         );
 }

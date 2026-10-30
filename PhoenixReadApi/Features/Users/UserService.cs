@@ -191,14 +191,25 @@ internal sealed class UserService : PhoenixFeatureService
         AppUserShelfData? collections = await collectionsTask.ConfigureAwait(false);
         AppUserActionData? likes = await likesTask.ConfigureAwait(false);
 
+        AppCommentUserInfo? userInfo = metadata.UserInfo;
+        string resolvedName = ValueNormalizer.First(user.Name, userInfo?.Name, userInfo?.BaseInfo?.Name);
+        string resolvedAvatar = ValueNormalizer.First(user.AvatarUrl, userInfo?.AvatarUrl, userInfo?.BaseInfo?.AvatarUrl);
+        string resolvedIntro = ValueNormalizer.First(
+            user.Introduction,
+            userInfo?.Description,
+            userInfo?.Introduction,
+            userInfo?.BaseInfo?.Description,
+            userInfo?.BaseInfo?.Introduction
+        );
+
         return new UserProfile
         {
             User = new User
             {
                 Id = user.Id,
-                Name = user.Name,
-                Introduction = user.Introduction,
-                AvatarUrl = user.AvatarUrl,
+                Name = resolvedName,
+                Introduction = resolvedIntro,
+                AvatarUrl = resolvedAvatar,
             },
             Collections = MapCollections(collections),
             CollectionsPage = new UserPageInfo

@@ -61,24 +61,6 @@ internal sealed class PhoenixReadAppTransport
         );
     }
 
-    /// <summary>发送返回顶层播放进度列表的接口。</summary>
-    internal Task<AppReadProgressResponse> PostReadProgressAsync<TRequest>(
-        string path,
-        TRequest payload,
-        CancellationToken cancellationToken,
-        AppRequestRetryMode retryMode = AppRequestRetryMode.ReadOnly
-    )
-    {
-        byte[] body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
-        int attempts = retryMode == AppRequestRetryMode.NoRetry ? 1 : _options.RetryCount;
-        return RetryPolicy.ExecuteAsync(
-            (_, token) => SendReadProgressPostOnceAsync(path, body, token),
-            attempts,
-            RetryPolicy.IsTransient,
-            cancellationToken
-        );
-    }
-
     internal Task<AppResponse<TResponse>> GetAsync<TResponse>(
         string path,
         IEnumerable<KeyValuePair<string, string>> query,
@@ -241,8 +223,6 @@ internal sealed class PhoenixReadAppTransport
                 throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
             }
 
-
-
             AppResponse<TResponse> result;
             try
             {
@@ -259,21 +239,7 @@ internal sealed class PhoenixReadAppTransport
                 );
             }
 
-            string? providerCode = result.Code;
-            if (string.IsNullOrWhiteSpace(providerCode))
-            {
-                providerCode = result.BaseResponse?.StatusCode;
-            }
-            if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
-            {
-                throw new PhoenixReadApiProviderException(
-                    $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
-                    path,
-                    providerCode,
-                    isTransient: true
-                );
-            }
-
+            EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
             return result;
         }
     }
@@ -348,20 +314,7 @@ internal sealed class PhoenixReadAppTransport
             );
         }
 
-        string providerCode = result.Code;
-        if (string.IsNullOrWhiteSpace(providerCode))
-        {
-            providerCode = result.BaseResponse?.StatusCode ?? string.Empty;
-        }
-        if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
-        {
-            throw new PhoenixReadApiProviderException(
-                $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
-                path,
-                providerCode,
-                isTransient: true
-            );
-        }
+        EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
         return result;
     }
 
@@ -435,107 +388,7 @@ internal sealed class PhoenixReadAppTransport
             );
         }
 
-        string providerCode = result.Code;
-        if (string.IsNullOrWhiteSpace(providerCode))
-        {
-            providerCode = result.BaseResponse?.StatusCode ?? string.Empty;
-        }
-        if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
-        {
-            throw new PhoenixReadApiProviderException(
-                $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
-                path,
-                providerCode,
-                isTransient: true
-            );
-        }
-
-        return result;
-    }
-
-    private async Task<AppReadProgressResponse> SendReadProgressPostOnceAsync(
-        string path,
-        byte[] body,
-        CancellationToken cancellationToken
-    )
-    {
-        await _deviceManager
-            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
-            .ConfigureAwait(false);
-
-        Uri endpoint = BuildAppUri(path);
-        Uri requestUri = HttpUriHelper.AddQuery(
-            endpoint,
-            "_rticket",
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
-        );
-        using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
-        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
-        request.Headers.TryAddWithoutValidation("Accept", "application/json");
-        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
-        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-        _sessionStore.ApplySession(request);
-        request.Content = new ByteArrayContent(body);
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
-        {
-            CharSet = "utf-8",
-        };
-        PhoenixReadRequestSigner.SignPlayer(
-            request,
-            body,
-            _deviceManager.DeviceId,
-            DateTimeOffset.UtcNow
-        );
-
-        using HttpResponseMessage response = await _http
-            .SendAsync(request, cancellationToken)
-            .ConfigureAwait(false);
-        _sessionStore.CaptureSession(response);
-        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new PhoenixReadApiHttpException(
-                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
-                path,
-                (int)response.StatusCode,
-                requestUri,
-                (int)response.StatusCode >= 500
-            );
-        }
-        if (bytes.Length == 0)
-        {
-            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
-        }
-
-        AppReadProgressResponse result;
-        try
-        {
-            result =
-                JsonAotSerializer.Deserialize<AppReadProgressResponse>(bytes)
-                ?? throw new JsonException("The App response was null.");
-        }
-        catch (JsonException exception)
-        {
-            throw new PhoenixReadApiDeserializationException(
-                "红果 App 接口返回格式异常。",
-                path,
-                exception
-            );
-        }
-        string providerCode = result.Code;
-        if (string.IsNullOrWhiteSpace(providerCode))
-        {
-            providerCode = result.BaseResponse?.StatusCode ?? string.Empty;
-        }
-        if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
-        {
-            throw new PhoenixReadApiProviderException(
-                $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
-                path,
-                providerCode,
-                isTransient: true
-            );
-        }
+        EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
         return result;
     }
 
@@ -587,6 +440,7 @@ internal sealed class PhoenixReadAppTransport
             _sessionStore.ApplySession(request);
             if (commentRequest)
             {
+                request.Headers.TryAddWithoutValidation("lc", "101");
                 request.Headers.TryAddWithoutValidation(
                     "Comment-Source",
                     commentSource.ToString(CultureInfo.InvariantCulture)
@@ -684,21 +538,7 @@ internal sealed class PhoenixReadAppTransport
                 );
             }
 
-            string? providerCode = result.Code;
-            if (string.IsNullOrWhiteSpace(providerCode))
-            {
-                providerCode = result.BaseResponse?.StatusCode;
-            }
-            if (!string.IsNullOrWhiteSpace(providerCode) && providerCode != "0")
-            {
-                throw new PhoenixReadApiProviderException(
-                    $"红果 App 接口暂不可用（{Truncate(providerCode, 20)}）。",
-                    path,
-                    providerCode,
-                    isTransient: true
-                );
-            }
-
+            EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
             return result;
         }
     }
@@ -714,6 +554,38 @@ internal sealed class PhoenixReadAppTransport
             )
         );
         return new UriBuilder(baseUri) { Query = queryText }.Uri;
+    }
+
+    private static void EnsureSuccess(
+        string? code,
+        string? message,
+        AppBaseResponse? baseResponse,
+        string path
+    )
+    {
+        string? providerCode = code;
+        if (string.IsNullOrWhiteSpace(providerCode))
+        {
+            providerCode = baseResponse?.StatusCode;
+        }
+
+        if (string.IsNullOrWhiteSpace(providerCode) || providerCode == "0")
+        {
+            return;
+        }
+
+        string serverMessage = !string.IsNullOrWhiteSpace(message)
+            ? message.Trim()
+            : (baseResponse?.StatusMessage ?? string.Empty).Trim();
+        string detail = string.IsNullOrWhiteSpace(serverMessage)
+            ? Truncate(providerCode, 20)
+            : $"{Truncate(providerCode, 20)}: {Truncate(serverMessage, 100)}";
+        throw new PhoenixReadApiProviderException(
+            $"红果 App 接口暂不可用（{detail}）。",
+            path,
+            providerCode,
+            isTransient: true
+        );
     }
 
     private static string Truncate(string value, int length) =>

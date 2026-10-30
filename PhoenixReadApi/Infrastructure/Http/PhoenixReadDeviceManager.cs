@@ -39,29 +39,51 @@ internal sealed class PhoenixReadDeviceManager
         IsRegistered = sessionStore.IsRegistered;
     }
 
-    internal KeyValuePair<string, string>[] BuildAppQuery() =>
+    internal KeyValuePair<string, string>[] BuildAppQuery()
+    {
+        List<KeyValuePair<string, string>> query =
         [
             new("aid", "8662"),
             new("app_name", "novelread"),
-            new("version_code", "69132"),
-            new("version_name", "6.9.1.32"),
-            new("manifest_version_code", "69132"),
-            new("update_version_code", "69132"),
-            new("channel", "update_64"),
+            new("version_code", "73932"),
+            new("version_name", "7.3.9.32"),
+            new("manifest_version_code", "73932"),
+            new("update_version_code", "73932"),
+            new("channel", "69310258a"),
             new("device_platform", "android"),
             new("os", "android"),
             new("ssmix", "a"),
-            new("device_type", "WKL-AN20"),
-            new("device_brand", "HONOR"),
+            new("device_type", "AOSP on Intel Platform"),
+            new("device_brand", "SAMSUNG"),
             new("language", "zh"),
-            new("os_api", "37"),
-            new("os_version", "17"),
-            new("resolution", "1320*2868"),
-            new("dpi", "360"),
-            new("ac", "wifi"),
-            new("device_id", DeviceId),
-            new("iid", InstallId),
+            new("os_api", "35"),
+            new("os_version", "15"),
+            new("resolution", "1920*1080"),
+            new("dpi", "280"),
+            new("compliance_status", "0"),
+            new("need_personal_recommend", "1"),
+            new("player_so_load", "1"),
+            new("is_android_pad_screen", "1"),
+            new("rom_version", "V417IR release-keys"),
+            new("dragon_device_type", "pad"),
+            new("host_abi", "arm64-v8a"),
+            new("device_id", string.IsNullOrWhiteSpace(DeviceId) ? "1589262967141403" : DeviceId),
+            new("iid", string.IsNullOrWhiteSpace(InstallId) ? "2380912043756905" : InstallId),
+            new("pv_player", "73932"),
         ];
+
+        string cdid = string.IsNullOrWhiteSpace(Cdid)
+            ? "c179f4ce-dbbe-4c3e-ae27-8d462e63782b"
+            : Cdid;
+        query.Add(new("cdid", cdid));
+
+        string klink = string.IsNullOrWhiteSpace(KlinkEgdi)
+            ? "AAJgUhu9EVIH0a1aMHvCy177wq-bhqHT3XS5vNNgeIgolcgOrGQOGZwL"
+            : KlinkEgdi;
+        query.Add(new("klink_egdi", klink));
+
+        return [.. query];
+    }
 
     internal async Task EnsureRegisteredAsync(bool forceNew, CancellationToken cancellationToken)
     {

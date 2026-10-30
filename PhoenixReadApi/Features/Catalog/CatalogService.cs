@@ -371,43 +371,41 @@ internal sealed class CatalogService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         AppTagLandingData data = response.Data ?? new();
-        List<TagCategoryGroup> groups = [];
+        Dictionary<string, List<TagCategoryItem>> mergedGroups = new(StringComparer.Ordinal);
         IReadOnlyList<AppTagSelectorRowDto> rows = data.Selector?.Rows ?? [];
         foreach (AppTagSelectorRowDto row in rows)
         {
-            if (row.Items is null)
+            if (row.Items is null || row.Items.Count == 0)
             {
                 continue;
             }
 
-            List<TagCategoryItem> items = [];
-            foreach (AppTagSelectorItemDto item in row.Items)
+            string groupName = !string.IsNullOrWhiteSpace(row.RowName) ? row.RowName.Trim() : "分类";
+            if (!mergedGroups.TryGetValue(groupName, out List<TagCategoryItem>? list))
             {
-                if (!string.IsNullOrWhiteSpace(item.SelectorItemId))
-                {
-                    items.Add(
-                        new TagCategoryItem
-                        {
-                            Id = item.SelectorItemId.Trim(),
-                            Name = item.ShowName.Trim(),
-                        }
-                    );
-                }
+                list = [];
+                mergedGroups[groupName] = list;
             }
 
-            if (items.Count > 0)
+            foreach (AppTagSelectorItemDto item in row.Items)
             {
-                groups.Add(
-                    new TagCategoryGroup
-                    {
-                        Name = !string.IsNullOrWhiteSpace(row.RowName) ? row.RowName.Trim() : "分类",
-                        Items = items,
-                    }
-                );
+                string id = item.SelectorItemId?.Trim() ?? string.Empty;
+                string name = item.ShowName?.Trim() ?? string.Empty;
+                if (id.Length > 0 && !list.Any(existing => existing.Id == id))
+                {
+                    list.Add(new TagCategoryItem { Id = id, Name = name });
+                }
             }
         }
 
-        return groups;
+        return mergedGroups
+            .Where(static pair => pair.Value.Count > 0)
+            .Select(static pair => new TagCategoryGroup
+            {
+                Name = pair.Key,
+                Items = pair.Value,
+            })
+            .ToList();
     }
 
     internal async Task<TagDramaPage> GetTagDramaPageAsync(

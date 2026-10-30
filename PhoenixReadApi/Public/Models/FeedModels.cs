@@ -28,11 +28,3 @@ public sealed class FeedPage
     /// <summary>是否还有下一页。</summary>
     public bool HasMore { get; init; }
 }
-
-/// <summary>书架字段接口返回的键值。</summary>
-public sealed class BookPackFields
-{
-    /// <summary>服务端返回的字段。</summary>
-    public IReadOnlyDictionary<string, string> Values { get; init; } =
-        new Dictionary<string, string>(StringComparer.Ordinal);
-}

@@ -26,23 +26,54 @@ internal static class DramaMapper
             data.Category,
             tags.FirstOrDefault() ?? category
         );
-        if (remark.Length == 0 && data.EpisodeCount > 0)
+        int episodeCount = Math.Max(
+            data.EpisodeCount,
+            Math.Max(
+                data.EpisodeCountAlias,
+                Math.Max(data.DramaChapterNumber, data.ChapterNumber)
+            )
+        );
+        if (remark.Length == 0 && episodeCount > 0)
         {
-            remark = "共" + data.EpisodeCount + "集";
+            remark = "共" + episodeCount + "集";
         }
+
+        string desc = ValueNormalizer.First(
+            data.SeriesIntro,
+            data.VideoDescription,
+            data.Abstract,
+            data.Intro,
+            data.Description
+        );
+        string cover = ValueNormalizer.First(
+            data.SeriesCover,
+            data.Cover,
+            data.CoverUrl,
+            data.ThumbUrl,
+            data.ExpandThumbUrl
+        );
+        string score = ValueNormalizer.First(
+            data.FinalScoreV2,
+            data.FinalScore,
+            data.Score
+        );
+        string status = ValueNormalizer.First(
+            data.SeriesStatus,
+            data.Status
+        );
 
         return new Drama
         {
             Id = sourceId,
             Title = title,
-            Description = ValueNormalizer.First(data.SeriesIntro, data.VideoDescription),
-            CoverUrl = ValueNormalizer.First(data.SeriesCover, data.Cover),
+            Description = desc,
+            CoverUrl = cover,
             Category = genre,
             Remark = remark,
-            EpisodeCount = Math.Max(0, data.EpisodeCount),
+            EpisodeCount = Math.Max(0, episodeCount),
             Tags = tags,
-            ReleaseStatus = ReleaseStatusFromValue(data.SeriesStatus, remark),
-            Score = data.Score,
+            ReleaseStatus = ReleaseStatusFromValue(status, remark),
+            Score = score,
             Views = ValueNormalizer.First(data.SeriesPlayCount, data.PlayCount),
             Heat = DtoHeat(data),
             OnlineDate = DtoOnlineDate(data, now ?? DateTimeOffset.Now),

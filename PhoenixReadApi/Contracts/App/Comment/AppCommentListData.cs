@@ -94,12 +94,24 @@ internal sealed class AppCommentUserInfo
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string AvatarUrl { get; init; } = string.Empty;
 
+    [JsonPropertyName("description")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Description { get; init; } = string.Empty;
+
+    [JsonPropertyName("intro")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Introduction { get; init; } = string.Empty;
+
     [JsonPropertyName("base_info")]
     public AppCommentUserBaseInfo BaseInfo { get; init; } = new();
 }
 
 internal sealed class AppCommentUserBaseInfo
 {
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string UserId { get; init; } = string.Empty;
+
     [JsonPropertyName("user_name")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Name { get; init; } = string.Empty;
@@ -107,6 +119,14 @@ internal sealed class AppCommentUserBaseInfo
     [JsonPropertyName("user_avatar")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string AvatarUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Description { get; init; } = string.Empty;
+
+    [JsonPropertyName("intro")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Introduction { get; init; } = string.Empty;
 }
 
 internal sealed class AppCommentExpand

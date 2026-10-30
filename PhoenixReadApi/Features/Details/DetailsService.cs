@@ -251,9 +251,16 @@ internal sealed class DetailsService : PhoenixFeatureService
             return [];
         }
 
-        List<KeyValuePair<string, string>> query = ids
-            .Select(static id => new KeyValuePair<string, string>("book_id", id))
-            .ToList();
+        string joinedIds = string.Join(",", ids);
+        List<KeyValuePair<string, string>> query =
+        [
+            new("book_id", joinedIds),
+            new("book_ids", joinedIds),
+        ];
+        foreach (string id in ids)
+        {
+            query.Add(new("book_id", id));
+        }
 
         AppResponse<IReadOnlyList<AppMultiDetailItem>> response = await _appTransport
             .GetAsync<IReadOnlyList<AppMultiDetailItem>>(
@@ -269,7 +276,7 @@ internal sealed class DetailsService : PhoenixFeatureService
 
     private static Drama MapMultiDetailItem(AppMultiDetailItem item)
     {
-        int episodeCount = 0;
+        int episodeCount;
         if (
             !int.TryParse(
                 item.DramaChapterNumber,
