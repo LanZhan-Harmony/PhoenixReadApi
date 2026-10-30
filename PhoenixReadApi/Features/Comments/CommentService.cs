@@ -19,7 +19,8 @@ internal sealed class CommentService : PhoenixFeatureService
         string seriesId,
         int count,
         string cursor,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        CommentSortOrder sort = CommentSortOrder.Hot
     )
     {
         string normalizedSeriesId = NormalizeSeriesId(seriesId);
@@ -29,7 +30,8 @@ internal sealed class CommentService : PhoenixFeatureService
             isEpisode: false,
             count,
             cursor,
-            cancellationToken
+            cancellationToken,
+            sort
         );
     }
 
@@ -38,7 +40,8 @@ internal sealed class CommentService : PhoenixFeatureService
         string videoId,
         int count,
         string cursor,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        CommentSortOrder sort = CommentSortOrder.Hot
     )
     {
         string normalizedSeriesId = NormalizeSeriesId(seriesId);
@@ -49,12 +52,32 @@ internal sealed class CommentService : PhoenixFeatureService
             isEpisode: true,
             count,
             cursor,
-            cancellationToken
+            cancellationToken,
+            sort
         );
     }
 
+    internal Task<CommentReplyPage> GetDramaReviewRepliesAsync(
+        string commentId,
+        string seriesId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    ) => GetRepliesAsync(commentId, seriesId, string.Empty, count, cursor, cancellationToken);
+
+    internal Task<CommentReplyPage> GetEpisodeCommentRepliesAsync(
+        string commentId,
+        string seriesId,
+        string videoId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    ) => GetRepliesAsync(commentId, seriesId, videoId, count, cursor, cancellationToken);
+
     internal async Task<CommentReplyPage> GetRepliesAsync(
         string commentId,
+        string seriesId,
+        string videoId,
         int count,
         string cursor,
         CancellationToken cancellationToken
@@ -63,31 +86,21 @@ internal sealed class CommentService : PhoenixFeatureService
         commentId = NormalizeCommentId(commentId);
         cursor = cursor?.Trim() ?? string.Empty;
         ValidateReplyPage(count, cursor);
-        AppReplyListData data;
-        try
-        {
-            data = await LoadRepliesAsync(commentId, count, cursor, 4, 18, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (PhoenixReadApiProviderException exception) when (exception.ProviderCode == "103001")
-        {
-            try
-            {
-                data = await LoadRepliesAsync(commentId, count, cursor, 1, 34, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (PhoenixReadApiProviderException retryException)
-                when (retryException.ProviderCode == "103001")
-            {
-                data = new AppReplyListData();
-            }
-        }
-        IReadOnlyList<AppReplyRecord> replyItems = data.Items is { Count: > 0 }
-            ? data.Items
-            : data.ReplyItems ?? [];
-        AppReplyListInfo info = data.ListInfo is { Total: > 0 }
-            ? data.ListInfo
-            : data.CommentListInfo ?? new();
+        AppReplyListData data = await LoadRepliesAsync(
+                commentId,
+                seriesId,
+                videoId,
+                count,
+                cursor,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        IReadOnlyList<AppReplyRecord> replyItems = data.ReplyItems is { Count: > 0 }
+            ? data.ReplyItems
+            : data.Items ?? [];
+        AppReplyListInfo info = data.CommentListInfo is { Total: > 0 }
+            ? data.CommentListInfo
+            : data.ListInfo ?? new();
         return new CommentReplyPage
         {
             Items = [.. replyItems.Select(MapReply).Where(static item => item.Id.Length > 0)],
@@ -99,26 +112,54 @@ internal sealed class CommentService : PhoenixFeatureService
 
     private async Task<AppReplyListData> LoadRepliesAsync(
         string commentId,
+        string seriesId,
+        string videoId,
         int count,
         string cursor,
-        int commentSource,
-        int serverChannel,
         CancellationToken cancellationToken
     )
     {
+        bool isEpisode = !string.IsNullOrWhiteSpace(videoId) && !string.Equals(seriesId, videoId, StringComparison.Ordinal);
+        string normalizedSeriesId = string.IsNullOrWhiteSpace(seriesId)
+            ? string.Empty
+            : NormalizeSeriesOrVideoId(seriesId);
+        string normalizedVideoId = isEpisode
+            ? NormalizeSeriesOrVideoId(videoId)
+            : string.Empty;
+
+        int commentSource = isEpisode ? 504 : 501;
+        int serverChannel = isEpisode ? 18 : 34;
+        int commentType = isEpisode ? 4 : 2;
+        int groupType = isEpisode ? 30 : 1;
+        string groupId = isEpisode ? normalizedVideoId : normalizedSeriesId;
+        string path = isEpisode
+            ? "/novel/commentapi/reply/list/" + commentId + "/v1/"
+            : "/novel/commentapi/reply/list/" + commentId + "/v1";
+
+        AppReplyListPayload payload = new()
+        {
+            CommentSource = commentSource,
+            ServerChannel = serverChannel,
+            CommentId = commentId,
+            CommentType = commentType,
+            GroupId = groupId,
+            GroupType = groupType,
+            Count = count,
+            Cursor = cursor,
+            Aid = 8662,
+            ComplianceStatus = 0,
+            BusinessParameter = new AppReplyBusinessParameter
+            {
+                BookId = normalizedSeriesId.Length > 0 ? normalizedSeriesId : groupId,
+                NeedCount = cursor.Length == 0,
+                RealLevel = isEpisode ? 0 : 2,
+            },
+        };
+
         AppResponse<AppReplyListData> response = await _appTransport
             .PostAsync<AppReplyListPayload, AppReplyListData>(
-                "/novel/commentapi/reply/list/" + commentId + "/v1/",
-                new AppReplyListPayload
-                {
-                    CommentId = commentId,
-                    GroupId = commentId,
-                    Count = count,
-                    Cursor = cursor,
-                    CommentSource = commentSource,
-                    ServerChannel = serverChannel,
-                    BusinessParameter = new AppBusinessParameter { BookId = commentId },
-                },
+                path,
+                payload,
                 commentRequest: true,
                 cancellationToken,
                 commentSource: commentSource,
@@ -216,26 +257,35 @@ internal sealed class CommentService : PhoenixFeatureService
         string groupId,
         CancellationToken cancellationToken,
         int dataType = 4,
-        int serviceId = 4
+        int serviceId = 4,
+        int groupType = 30
     )
     {
         commentId = NormalizeCommentId(commentId);
         groupId = NormalizeSeriesOrVideoId(groupId);
+        bool isReview = groupType == 1;
+        int delCommentSource = isReview ? 501 : 504;
+        int delServerChannel = isReview ? 34 : 18;
+
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppCommentDeletePayload, AppOperationResponse>(
                 "/novel/commentapi/comment/del/v1/",
                 new AppCommentDeletePayload
                 {
                     CommentId = commentId,
+                    GroupId = groupId,
+                    GroupType = groupType,
                     DataType = dataType,
                     ServiceId = serviceId,
                 },
                 commentRequest: true,
                 cancellationToken,
+                commentSource: delCommentSource,
+                serverChannel: delServerChannel,
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
-        return Operation(response.Message);
+        return Operation(response.Message, commentId);
     }
 
     internal async Task<PhoenixOperationResult> SendReplyAsync(
@@ -249,8 +299,8 @@ internal sealed class CommentService : PhoenixFeatureService
         commentId = NormalizeCommentId(commentId);
         groupId = NormalizeSeriesOrVideoId(groupId);
         text = NormalizeText(text);
-        AppResponse<AppOperationResponse> response = await _appTransport
-            .PostAsync<AppCommentAddPayload, AppOperationResponse>(
+        AppResponse<AppReplyAddData> response = await _appTransport
+            .PostAsync<AppCommentAddPayload, AppReplyAddData>(
                 "/novel/commentapi/reply/add/v1/",
                 new AppCommentAddPayload
                 {
@@ -268,7 +318,12 @@ internal sealed class CommentService : PhoenixFeatureService
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
-        return Operation(response.Message);
+        string replyId = ValueNormalizer.First(
+            response.Data?.Reply?.ReplyId,
+            response.Data?.Reply?.Id,
+            response.Data?.ReplyId
+        );
+        return Operation(response.Message, replyId);
     }
 
     internal Task<PhoenixOperationResult> SendReplyAsync(
@@ -281,7 +336,7 @@ internal sealed class CommentService : PhoenixFeatureService
     internal Task<PhoenixOperationResult> DeleteReplyAsync(
         string replyId,
         CancellationToken cancellationToken
-    ) => DeleteCommentAsync(replyId, replyId, cancellationToken, dataType: 9, serviceId: 4);
+    ) => DeleteCommentAsync(replyId, replyId, cancellationToken, dataType: 9, serviceId: 4, groupType: 0);
 
     private async Task<CommentPage> LoadAsync(
         string seriesId,
@@ -289,7 +344,8 @@ internal sealed class CommentService : PhoenixFeatureService
         bool isEpisode,
         int count,
         string cursor,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        CommentSortOrder sort = CommentSortOrder.Hot
     )
     {
         if (count is < 1 or > MaxPageSize)
@@ -316,6 +372,7 @@ internal sealed class CommentService : PhoenixFeatureService
                 CommentType = 4,
                 Count = count,
                 Cursor = cursor,
+                Sort = (int)sort,
                 BusinessParameter = new AppCommentListBusinessParameter
                 {
                     BookId = seriesId,
@@ -331,6 +388,7 @@ internal sealed class CommentService : PhoenixFeatureService
                 CommentType = 2,
                 Count = count,
                 Cursor = cursor,
+                Sort = (int)sort,
                 BusinessParameter = new AppCommentListBusinessParameter
                 {
                     BookId = seriesId,
@@ -393,7 +451,7 @@ internal sealed class CommentService : PhoenixFeatureService
                     Text = text.Length > 4000 ? string.Concat(text.AsSpan(0, 4000), "…") : text,
                     Author = new User
                     {
-                        Id = userInfo.Id ?? string.Empty,
+                        Id = ValueNormalizer.First(userInfo.Id, baseInfo?.UserId, string.Empty),
                         Name = userName.Length > 0 ? userName : baseInfo?.Name ?? string.Empty,
                         AvatarUrl =
                             userAvatar.Length > 0
@@ -437,8 +495,12 @@ internal sealed class CommentService : PhoenixFeatureService
         seriesId = NormalizeSeriesId(seriesId);
         targetId = isEpisode ? NormalizeVideoId(targetId) : seriesId;
         text = NormalizeText(text);
-        AppResponse<AppOperationResponse> response = await _appTransport
-            .PostAsync<AppCommentAddPayload, AppOperationResponse>(
+        int reqCommentSource = isEpisode ? 504 : 501;
+        int reqServerChannel = isEpisode ? 18 : 34;
+        int commentType = danmaku ? 20 : isEpisode ? 4 : 2;
+
+        AppResponse<AppCommentAddData> response = await _appTransport
+            .PostAsync<AppCommentAddPayload, AppCommentAddData>(
                 "/novel/commentapi/comment/add/v1/",
                 new AppCommentAddPayload
                 {
@@ -450,7 +512,7 @@ internal sealed class CommentService : PhoenixFeatureService
                         danmaku ? 20
                         : isEpisode ? 4
                         : 2,
-                    CommentType = danmaku ? 20 : 0,
+                    CommentType = commentType,
                     Score = score,
                     BusinessParameter = new AppCommentAddBusinessParameter
                     {
@@ -462,30 +524,62 @@ internal sealed class CommentService : PhoenixFeatureService
                 },
                 commentRequest: true,
                 cancellationToken,
+                commentSource: reqCommentSource,
+                serverChannel: reqServerChannel,
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
-        return Operation(response.Message);
+        string createdId = ValueNormalizer.First(
+            response.Data?.CommentInfo?.CommentId,
+            response.Data?.CommentId
+        );
+        return Operation(response.Message, createdId);
     }
 
     private static CommentReply MapReply(AppReplyRecord record)
     {
-        AppReply reply = record.Reply ?? new();
-        AppReplyUser user = reply.User ?? new();
+        string id = ValueNormalizer.First(record.ReplyId, record.Reply?.Id);
+        string commentId = ValueNormalizer.First(record.ReplyToCommentId, record.Reply?.CommentId);
+        string replyToUserId = ValueNormalizer.First(
+            record.ReplyToUserInfo?.BaseInfo?.UserId,
+            record.Reply?.ReplyToUserId
+        );
+        string text = SanitizeText(
+            ValueNormalizer.First(record.Common?.Content?.Text, record.Reply?.Content?.Text)
+        );
+        string userId = ValueNormalizer.First(
+            record.Common?.UserInfo?.BaseInfo?.UserId,
+            record.Reply?.User?.Id
+        );
+        string userName = ValueNormalizer.First(
+            record.Common?.UserInfo?.BaseInfo?.UserName,
+            record.Reply?.User?.Name
+        );
+        string avatarUrl = ValueNormalizer.First(
+            record.Common?.UserInfo?.BaseInfo?.UserAvatar,
+            record.Reply?.User?.AvatarUrl
+        );
+        long createdAt = record.Common?.CreateTimestamp > 0
+            ? record.Common.CreateTimestamp
+            : record.Reply?.CreatedAt ?? 0;
+        long likeCount = record.Stat?.DiggCount > 0
+            ? record.Stat.DiggCount
+            : record.Reply?.LikeCount ?? 0;
+
         return new CommentReply
         {
-            Id = reply.Id,
-            CommentId = reply.CommentId,
-            ReplyToUserId = reply.ReplyToUserId,
-            Text = SanitizeText(reply.Content?.Text ?? string.Empty),
+            Id = id,
+            CommentId = commentId,
+            ReplyToUserId = replyToUserId,
+            Text = text,
             Author = new User
             {
-                Id = user.Id,
-                Name = user.Name,
-                AvatarUrl = user.AvatarUrl,
+                Id = userId,
+                Name = userName,
+                AvatarUrl = avatarUrl,
             },
-            CreatedAtUnixSeconds = Math.Max(0, reply.CreatedAt),
-            LikeCount = Math.Max(0, reply.LikeCount),
+            CreatedAtUnixSeconds = Math.Max(0, createdAt),
+            LikeCount = Math.Max(0, likeCount),
         };
     }
 
@@ -532,6 +626,11 @@ internal sealed class CommentService : PhoenixFeatureService
         return value;
     }
 
-    private static PhoenixOperationResult Operation(string message) =>
-        new() { Succeeded = true, Message = message ?? string.Empty };
+    private static PhoenixOperationResult Operation(string message, string id = "") =>
+        new()
+        {
+            Succeeded = true,
+            Message = message ?? string.Empty,
+            Id = id ?? string.Empty,
+        };
 }

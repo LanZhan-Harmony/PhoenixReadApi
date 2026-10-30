@@ -24,24 +24,23 @@ internal sealed class LikesService : LibraryServiceBase
     {
         seriesId = NormalizeSeriesId(seriesId);
         videoId = NormalizeVideoId(videoId);
+        _ = long.TryParse(seriesId, CultureInfo.InvariantCulture, out long bookId);
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppArticleActionPayload, AppOperationResponse>(
                 "/novel/articleapi/do_action/v1/",
                 new AppArticleActionPayload
                 {
-                    ObjectId = videoId,
+                    ObjectId = seriesId,
                     ObjectType = 6,
                     ActionType = active ? 3 : 4,
                     ActionCategory = 1,
+                    ActionReasonRemark = active ? "like_click" : "cancel_like",
                     BusinessParameter = new AppArticleActionBusinessParameter
                     {
-                        BookId = 0,
-                        VideoId = seriesId,
+                        BookId = bookId,
+                        VideoId = videoId,
                         HasAigcContent = false,
                         ModifyCount = 0,
-                        ScreenFrame = active
-                            ? $"pic_dislike_{videoId}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Random.Shared.Next(0x1000000):x6}"
-                            : string.Empty,
                         SharkParameter = new AppSharkParameter(),
                     },
                 },

@@ -16,6 +16,9 @@ internal sealed class AppArticleActionPayload
     [JsonPropertyName("action_category")]
     public int ActionCategory { get; init; }
 
+    [JsonPropertyName("aid")]
+    public int Aid { get; init; } = 8662;
+
     [JsonPropertyName("action_reason_remark")]
     public string ActionReasonRemark { get; init; } = "like_click";
 

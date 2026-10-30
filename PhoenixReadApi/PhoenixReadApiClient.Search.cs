@@ -31,22 +31,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _search.GetSuggestionsAsync(keyword, maxResults, cancellationToken);
 
-    /// <summary>根据推荐查询获取一页推荐结果。</summary>
-    /// <param name="query">
-    /// 推荐查询。使用 <see cref="RecommendationQuery.Genre"/> 指定题材，Offset、SessionId 和 Seen
-    /// 用于继续请求下一页；不能为 null。
-    /// </param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>推荐剧集、下一页偏移量、会话 ID 和 HasMore 状态。</returns>
-    /// <remarks>
-    /// 当 <see cref="RecommendationPage.HasMore"/> 为 true 时，将返回的 NextOffset 和 SessionId
-    /// 放入下一次 RecommendationQuery；Seen 可继续传入已展示的剧集 ID 以减少重复。
-    /// </remarks>
-    public Task<RecommendationPage> GetRecommendationsAsync(
-        RecommendationQuery query,
-        CancellationToken cancellationToken = default
-    ) => _search.GetRecommendationsAsync(query, cancellationToken);
-
     /// <summary>使用题材和分页参数获取一页推荐结果。</summary>
     /// <param name="genre">推荐题材枚举，例如 <see cref="RecommendationGenre.ShortDrama"/>。</param>
     /// <param name="offset">分页偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
@@ -54,9 +38,6 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="seen">已经展示过的剧集 ID；可为 null，客户端会去重。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>包含当前页剧集和下一页状态的 <see cref="RecommendationPage"/>。</returns>
-    /// <remarks>
-    /// 该重载适合不需要手动构造 RecommendationQuery 的调用方；题材使用枚举，避免直接传输协议字符串。
-    /// </remarks>
     public Task<RecommendationPage> GetRecommendationsAsync(
         RecommendationGenre genre,
         int offset = 0,

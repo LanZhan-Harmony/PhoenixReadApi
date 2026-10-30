@@ -46,6 +46,18 @@ internal sealed class DramaDto
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string VideoDescription { get; init; } = string.Empty;
 
+    [JsonPropertyName("abstract")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Abstract { get; init; } = string.Empty;
+
+    [JsonPropertyName("intro")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Intro { get; init; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Description { get; init; } = string.Empty;
+
     [JsonPropertyName("series_cover")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string SeriesCover { get; init; } = string.Empty;
@@ -54,9 +66,33 @@ internal sealed class DramaDto
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Cover { get; init; } = string.Empty;
 
+    [JsonPropertyName("cover_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string CoverUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("thumb_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ThumbUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("expand_thumb_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ExpandThumbUrl { get; init; } = string.Empty;
+
     [JsonPropertyName("episode_cnt")]
     [JsonConverter(typeof(FlexibleIntConverter))]
     public int EpisodeCount { get; init; }
+
+    [JsonPropertyName("episode_count")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int EpisodeCountAlias { get; init; }
+
+    [JsonPropertyName("drama_chapter_number")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int DramaChapterNumber { get; init; }
+
+    [JsonPropertyName("chapter_number")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int ChapterNumber { get; init; }
 
     [JsonPropertyName("episode_right_text")]
     [JsonConverter(typeof(FlexibleStringConverter))]
@@ -78,9 +114,25 @@ internal sealed class DramaDto
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string SeriesStatus { get; init; } = string.Empty;
 
+    [JsonPropertyName("status")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Status { get; init; } = string.Empty;
+
     [JsonPropertyName("score")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Score { get; init; } = string.Empty;
+
+    [JsonPropertyName("final_score_v2")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string FinalScoreV2 { get; init; } = string.Empty;
+
+    [JsonPropertyName("final_score")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string FinalScore { get; init; } = string.Empty;
+
+    [JsonPropertyName("author")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Author { get; init; } = string.Empty;
 
     [JsonPropertyName("series_play_cnt")]
     [JsonConverter(typeof(FlexibleStringConverter))]

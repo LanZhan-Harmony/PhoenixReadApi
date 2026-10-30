@@ -1,6 +1,5 @@
 using System.Globalization;
 using PhoenixReadApi.Internal.Contracts.App;
-using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.App.Library;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Features.Shared;
@@ -15,52 +14,6 @@ internal sealed class DiscoveryService : LibraryServiceBase
     internal DiscoveryService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
-    internal async Task<CategoryPage> GetCategoryAsync(
-        CategoryQuery query,
-        CancellationToken cancellationToken
-    )
-    {
-        ArgumentNullException.ThrowIfNull(query);
-        ValidateCategory(query.Category);
-        (string genre, string scene, string displayName) = CategoryInfo(
-            query.Category == PhoenixReadApiCategory.All
-                ? PhoenixReadApiCategory.RealDrama
-                : query.Category
-        );
-        AppCategoryPayload payload = new()
-        {
-            RequestScene = scene,
-            Offset = Math.Max(0, query.Offset),
-            SessionId = query.SessionId ?? string.Empty,
-            ClientRequestType = query.Offset > 0 ? 2 : 3,
-            SelectedItems = new AppCategorySelectedItems
-            {
-                Genre = [genre],
-                CategoryTheme = query.ThemeIds,
-                CategoryRole = query.RoleIds,
-                CategoryEpoch = query.EpochIds,
-                OnlineTime = query.OnlineTimeIds,
-                CreationStatus = query.StatusIds,
-            },
-        };
-        AppResponse<AppCatalogData> response = await _appTransport
-            .PostAsync<AppCategoryPayload, AppCatalogData>(
-                "/reading/distribution/category/landpage/v/",
-                payload,
-                commentRequest: false,
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        AppCatalogData data = response.Data ?? new();
-        return new CategoryPage
-        {
-            Items = [.. data.Items.Select(item => DramaMapper.FromDto(item, displayName))],
-            NextOffset = data.NextOffset,
-            SessionId = data.SessionId,
-            HasMore = data.HasMore,
-        };
-    }
-
     internal async Task<FeedPage> GetNewSeriesAsync(
         int offset,
         string sessionId,
@@ -71,28 +24,7 @@ internal sealed class DiscoveryService : LibraryServiceBase
         {
             throw new ArgumentOutOfRangeException(nameof(offset));
         }
-        try
-        {
-            AppResponse<AppCellChangeData> response = await _appTransport
-                .GetAsync<AppCellChangeData>(
-                    "/reading/bookapi/bookmall/cell/change/v1/",
-                    [
-                        new("selected_items", ""),
-                        new("client_req_type", offset > 0 ? "2" : "3"),
-                        new("cell_id", ""),
-                        new("offset", offset.ToString(CultureInfo.InvariantCulture)),
-                        new("session_id", sessionId ?? string.Empty),
-                    ],
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-            AppCellChangeData data = response.Data ?? new();
-            return MapFeed(data.Cells, data.NextOffset, data.SessionId, data.HasMore);
-        }
-        catch (PhoenixReadApiProviderException exception) when (exception.ProviderCode == "100103")
-        {
-            return await GetFeedCategoriesAsync(cancellationToken).ConfigureAwait(false);
-        }
+        return await GetFeedCategoriesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     internal async Task<FeedPage> GetFeedCategoriesAsync(CancellationToken cancellationToken)
@@ -126,39 +58,6 @@ internal sealed class DiscoveryService : LibraryServiceBase
         return new FeedPage { Sections = sections };
     }
 
-    internal async Task<BookPackFields> GetBookPackFieldsAsync(
-        string channel,
-        CancellationToken cancellationToken
-    )
-    {
-        channel = (channel ?? string.Empty).Trim();
-        if (channel.Length == 0 || channel.Length > 64)
-        {
-            throw new ArgumentException("书架字段频道无效。", nameof(channel));
-        }
-        AppResponse<AppBookPackFieldsData> response;
-        try
-        {
-            response = await _appTransport
-                .PostAsync<AppBookPackFieldsPayload, AppBookPackFieldsData>(
-                    "/reading/distribution/book_pack_fields/v1/",
-                    new AppBookPackFieldsPayload { Channel = channel },
-                    commentRequest: false,
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-        }
-        catch (PhoenixReadApiProviderException exception) when (exception.ProviderCode == "100001")
-        {
-            return new BookPackFields();
-        }
-        return new BookPackFields
-        {
-            Values =
-                response.Data?.Values ?? new Dictionary<string, string>(StringComparer.Ordinal),
-        };
-    }
-
     internal async Task<ShareLink> CreateShareLinkAsync(
         string seriesId,
         string videoId,
@@ -167,7 +66,11 @@ internal sealed class DiscoveryService : LibraryServiceBase
     {
         seriesId = NormalizeSeriesId(seriesId);
         videoId = NormalizeVideoId(videoId);
-        AppResponse<AppShareData> response;
+        string fallbackUrl =
+            videoId.Length > 0
+                ? $"https://fanqienovel.com/drama/{seriesId}?video_id={videoId}"
+                : $"https://fanqienovel.com/drama/{seriesId}";
+        AppResponse<AppShareData>? response = null;
         try
         {
             response = await _appTransport
@@ -193,21 +96,16 @@ internal sealed class DiscoveryService : LibraryServiceBase
                 )
                 .ConfigureAwait(false);
         }
-        catch (PhoenixReadApiHttpException exception) when (exception.StatusCode == 404)
-        {
-            return new ShareLink { SeriesId = seriesId, VideoId = videoId };
-        }
-        catch (PhoenixReadApiProviderException exception) when (exception.ProviderCode == "100103")
-        {
-            return new ShareLink { SeriesId = seriesId, VideoId = videoId };
-        }
-        AppShareData data = response.Data ?? new();
+        catch (PhoenixReadApiHttpException exception) when (exception.StatusCode == 404) { }
+        AppShareData data = response?.Data ?? new();
+        string url = ValueNormalizer.First(data.Url, data.ShortUrl, fallbackUrl);
+        string shortUrl = ValueNormalizer.First(data.ShortUrl, data.Url, fallbackUrl);
         return new ShareLink
         {
             SeriesId = seriesId,
             VideoId = videoId,
-            Url = data.Url,
-            ShortUrl = data.ShortUrl,
+            Url = url,
+            ShortUrl = shortUrl,
             Title = data.Title,
         };
     }
