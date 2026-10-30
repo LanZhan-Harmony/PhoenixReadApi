@@ -27,28 +27,6 @@ public sealed class DiscoveryAndReservationTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetNewSeriesAsync()
-    {
-        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-
-        FeedPage newSeries = await SharedScenario.Client.GetNewSeriesAsync(
-            offset: 0,
-            sessionId: "",
-            cancellationToken: timeout.Token
-        );
-
-        await Assert.That(newSeries).IsNotNull();
-        await Assert.That(newSeries.Sections).IsNotNull();
-        await Assert.That(newSeries.SessionId).IsNotNull();
-        await Assert.That(newSeries.NextOffset >= 0).IsTrue();
-
-        foreach (FeedSection section in newSeries.Sections)
-        {
-            await SharedScenario.AssertValidFeedSection(section);
-        }
-    }
-
-    [Test, NotInParallel("phoenix-read-api")]
     public async Task TestGetUpcomingReservationsAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
@@ -117,15 +95,19 @@ public sealed class DiscoveryAndReservationTests
     [Test]
     public async Task TestReservationOperations_Validation()
     {
-        await Assert.That(async () =>
-        {
-            await SharedScenario.Client.SetReservationAsync("");
-        }).Throws<ArgumentException>();
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.SetReservationAsync("");
+            })
+            .Throws<ArgumentException>();
 
-        await Assert.That(async () =>
-        {
-            await SharedScenario.Client.DeleteReservationAsync("");
-        }).Throws<ArgumentException>();
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.DeleteReservationAsync("");
+            })
+            .Throws<ArgumentException>();
     }
 
     [Test, NotInParallel("phoenix-read-api")]

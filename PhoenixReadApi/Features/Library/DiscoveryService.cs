@@ -14,19 +14,6 @@ internal sealed class DiscoveryService : LibraryServiceBase
     internal DiscoveryService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
-    internal async Task<FeedPage> GetNewSeriesAsync(
-        int offset,
-        string sessionId,
-        CancellationToken cancellationToken
-    )
-    {
-        if (offset is < 0 or > 1_000_000)
-        {
-            throw new ArgumentOutOfRangeException(nameof(offset));
-        }
-        return await GetFeedCategoriesAsync(cancellationToken).ConfigureAwait(false);
-    }
-
     internal async Task<FeedPage> GetFeedCategoriesAsync(CancellationToken cancellationToken)
     {
         AppResponse<AppFeedTabData> response = await _appTransport
@@ -128,20 +115,6 @@ internal sealed class DiscoveryService : LibraryServiceBase
             VideoId = ValueNormalizer.IsNumericId(videoId) ? videoId : string.Empty,
         };
     }
-
-    private static FeedPage MapFeed(
-        IReadOnlyList<AppFeedCell>? cells,
-        int nextOffset,
-        string sessionId,
-        bool hasMore
-    ) =>
-        new()
-        {
-            Sections = MapFeedSections(cells ?? [], ""),
-            NextOffset = nextOffset,
-            SessionId = sessionId ?? string.Empty,
-            HasMore = hasMore,
-        };
 
     private static IReadOnlyList<FeedSection> MapFeedSections(
         IReadOnlyList<AppFeedCell> cells,

@@ -167,17 +167,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _reservations.SetReservationAsync(seriesId, active: false, cancellationToken);
 
-    /// <summary>获取“新剧”等剧库单元的一页。</summary>
-    /// <param name="offset">分页偏移量；首次请求使用 0。</param>
-    /// <param name="sessionId">上一页返回的会话 ID；首次请求传空字符串。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>分组剧集和分页状态。</returns>
-    public Task<FeedPage> GetNewSeriesAsync(
-        int offset = 0,
-        string sessionId = "",
-        CancellationToken cancellationToken = default
-    ) => _discovery.GetNewSeriesAsync(offset, sessionId, cancellationToken);
-
     /// <summary>获取首页剧场和推荐分组。</summary>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>按服务端分组返回的剧集。</returns>

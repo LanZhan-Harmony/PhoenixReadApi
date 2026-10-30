@@ -60,7 +60,15 @@ public sealed partial class PhoenixReadApiClient
         string cursor = "",
         CommentSortOrder sort = CommentSortOrder.Hot,
         CancellationToken cancellationToken = default
-    ) => _comments.GetEpisodeCommentsAsync(seriesId, videoId, count, cursor, cancellationToken, sort);
+    ) =>
+        _comments.GetEpisodeCommentsAsync(
+            seriesId,
+            videoId,
+            count,
+            cursor,
+            cancellationToken,
+            sort
+        );
 
     /// <summary>获取一条评论下的回复。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -73,7 +81,15 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) => _comments.GetRepliesAsync(commentId, string.Empty, string.Empty, count, cursor, cancellationToken);
+    ) =>
+        _comments.GetRepliesAsync(
+            commentId,
+            string.Empty,
+            string.Empty,
+            count,
+            cursor,
+            cancellationToken
+        );
 
     /// <summary>获取一条评论下的回复（带所属剧集或视频 ID）。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -88,7 +104,15 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) => _comments.GetRepliesAsync(commentId, groupId, string.Empty, count, cursor, cancellationToken);
+    ) =>
+        _comments.GetRepliesAsync(
+            commentId,
+            groupId,
+            string.Empty,
+            count,
+            cursor,
+            cancellationToken
+        );
 
     /// <summary>获取一条分集评论下的回复（同时指定剧集 ID 与分集视频 ID）。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -120,7 +144,8 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) => _comments.GetDramaReviewRepliesAsync(commentId, seriesId, count, cursor, cancellationToken);
+    ) =>
+        _comments.GetDramaReviewRepliesAsync(commentId, seriesId, count, cursor, cancellationToken);
 
     /// <summary>获取一条分集评论下的回复。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -137,7 +162,15 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) => _comments.GetEpisodeCommentRepliesAsync(commentId, seriesId, videoId, count, cursor, cancellationToken);
+    ) =>
+        _comments.GetEpisodeCommentRepliesAsync(
+            commentId,
+            seriesId,
+            videoId,
+            count,
+            cursor,
+            cancellationToken
+        );
 
     /// <summary>发送一条分集评论。</summary>
     /// <param name="seriesId">所属剧集 ID。</param>
