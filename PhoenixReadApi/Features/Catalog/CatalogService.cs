@@ -380,7 +380,9 @@ internal sealed class CatalogService : PhoenixFeatureService
                 continue;
             }
 
-            string groupName = !string.IsNullOrWhiteSpace(row.RowName) ? row.RowName.Trim() : "分类";
+            string groupName = !string.IsNullOrWhiteSpace(row.RowName)
+                ? row.RowName.Trim()
+                : "分类";
             if (!mergedGroups.TryGetValue(groupName, out List<TagCategoryItem>? list))
             {
                 list = [];
@@ -398,14 +400,16 @@ internal sealed class CatalogService : PhoenixFeatureService
             }
         }
 
-        return mergedGroups
-            .Where(static pair => pair.Value.Count > 0)
-            .Select(static pair => new TagCategoryGroup
-            {
-                Name = pair.Key,
-                Items = pair.Value,
-            })
-            .ToList();
+        return
+        [
+            .. mergedGroups
+                .Where(static pair => pair.Value.Count > 0)
+                .Select(static pair => new TagCategoryGroup
+                {
+                    Name = pair.Key,
+                    Items = pair.Value,
+                }),
+        ];
     }
 
     internal async Task<TagDramaPage> GetTagDramaPageAsync(
@@ -453,7 +457,7 @@ internal sealed class CatalogService : PhoenixFeatureService
 
         AppTagLandingData data = response.Data ?? new();
         IReadOnlyList<AppTagDramaItem> videoList = data.VideoInfo ?? [];
-        List<Drama> items = videoList.Select(MapTagDramaItem).ToList();
+        List<Drama> items = [.. videoList.Select(MapTagDramaItem)];
 
         return new TagDramaPage
         {

@@ -239,12 +239,14 @@ internal sealed class DetailsService : PhoenixFeatureService
     )
     {
         ArgumentNullException.ThrowIfNull(seriesIds);
-        List<string> ids = seriesIds
-            .Select(NormalizeSeriesId)
-            .Where(static id => id.Length > 0)
-            .Distinct(StringComparer.Ordinal)
-            .Take(50)
-            .ToList();
+        List<string> ids =
+        [
+            .. seriesIds
+                .Select(NormalizeSeriesId)
+                .Where(static id => id.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .Take(50),
+        ];
 
         if (ids.Count == 0)
         {
@@ -271,7 +273,7 @@ internal sealed class DetailsService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         IReadOnlyList<AppMultiDetailItem> items = response.Data ?? [];
-        return items.Select(MapMultiDetailItem).ToList();
+        return [.. items.Select(MapMultiDetailItem)];
     }
 
     private static Drama MapMultiDetailItem(AppMultiDetailItem item)

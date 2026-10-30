@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Search;
@@ -155,19 +156,7 @@ internal sealed class PhoenixReadAppTransport
         int rotations = 0;
         while (true)
         {
-            Uri endpoint = BuildAppUri(path);
-            foreach (KeyValuePair<string, string> pair in query)
-            {
-                endpoint = HttpUriHelper.AddQuery(endpoint, pair.Key, pair.Value);
-            }
-
-            Uri requestUri = HttpUriHelper.AddQuery(
-                endpoint,
-                "_rticket",
-                DateTimeOffset
-                    .UtcNow.ToUnixTimeMilliseconds()
-                    .ToString(CultureInfo.InvariantCulture)
-            );
+            Uri requestUri = BuildAppRequestUri(path, query);
             using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
             request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
             request.Headers.TryAddWithoutValidation("Accept", "application/json");
@@ -254,17 +243,7 @@ internal sealed class PhoenixReadAppTransport
             .EnsureRegisteredAsync(forceNew: false, cancellationToken)
             .ConfigureAwait(false);
 
-        Uri endpoint = BuildAppUri(path);
-        foreach (KeyValuePair<string, string> pair in query)
-        {
-            endpoint = HttpUriHelper.AddQuery(endpoint, pair.Key, pair.Value);
-        }
-
-        Uri requestUri = HttpUriHelper.AddQuery(
-            endpoint,
-            "_rticket",
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
-        );
+        Uri requestUri = BuildAppRequestUri(path, query);
         using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
         request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
@@ -328,17 +307,7 @@ internal sealed class PhoenixReadAppTransport
             .EnsureRegisteredAsync(forceNew: false, cancellationToken)
             .ConfigureAwait(false);
 
-        Uri endpoint = BuildAppUri(path);
-        foreach (KeyValuePair<string, string> pair in query)
-        {
-            endpoint = HttpUriHelper.AddQuery(endpoint, pair.Key, pair.Value);
-        }
-
-        Uri requestUri = HttpUriHelper.AddQuery(
-            endpoint,
-            "_rticket",
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
-        );
+        Uri requestUri = BuildAppRequestUri(path, query);
         using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
         request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
@@ -424,14 +393,7 @@ internal sealed class PhoenixReadAppTransport
         int rotations = 0;
         while (true)
         {
-            Uri endpoint = BuildAppUri(path);
-            Uri requestUri = HttpUriHelper.AddQuery(
-                endpoint,
-                "_rticket",
-                DateTimeOffset
-                    .UtcNow.ToUnixTimeMilliseconds()
-                    .ToString(CultureInfo.InvariantCulture)
-            );
+            Uri requestUri = BuildAppRequestUri(path);
             using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
             request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
             request.Headers.TryAddWithoutValidation("Accept", "application/json");
@@ -543,17 +505,47 @@ internal sealed class PhoenixReadAppTransport
         }
     }
 
-    private Uri BuildAppUri(string path)
+    private Uri BuildAppRequestUri(
+        string path,
+        IEnumerable<KeyValuePair<string, string>>? extraQuery = null
+    )
     {
-        KeyValuePair<string, string>[] query = _deviceManager.BuildAppQuery();
+        StringBuilder sb = new();
+        KeyValuePair<string, string>[] baseQuery = _deviceManager.BuildAppQuery();
+
+        bool first = true;
+        foreach (KeyValuePair<string, string> pair in baseQuery)
+        {
+            AppendParam(sb, ref first, pair.Key, pair.Value);
+        }
+
+        if (extraQuery is not null)
+        {
+            foreach (KeyValuePair<string, string> pair in extraQuery)
+            {
+                AppendParam(sb, ref first, pair.Key, pair.Value);
+            }
+        }
+
+        string rticket = DateTimeOffset
+            .UtcNow.ToUnixTimeMilliseconds()
+            .ToString(CultureInfo.InvariantCulture);
+        AppendParam(sb, ref first, "_rticket", rticket);
+
         Uri baseUri = new(_options.AppBaseUri, path.TrimStart('/'));
-        string queryText = string.Join(
-            '&',
-            query.Select(static pair =>
-                Uri.EscapeDataString(pair.Key) + "=" + Uri.EscapeDataString(pair.Value)
-            )
-        );
-        return new UriBuilder(baseUri) { Query = queryText }.Uri;
+        return new UriBuilder(baseUri) { Query = sb.ToString() }.Uri;
+
+        static void AppendParam(StringBuilder sb, ref bool first, string key, string value)
+        {
+            if (!first)
+            {
+                sb.Append('&');
+            }
+            first = false;
+            sb.Append(Uri.EscapeDataString(key));
+            sb.Append('=');
+            sb.Append(Uri.EscapeDataString(value));
+        }
     }
 
     private static void EnsureSuccess(
