@@ -66,7 +66,7 @@ internal sealed class HistoryService : LibraryServiceBase
         CancellationToken cancellationToken
     )
     {
-        if (seriesOrVideoIds.Count == 0 || seriesOrVideoIds.Count > 200)
+        if (seriesOrVideoIds.Count is 0 or > 200)
         {
             throw new ArgumentException(
                 "至少提供一个、最多提供 200 个 ID。",

@@ -94,11 +94,13 @@ internal sealed class DanmakuService : PhoenixFeatureService
             }
         }
 
-        items.Sort(static (left, right) =>
-        {
-            int time = left.TimeMs.CompareTo(right.TimeMs);
-            return time != 0 ? time : string.CompareOrdinal(left.Id, right.Id);
-        });
+        items.Sort(
+            static (left, right) =>
+            {
+                int time = left.TimeMs.CompareTo(right.TimeMs);
+                return time != 0 ? time : string.CompareOrdinal(left.Id, right.Id);
+            }
+        );
 
         return new DanmakuPage
         {
@@ -121,13 +123,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
         AppDanmakuData? last = null;
         for (int attempt = 0; attempt <= MaxEmptyDanmakuRetries; attempt++)
         {
-            last = await RequestPageAsync(
-                    seriesId,
-                    videoId,
-                    startMs,
-                    durationMs,
-                    cancellationToken
-                )
+            last = await RequestPageAsync(seriesId, videoId, startMs, durationMs, cancellationToken)
                 .ConfigureAwait(false);
 
             if (last.Items?.Count > 0 || !HasReportedDanmaku(last))
@@ -186,12 +182,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
     {
         foreach (AppCommentRecord? raw in records ?? [])
         {
-            if (
-                raw is null
-                || raw.Comment is null
-                || raw.Comment.Common is null
-                || raw.Comment.Common.Content is null
-            )
+            if (raw?.Comment?.Common?.Content is null)
             {
                 continue;
             }
@@ -268,5 +259,4 @@ internal sealed class DanmakuService : PhoenixFeatureService
         new string([
             .. text.Select(static c => char.IsControl(c) || c is '\u2028' or '\u2029' ? ' ' : c),
         ]).Trim();
-
 }

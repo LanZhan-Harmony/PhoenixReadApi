@@ -38,6 +38,42 @@ internal static class PhoenixReadRequestSigner
     private static readonly byte[] CommentArgusKey = Convert.FromHexString(
         "ac1adaae95a7af94a5114ab3b3a97dd80050aa0a39314c40528caec95256c28c"
     );
+    private static readonly byte[] StaticDerivedArgusKey = ComputeDerivedArgusKey();
+    private static readonly byte[] StaticCounters = ComputeStaticCounters();
+    private static readonly byte[] StaticEnvironment = ComputeStaticEnvironment();
+    private static readonly byte[] StaticZero16Sm3 = Sm3(new byte[16]);
+
+    private static byte[] ComputeDerivedArgusKey()
+    {
+        byte[] seed = new byte[CommentArgusKey.Length * 2 + 4];
+        CommentArgusKey.CopyTo(seed, 0);
+        seed[32] = 0x3C;
+        seed[33] = 0xCC;
+        seed[34] = 0x56;
+        seed[35] = 0x7B;
+        CommentArgusKey.CopyTo(seed, 36);
+        return Sm3(seed);
+    }
+
+    private static byte[] ComputeStaticCounters()
+    {
+        List<byte> counters = new(32);
+        Varint(counters, 1uL, 1uL);
+        Varint(counters, 2uL, 1uL);
+        Varint(counters, 3uL, 1uL);
+        Varint(counters, 7uL, 3348294860uL);
+        return [.. counters];
+    }
+
+    private static byte[] ComputeStaticEnvironment()
+    {
+        List<byte> environment = new(64);
+        Bytes(environment, 1uL, "25053RT47C"u8);
+        Bytes(environment, 2uL, "16"u8);
+        Bytes(environment, 3uL, "update_64"u8);
+        Varint(environment, 4uL, 2147483648uL);
+        return [.. environment];
+    }
 
     internal static void Sign(
         HttpRequestMessage request,
@@ -151,15 +187,7 @@ internal static class PhoenixReadRequestSigner
         BinaryPrimitives.WriteUInt32LittleEndian(payload[12..16], 0x04060400);
         BinaryPrimitives.WriteUInt32BigEndian(payload[16..], timestamp);
 
-        Span<byte> key = stackalloc byte[8];
-        key[0] = 0x4A;
-        key[1] = 0x40;
-        key[2] = 0x16;
-        key[3] = (byte)(seed >> 8);
-        key[4] = 0x47;
-        key[5] = 0x6C;
-        key[6] = 0x01;
-        key[7] = (byte)seed;
+        Span<byte> key = [0x4A, 0x40, 0x16, (byte)(seed >> 8), 0x47, 0x6C, 0x01, (byte)seed];
         Rc4(payload, key);
 
         for (int index = 0; index < payload.Length; index++)
@@ -206,26 +234,40 @@ internal static class PhoenixReadRequestSigner
     private static byte[] BuildMedusaPlaceholder(ReadOnlySpan<byte> tuple)
     {
         byte[] output = new byte[384];
-        byte[] state = Sha256(tuple);
-        for (int offset = 0; offset < output.Length; offset += state.Length)
+        Span<byte> state = stackalloc byte[32];
+        SHA256.HashData(tuple, state);
+
+        int combinedLen = 32 + tuple.Length;
+        byte[]? rented = null;
+        Span<byte> buffer =
+            combinedLen <= 512
+                ? stackalloc byte[combinedLen]
+                : (rented = ArrayPool<byte>.Shared.Rent(combinedLen)).AsSpan(0, combinedLen);
+        try
         {
-            state = Sha256(Combine(state, tuple));
-            state
-                .AsSpan(0, Math.Min(state.Length, output.Length - offset))
-                .CopyTo(output.AsSpan(offset));
+            tuple.CopyTo(buffer[32..]);
+            for (int offset = 0; offset < output.Length; offset += 32)
+            {
+                state.CopyTo(buffer[..32]);
+                SHA256.HashData(buffer, state);
+                state[..Math.Min(32, output.Length - offset)].CopyTo(output.AsSpan(offset));
+            }
+
+            return output;
         }
-        return output;
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
     }
 
     private static byte[] Sha256(ReadOnlySpan<byte> value) => SHA256.HashData(value);
 
-    private static byte[] Combine(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
-    {
-        byte[] result = new byte[left.Length + right.Length];
-        left.CopyTo(result);
-        right.CopyTo(result.AsSpan(left.Length));
-        return result;
-    }
+    private static void Sha256(ReadOnlySpan<byte> value, Span<byte> destination) =>
+        SHA256.HashData(value, destination);
 
     private static void Rc4(Span<byte> data, ReadOnlySpan<byte> key)
     {
@@ -448,13 +490,35 @@ internal static class PhoenixReadRequestSigner
         Bytes(list, 7uL, "6.8.1.32"u8);
         Bytes(list, 8uL, "v04.07.01-ml-android"u8);
         Varint(list, 9uL, 135135744uL);
-        Bytes(list, 10uL, new byte[8]);
+        Bytes(list, 10uL, stackalloc byte[8]);
         Varint(list, 12uL, timestamp * 2uL);
-        byte[] array = Sm3(new byte[16]);
-        byte[] array2 = Sm3(Encoding.UTF8.GetBytes(query));
-        Bytes(list, 13uL, array.AsSpan()[..6]);
-        Bytes(list, 14uL, array2.AsSpan()[..6]);
-        int num = 2;
+
+        Span<byte> array = StaticZero16Sm3;
+        Span<byte> array2 = stackalloc byte[32];
+        int maxQueryBytes = Encoding.UTF8.GetMaxByteCount(query.Length);
+        if (maxQueryBytes <= 512)
+        {
+            Span<byte> qb = stackalloc byte[maxQueryBytes];
+            int written = Encoding.UTF8.GetBytes(query, qb);
+            Sm3(qb[..written], array2);
+        }
+        else
+        {
+            byte[] rented = ArrayPool<byte>.Shared.Rent(maxQueryBytes);
+            try
+            {
+                int written = Encoding.UTF8.GetBytes(query, rented);
+                Sm3(rented.AsSpan(0, written), array2);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+
+        Bytes(list, 13uL, array[..6]);
+        Bytes(list, 14uL, array2[..6]);
+        const int num = 2;
         List<byte> list2 = new(num);
         CollectionsMarshal.SetCount(list2, num);
         Span<byte> span = CollectionsMarshal.AsSpan(list2);
@@ -467,22 +531,17 @@ internal static class PhoenixReadRequestSigner
             WriteVarint(list3, num2 * 8);
             WriteVarint(list3, 1388734uL);
         }
-        Bytes(list, 15uL, [.. list3]);
+        Bytes(list, 15uL, CollectionsMarshal.AsSpan(list3));
         Bytes(list, 20uL, "none"u8);
         Varint(list, 21uL, 738uL);
-        byte[] array4 = Pad([.. list]);
-        byte[] array5 = new byte[CommentArgusKey.Length * 2 + 4];
-        CommentArgusKey.CopyTo(array5, 0);
-        array5[32] = 60;
-        array5[33] = 204;
-        array5[34] = 86;
-        array5[35] = 123;
-        CommentArgusKey.CopyTo(array5, 36);
-        byte[] array6 = Sm3(array5);
-        ulong[] array7 = new ulong[72];
+
+        byte[] array4 = Pad(CollectionsMarshal.AsSpan(list));
+        ReadOnlySpan<byte> array6 = StaticDerivedArgusKey;
+
+        Span<ulong> array7 = stackalloc ulong[72];
         for (int j = 0; j < 4; j++)
         {
-            array7[j] = BinaryPrimitives.ReadUInt64LittleEndian(array6.AsSpan(j * 8));
+            array7[j] = BinaryPrimitives.ReadUInt64LittleEndian(array6.Slice(j * 8, 8));
         }
         for (int k = 4; k < array7.Length; k++)
         {
@@ -495,8 +554,7 @@ internal static class PhoenixReadRequestSigner
         {
             ulong num4 = BinaryPrimitives.ReadUInt64LittleEndian(array4.AsSpan(l));
             ulong num5 = BinaryPrimitives.ReadUInt64LittleEndian(array4.AsSpan(l + 8));
-            ulong[] array8 = array7;
-            foreach (ulong num6 in array8)
+            foreach (ulong num6 in array7)
             {
                 ulong num7 = num5;
                 ulong num8 =
@@ -520,7 +578,7 @@ internal static class PhoenixReadRequestSigner
         array4.CopyTo(array9.AsSpan(readOnlySpan.Length));
         Array.Reverse(array9);
         byte[] array10 = new byte[9 + array9.Length + 2];
-        new byte[9] { 166, 231, 131, 238, 112, 1, 16, 9, 24 }.CopyTo(array10, 0);
+        new byte[] { 166, 231, 131, 238, 112, 1, 16, 9, 24 }.CopyTo(array10, 0);
         array9.CopyTo(array10, 9);
         array10[^2] = 86;
         array10[^1] = 123;
@@ -715,20 +773,39 @@ internal static class PhoenixReadRequestSigner
         ReadOnlySpan<byte> nonce
     )
     {
-        byte[] bodyHash = body.IsEmpty ? Sm3(new byte[16]) : Sm3(MD5.HashData(body));
-        byte[] queryHash = Sm3(Encoding.UTF8.GetBytes(query));
+        Span<byte> bodyHash = stackalloc byte[32];
+        if (body.IsEmpty)
+        {
+            StaticZero16Sm3.CopyTo(bodyHash);
+        }
+        else
+        {
+            Span<byte> bodyMd5 = stackalloc byte[16];
+            MD5.HashData(body, bodyMd5);
+            Sm3(bodyMd5, bodyHash);
+        }
 
-        List<byte> counters = new(32);
-        Varint(counters, 1uL, 1uL);
-        Varint(counters, 2uL, 1uL);
-        Varint(counters, 3uL, 1uL);
-        Varint(counters, 7uL, 3348294860uL);
-
-        List<byte> environment = new(64);
-        Bytes(environment, 1uL, "25053RT47C"u8);
-        Bytes(environment, 2uL, "16"u8);
-        Bytes(environment, 3uL, "update_64"u8);
-        Varint(environment, 4uL, 2147483648uL);
+        Span<byte> queryHash = stackalloc byte[32];
+        int maxQueryBytes = Encoding.UTF8.GetMaxByteCount(query.Length);
+        if (maxQueryBytes <= 512)
+        {
+            Span<byte> queryBytes = stackalloc byte[maxQueryBytes];
+            int written = Encoding.UTF8.GetBytes(query, queryBytes);
+            Sm3(queryBytes[..written], queryHash);
+        }
+        else
+        {
+            byte[] rented = ArrayPool<byte>.Shared.Rent(maxQueryBytes);
+            try
+            {
+                int written = Encoding.UTF8.GetBytes(query, rented);
+                Sm3(rented.AsSpan(0, written), queryHash);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
 
         List<byte> message = new(256);
         Varint(message, 1uL, 0x20200929uL * 2uL);
@@ -739,37 +816,32 @@ internal static class PhoenixReadRequestSigner
             BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(6, 4)) & 0x7fffffffu
         );
         Bytes(message, 4uL, "8662"u8);
-        Bytes(message, 5uL, Encoding.UTF8.GetBytes(deviceId));
+        Span<byte> devBytes = stackalloc byte[Encoding.UTF8.GetMaxByteCount(deviceId.Length)];
+        int devLen = Encoding.UTF8.GetBytes(deviceId, devBytes);
+        Bytes(message, 5uL, devBytes[..devLen]);
         Bytes(message, 6uL, "1611921764"u8);
         Bytes(message, 7uL, "7.3.5.32"u8);
         Bytes(message, 8uL, "v04.07.01-ml-android"u8);
         Varint(message, 9uL, 135135744uL);
-        Bytes(message, 10uL, new byte[8]);
+        Bytes(message, 10uL, stackalloc byte[8]);
         Varint(message, 11uL, 0uL);
         Varint(message, 12uL, timestamp * 2uL);
-        Bytes(message, 13uL, bodyHash.AsSpan(0, 6));
-        Bytes(message, 14uL, queryHash.AsSpan(0, 6));
-        Bytes(message, 15uL, [.. counters]);
+        Bytes(message, 13uL, bodyHash[..6]);
+        Bytes(message, 14uL, queryHash[..6]);
+        Bytes(message, 15uL, StaticCounters);
         Bytes(message, 16uL, []);
         Bytes(message, 20uL, "none"u8);
         Varint(message, 21uL, 738uL);
-        Bytes(message, 23uL, [.. environment]);
+        Bytes(message, 23uL, StaticEnvironment);
         Varint(message, 25uL, 2uL);
 
-        byte[] data = Pad([.. message]);
-        byte[] seed = new byte[CommentArgusKey.Length * 2 + 4];
-        CommentArgusKey.CopyTo(seed, 0);
-        seed[32] = 0x3C;
-        seed[33] = 0xCC;
-        seed[34] = 0x56;
-        seed[35] = 0x7B;
-        CommentArgusKey.CopyTo(seed, 36);
-        byte[] derived = Sm3(seed);
+        byte[] data = Pad(CollectionsMarshal.AsSpan(message));
+        ReadOnlySpan<byte> derived = StaticDerivedArgusKey;
 
-        ulong[] rounds = new ulong[72];
+        Span<ulong> rounds = stackalloc ulong[72];
         for (int i = 0; i < 4; i++)
         {
-            rounds[i] = BinaryPrimitives.ReadUInt64LittleEndian(derived.AsSpan(i * 8));
+            rounds[i] = BinaryPrimitives.ReadUInt64LittleEndian(derived.Slice(i * 8, 8));
         }
         for (int k = 4; k < 72; k++)
         {
@@ -808,7 +880,7 @@ internal static class PhoenixReadRequestSigner
         Array.Reverse(combined);
 
         byte[] container = new byte[9 + combined.Length + 2];
-        new byte[9] { 0xA6, 0xE7, 0x83, 0xEE, 0x70, 0x01, 0x10, 0x09, 0x18 }.CopyTo(container, 0);
+        new byte[] { 0xA6, 0xE7, 0x83, 0xEE, 0x70, 0x01, 0x10, 0x09, 0x18 }.CopyTo(container, 0);
         combined.CopyTo(container, 9);
         container[^2] = 0x56;
         container[^1] = 0x7B;
@@ -835,7 +907,7 @@ internal static class PhoenixReadRequestSigner
     {
         WriteVarint(target, field * 8 + 2);
         WriteVarint(target, (ulong)value.Length);
-        target.AddRange([.. value]);
+        target.AddRange(value);
     }
 
     private static void Varint(List<byte> target, ulong field, ulong value)
@@ -845,10 +917,8 @@ internal static class PhoenixReadRequestSigner
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte RotateLeft(byte value, int offset)
-    {
-        return (byte)((value << offset) | (value >> (8 - offset)));
-    }
+    private static byte RotateLeft(byte value, int offset) =>
+        (byte)((value << offset) | (value >> (8 - offset)));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte ReverseBits(byte value)
@@ -870,114 +940,137 @@ internal static class PhoenixReadRequestSigner
 
     private static byte[] Sm3(ReadOnlySpan<byte> input)
     {
-        ulong value = (ulong)input.Length * 8uL;
-        int i;
-        for (i = input.Length + 1; i % 64 != 56; i++) { }
-        byte[] array = new byte[i + 8];
-        input.CopyTo(array);
-        array[input.Length] = 128;
-        BinaryPrimitives.WriteUInt64BigEndian(array.AsSpan(i), value);
-        uint[] array2 =
-        [
-            1937774191u,
-            1226093241u,
-            388252375u,
-            3666478592u,
-            2842636476u,
-            372324522u,
-            3817729613u,
-            2969243214u,
-        ];
-        uint[] array3 = new uint[68];
-        for (int j = 0; j < array.Length; j += 64)
-        {
-            Array.Clear(array3);
-            for (int k = 0; k < 16; k++)
-            {
-                array3[k] = BinaryPrimitives.ReadUInt32BigEndian(array.AsSpan(j + k * 4));
-            }
-            for (int l = 16; l < array3.Length; l++)
-            {
-                uint num =
-                    array3[l - 16] ^ array3[l - 9] ^ BitOperations.RotateLeft(array3[l - 3], 15);
-                array3[l] =
-                    num
-                    ^ BitOperations.RotateLeft(num, 15)
-                    ^ BitOperations.RotateLeft(num, 23)
-                    ^ BitOperations.RotateLeft(array3[l - 13], 7)
-                    ^ array3[l - 6];
-            }
-            uint num2 = array2[0];
-            uint num3 = array2[1];
-            uint num4 = array2[2];
-            uint num5 = array2[3];
-            uint num6 = array2[4];
-            uint num7 = array2[5];
-            uint num8 = array2[6];
-            uint num9 = array2[7];
-            for (int m = 0; m < 64; m++)
-            {
-                uint num10 = num2;
-                uint num11 = num3;
-                uint num12 = num4;
-                uint num13 = num5;
-                uint num14 = num6;
-                uint num15 = num7;
-                uint num16 = num8;
-                uint num17 = num9;
-                uint value2 = m < 16 ? 2043430169u : 2055708042u;
-                uint num18 =
-                    m < 16
-                        ? num10 ^ num11 ^ num12
-                        : (num10 & num11) | (num10 & num12) | (num11 & num12);
-                uint num19 = m < 16 ? num14 ^ num15 ^ num16 : (num14 & num15) | (~num14 & num16);
-                uint num20 = BitOperations.RotateLeft(
-                    BitOperations.RotateLeft(num10, 12)
-                        + num14
-                        + BitOperations.RotateLeft(value2, m),
-                    7
-                );
-                uint num21 =
-                    num18
-                    + num13
-                    + (num20 ^ BitOperations.RotateLeft(num10, 12))
-                    + (array3[m] ^ array3[m + 4]);
-                uint num22 = num19 + num17 + num20 + array3[m];
-                num2 = num21;
-                num3 = num10;
-                num4 = BitOperations.RotateLeft(num11, 9);
-                num5 = num12;
-                num6 =
-                    num22
-                    ^ BitOperations.RotateLeft(num22, 9)
-                    ^ BitOperations.RotateLeft(num22, 17);
-                num7 = num14;
-                num8 = BitOperations.RotateLeft(num15, 19);
-                num9 = num16;
-            }
-            array2[0] ^= num2;
-            array2[1] ^= num3;
-            array2[2] ^= num4;
-            array2[3] ^= num5;
-            array2[4] ^= num6;
-            array2[5] ^= num7;
-            array2[6] ^= num8;
-            array2[7] ^= num9;
-        }
         byte[] array4 = new byte[32];
-        for (int n = 0; n < array2.Length; n++)
-        {
-            BinaryPrimitives.WriteUInt32BigEndian(array4.AsSpan(n * 4), array2[n]);
-        }
+        Sm3(input, array4);
         return array4;
     }
 
-    private static byte[] Pad(byte[] data)
+    private static void Sm3(ReadOnlySpan<byte> input, Span<byte> destination)
+    {
+        ulong value = (ulong)input.Length * 8uL;
+        int i;
+        for (i = input.Length + 1; i % 64 != 56; i++) { }
+        byte[]? rented = null;
+        Span<byte> array =
+            i + 8 <= 512
+                ? stackalloc byte[i + 8]
+                : (rented = ArrayPool<byte>.Shared.Rent(i + 8)).AsSpan(0, i + 8);
+        try
+        {
+            array.Clear();
+            input.CopyTo(array);
+            array[input.Length] = 128;
+            BinaryPrimitives.WriteUInt64BigEndian(array.Slice(i, 8), value);
+            Span<uint> array2 =
+            [
+                1937774191u,
+                1226093241u,
+                388252375u,
+                3666478592u,
+                2842636476u,
+                372324522u,
+                3817729613u,
+                2969243214u,
+            ];
+            Span<uint> array3 = stackalloc uint[68];
+            for (int j = 0; j < array.Length; j += 64)
+            {
+                array3.Clear();
+                for (int k = 0; k < 16; k++)
+                {
+                    array3[k] = BinaryPrimitives.ReadUInt32BigEndian(array.Slice(j + k * 4, 4));
+                }
+                for (int l = 16; l < array3.Length; l++)
+                {
+                    uint num =
+                        array3[l - 16]
+                        ^ array3[l - 9]
+                        ^ BitOperations.RotateLeft(array3[l - 3], 15);
+                    array3[l] =
+                        num
+                        ^ BitOperations.RotateLeft(num, 15)
+                        ^ BitOperations.RotateLeft(num, 23)
+                        ^ BitOperations.RotateLeft(array3[l - 13], 7)
+                        ^ array3[l - 6];
+                }
+                uint num2 = array2[0];
+                uint num3 = array2[1];
+                uint num4 = array2[2];
+                uint num5 = array2[3];
+                uint num6 = array2[4];
+                uint num7 = array2[5];
+                uint num8 = array2[6];
+                uint num9 = array2[7];
+                for (int m = 0; m < 64; m++)
+                {
+                    uint num10 = num2;
+                    uint num11 = num3;
+                    uint num12 = num4;
+                    uint num13 = num5;
+                    uint num14 = num6;
+                    uint num15 = num7;
+                    uint num16 = num8;
+                    uint num17 = num9;
+                    uint value2 = m < 16 ? 2043430169u : 2055708042u;
+                    uint num18 =
+                        m < 16
+                            ? num10 ^ num11 ^ num12
+                            : (num10 & num11) | (num10 & num12) | (num11 & num12);
+                    uint num19 =
+                        m < 16 ? num14 ^ num15 ^ num16 : (num14 & num15) | (~num14 & num16);
+                    uint num20 = BitOperations.RotateLeft(
+                        BitOperations.RotateLeft(num10, 12)
+                            + num14
+                            + BitOperations.RotateLeft(value2, m),
+                        7
+                    );
+                    uint num21 =
+                        num18
+                        + num13
+                        + (num20 ^ BitOperations.RotateLeft(num10, 12))
+                        + (array3[m] ^ array3[m + 4]);
+                    uint num22 = num19 + num17 + num20 + array3[m];
+                    num2 = num21;
+                    num3 = num10;
+                    num4 = BitOperations.RotateLeft(num11, 9);
+                    num5 = num12;
+                    num6 =
+                        num22
+                        ^ BitOperations.RotateLeft(num22, 9)
+                        ^ BitOperations.RotateLeft(num22, 17);
+                    num7 = num14;
+                    num8 = BitOperations.RotateLeft(num15, 19);
+                    num9 = num16;
+                }
+                array2[0] ^= num2;
+                array2[1] ^= num3;
+                array2[2] ^= num4;
+                array2[3] ^= num5;
+                array2[4] ^= num6;
+                array2[5] ^= num7;
+                array2[6] ^= num8;
+                array2[7] ^= num9;
+            }
+            for (int n = 0; n < array2.Length; n++)
+            {
+                BinaryPrimitives.WriteUInt32BigEndian(destination.Slice(n * 4, 4), array2[n]);
+            }
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+    }
+
+    private static byte[] Pad(ReadOnlySpan<byte> data)
     {
         int num = 16 - data.Length % 16;
         byte[] array = new byte[data.Length + num];
-        data.CopyTo(array, 0);
-        Array.Fill(array, (byte)num, data.Length, num);
+        data.CopyTo(array);
+        array.AsSpan(data.Length).Fill((byte)num);
         return array;
     }
 }

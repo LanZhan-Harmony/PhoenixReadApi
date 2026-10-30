@@ -168,7 +168,7 @@ internal sealed class UserService : PhoenixFeatureService
         [
             .. (metadata.Tabs ?? [])
                 .Where(static tab => tab is not null)
-                .Select(static tab => tab!.Type),
+                .Select(static tab => tab.Type),
         ];
         Task<AppUserProfileData?> relatedTask = tabTypes.Contains(8)
             ? LoadProfileTabAsync(user.Id, 8, PageSize, string.Empty, cancellationToken)
@@ -192,8 +192,16 @@ internal sealed class UserService : PhoenixFeatureService
         AppUserActionData? likes = await likesTask.ConfigureAwait(false);
 
         AppCommentUserInfo? userInfo = metadata.UserInfo;
-        string resolvedName = ValueNormalizer.First(user.Name, userInfo?.Name, userInfo?.BaseInfo?.Name);
-        string resolvedAvatar = ValueNormalizer.First(user.AvatarUrl, userInfo?.AvatarUrl, userInfo?.BaseInfo?.AvatarUrl);
+        string resolvedName = ValueNormalizer.First(
+            user.Name,
+            userInfo?.Name,
+            userInfo?.BaseInfo?.Name
+        );
+        string resolvedAvatar = ValueNormalizer.First(
+            user.AvatarUrl,
+            userInfo?.AvatarUrl,
+            userInfo?.BaseInfo?.AvatarUrl
+        );
         string resolvedIntro = ValueNormalizer.First(
             user.Introduction,
             userInfo?.Description,
@@ -479,7 +487,7 @@ internal sealed class UserService : PhoenixFeatureService
     private static long TabTotal(AppUserProfileData? data, int tabType, long fallback = 0) =>
         (data?.Tabs ?? [])
             .Where(static tab => tab is not null)
-            .FirstOrDefault(tab => tab!.Type == tabType)
+            .FirstOrDefault(tab => tab.Type == tabType)
             ?.Total
         ?? fallback;
 

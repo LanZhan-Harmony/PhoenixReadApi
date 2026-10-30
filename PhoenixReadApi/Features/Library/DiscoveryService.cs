@@ -20,7 +20,7 @@ internal sealed class DiscoveryService : LibraryServiceBase
         CancellationToken cancellationToken
     )
     {
-        if (offset < 0 || offset > 1_000_000)
+        if (offset is < 0 or > 1_000_000)
         {
             throw new ArgumentOutOfRangeException(nameof(offset));
         }

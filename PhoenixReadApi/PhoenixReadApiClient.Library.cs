@@ -89,7 +89,7 @@ public sealed partial class PhoenixReadApiClient
     {
         DramaPage page = await GetFavoritesAsync(count, offset, cancellationToken)
             .ConfigureAwait(false);
-        return (page.Items.Select(static item => item.Id).ToArray(), page);
+        return ([.. page.Items.Select(static item => item.Id)], page);
     }
 
     /// <summary>取消收藏一部剧。</summary>
@@ -113,7 +113,6 @@ public sealed partial class PhoenixReadApiClient
         int offset = 0,
         CancellationToken cancellationToken = default
     ) => _likes.GetLikesAsync(count, offset, cancellationToken);
-
 
     /// <summary>获取预约中的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>

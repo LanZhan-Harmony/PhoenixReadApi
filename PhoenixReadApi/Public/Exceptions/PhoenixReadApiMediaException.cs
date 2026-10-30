@@ -15,4 +15,4 @@ public class PhoenixReadApiMediaException(
         null,
         false,
         innerException
-    ) { }
+    );

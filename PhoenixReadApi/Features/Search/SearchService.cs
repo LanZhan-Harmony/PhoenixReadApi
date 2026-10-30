@@ -857,7 +857,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     private static string ChineseSeason(int number)
     {
-        string digits = "零一二三四五六七八九";
+        const string digits = "零一二三四五六七八九";
         if (number < 10)
         {
             return digits[number].ToString();

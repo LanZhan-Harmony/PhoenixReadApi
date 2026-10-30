@@ -110,7 +110,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(WebPlayerPageDto))]
 [JsonSerializable(typeof(WebSearchPageDto))]
 [JsonSerializable(typeof(WebSuggestionResponseDto))]
-internal partial class SourceGenerationContext : JsonSerializerContext { }
+internal partial class SourceGenerationContext : JsonSerializerContext;
 
 internal static class JsonAotSerializer
 {

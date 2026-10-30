@@ -15,4 +15,4 @@ public class PhoenixReadApiDeserializationException(
         null,
         false,
         innerException
-    ) { }
+    );

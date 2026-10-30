@@ -16,25 +16,25 @@ internal sealed class AppMultiMediaPayload
 internal sealed class AppMultiMediaBusinessParameter
 {
     [JsonPropertyName("detail_page_version")]
-    public int DetailPageVersion { get; init; } = 0;
+    public int DetailPageVersion { get; init; }
 
     [JsonPropertyName("device_level")]
     public int DeviceLevel { get; init; } = 3;
 
     [JsonPropertyName("disable_digg_stat")]
-    public bool DisableDiggStat { get; init; } = false;
+    public bool DisableDiggStat { get; init; }
 
     [JsonPropertyName("need_all_video_definition")]
     public bool NeedAllVideoDefinition { get; init; } = true;
 
     [JsonPropertyName("need_mp4_align")]
-    public bool NeedMp4Align { get; init; } = false;
+    public bool NeedMp4Align { get; init; }
 
     [JsonPropertyName("use_os_player")]
-    public bool UseOsPlayer { get; init; } = false;
+    public bool UseOsPlayer { get; init; }
 
     [JsonPropertyName("use_server_dns")]
-    public bool UseServerDns { get; init; } = false;
+    public bool UseServerDns { get; init; }
 
     [JsonPropertyName("video_platform")]
     public int VideoPlatform { get; init; } = 1024;

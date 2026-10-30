@@ -15,4 +15,4 @@ public class PhoenixReadApiFallbackException(
         null,
         false,
         innerException
-    ) { }
+    );

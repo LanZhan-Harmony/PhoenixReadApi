@@ -94,7 +94,7 @@ public sealed class UserTests
             await SharedScenario.AssertValidDrama(drama);
         }
 
-        if (related.HasMore && related.Cursor.Length > 0)
+        if (related is { HasMore: true, Cursor.Length: > 0 })
         {
             UserDramaPage nextPage = await SharedScenario.Client.GetUserRelatedDramasAsync(
                 scenario.UserId,
@@ -131,7 +131,7 @@ public sealed class UserTests
             await SharedScenario.AssertValidUserActivity(activity);
         }
 
-        if (activities.HasMore && activities.Cursor.Length > 0)
+        if (activities is { HasMore: true, Cursor.Length: > 0 })
         {
             UserActivityPage nextPage = await SharedScenario.Client.GetUserActivitiesAsync(
                 scenario.UserId,
@@ -170,7 +170,7 @@ public sealed class UserTests
             await SharedScenario.AssertValidDrama(drama);
         }
 
-        if (collections.HasMore && collections.NextOffset > 0)
+        if (collections is { HasMore: true, NextOffset: > 0 })
         {
             UserDramaPage nextPage = await SharedScenario.Client.GetUserCollectionsAsync(
                 scenario.UserId,
@@ -208,7 +208,7 @@ public sealed class UserTests
             await SharedScenario.AssertValidDrama(drama);
         }
 
-        if (likes.HasMore && likes.NextOffset > 0)
+        if (likes is { HasMore: true, NextOffset: > 0 })
         {
             UserDramaPage nextPage = await SharedScenario.Client.GetUserLikesAsync(
                 scenario.UserId,
