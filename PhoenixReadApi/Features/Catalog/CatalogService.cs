@@ -393,7 +393,7 @@ internal sealed class CatalogService : PhoenixFeatureService
             {
                 string id = item.SelectorItemId?.Trim() ?? string.Empty;
                 string name = item.ShowName?.Trim() ?? string.Empty;
-                if (id.Length > 0 && !list.Any(existing => existing.Id == id))
+                if (id.Length > 0 && list.All(existing => existing.Id != id))
                 {
                     list.Add(new TagCategoryItem { Id = id, Name = name });
                 }

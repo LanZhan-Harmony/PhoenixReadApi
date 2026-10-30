@@ -18,4 +18,4 @@ public class PhoenixReadApiHttpException(
         null,
         isTransient,
         innerException
-    ) { }
+    );

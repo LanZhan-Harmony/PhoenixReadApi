@@ -17,7 +17,7 @@ public class PhoenixReadApiProviderException(
         providerCode,
         isTransient,
         innerException
-    ) { }
+    );
 
 /// <summary>当服务拒绝当前设备或身份验证信息时抛出此异常。</summary>
 /// <remarks>身份验证信息或设备被拒绝时使用的异常类型。</remarks>
@@ -33,4 +33,4 @@ public sealed class PhoenixReadApiAuthenticationException(
         providerCode,
         isTransient: false,
         innerException
-    ) { }
+    );

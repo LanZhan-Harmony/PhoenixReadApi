@@ -29,7 +29,7 @@ internal static class UrlNormalizer
         && uri is { IsAbsoluteUri: true, UserInfo: "" }
         && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
         && !string.IsNullOrWhiteSpace(uri.Host)
-        && value!.Length <= 8192;
+        && value.Length <= 8192;
 
     internal static bool IsMediaUrl(Uri uri) =>
         IsHttpUrl(uri.ToString())

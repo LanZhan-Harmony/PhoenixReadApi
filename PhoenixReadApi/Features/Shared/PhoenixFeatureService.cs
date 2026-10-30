@@ -220,9 +220,10 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
             Heat = ValueNormalizer.First(first.Heat, second.Heat),
             OnlineDate = ValueNormalizer.First(first.OnlineDate, second.OnlineDate),
             EpisodeCount = Math.Max(first.EpisodeCount, second.EpisodeCount),
-            ReleaseStatus = first.ReleaseStatus != DramaReleaseStatus.Unknown
-                ? first.ReleaseStatus
-                : second.ReleaseStatus,
+            ReleaseStatus =
+                first.ReleaseStatus != DramaReleaseStatus.Unknown
+                    ? first.ReleaseStatus
+                    : second.ReleaseStatus,
             Tags =
             [
                 .. first
@@ -242,12 +243,7 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (DramaCredit? credit in first.Concat(second))
         {
-            if (
-                credit is null
-                || credit.User is null
-                || credit.User.Id.Length == 0
-                || !seen.Add(credit.User.Id)
-            )
+            if (credit?.User is null || credit.User.Id.Length == 0 || !seen.Add(credit.User.Id))
             {
                 continue;
             }

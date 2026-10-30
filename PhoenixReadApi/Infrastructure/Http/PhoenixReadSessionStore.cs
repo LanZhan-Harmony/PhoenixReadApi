@@ -10,6 +10,23 @@ namespace PhoenixReadApi.Internal.Infrastructure.Http;
 /// <summary>负责红果客户端的 Cookie、认证头、会话快照与诊断文件持久化。</summary>
 internal sealed class PhoenixReadSessionStore
 {
+    private static readonly string[] AuthHeaderNames =
+    [
+        "x-tt-token",
+        "x-tt-token-sign",
+        "x-tt-token-supplement",
+        "x-tt-passport-mfa-token",
+        "x-tt-passport-csrf-token",
+        "d-ticket",
+    ];
+
+    private static readonly string[] CleanupFileExtensions =
+    [
+        "",
+        ".response.json",
+        ".tmp",
+    ];
+
     private readonly ConcurrentDictionary<string, string> _cookies = new(
         StringComparer.OrdinalIgnoreCase
     );
@@ -18,6 +35,7 @@ internal sealed class PhoenixReadSessionStore
     );
     private readonly string? _sessionStateFilePath;
     private readonly Lock _sessionFileLock = new();
+    private volatile string? _cachedCookieHeader;
 
     internal string Cdid { get; set; } = string.Empty;
     internal string TtReq { get; set; } = string.Empty;
@@ -86,6 +104,7 @@ internal sealed class PhoenixReadSessionStore
     {
         _cookies.Clear();
         _authHeaders.Clear();
+        _cachedCookieHeader = null;
         PassportCsrfToken = string.Empty;
         UserId = string.Empty;
         UserName = string.Empty;
@@ -99,10 +118,14 @@ internal sealed class PhoenixReadSessionStore
     {
         if (!_cookies.IsEmpty)
         {
-            request.Headers.TryAddWithoutValidation(
-                "Cookie",
-                string.Join("; ", _cookies.Select(static pair => $"{pair.Key}={pair.Value}"))
-            );
+            string? cookieHeader = _cachedCookieHeader;
+            if (cookieHeader is null)
+            {
+                cookieHeader = BuildCookieHeader();
+                _cachedCookieHeader = cookieHeader;
+            }
+
+            request.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
         }
 
         foreach (KeyValuePair<string, string> header in _authHeaders)
@@ -111,50 +134,78 @@ internal sealed class PhoenixReadSessionStore
         }
     }
 
+    private string BuildCookieHeader()
+    {
+        System.Text.StringBuilder sb = new();
+        bool first = true;
+        foreach (KeyValuePair<string, string> pair in _cookies)
+        {
+            if (!first)
+            {
+                sb.Append("; ");
+            }
+            first = false;
+            sb.Append(pair.Key);
+            sb.Append('=');
+            sb.Append(pair.Value);
+        }
+        return sb.ToString();
+    }
+
     internal void CaptureSession(HttpResponseMessage response)
     {
+        bool changed = false;
         if (response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values))
         {
             foreach (string value in values)
             {
-                string[] parts = value.Split(';', 2, StringSplitOptions.TrimEntries);
-                string[] pair = parts[0].Split('=', 2);
-                if (pair.Length == 2 && pair[0].Length > 0)
+                int semiIndex = value.IndexOf(';');
+                ReadOnlySpan<char> cookiePart = semiIndex >= 0 ? value.AsSpan(0, semiIndex).Trim() : value.AsSpan().Trim();
+                int eqIndex = cookiePart.IndexOf('=');
+                if (eqIndex > 0)
                 {
-                    if (pair[1].Length == 0)
+                    string key = cookiePart[..eqIndex].ToString();
+                    string val = cookiePart[(eqIndex + 1)..].ToString();
+                    if (val.Length == 0)
                     {
-                        _cookies.TryRemove(pair[0], out _);
+                        if (_cookies.TryRemove(key, out _))
+                        {
+                            changed = true;
+                        }
                     }
                     else
                     {
-                        _cookies[pair[0]] = pair[1];
+                        if (!_cookies.TryGetValue(key, out string? existing) || existing != val)
+                        {
+                            _cookies[key] = val;
+                            changed = true;
+                        }
                     }
                 }
             }
         }
 
-        foreach (
-            string name in new[]
-            {
-                "x-tt-token",
-                "x-tt-token-sign",
-                "x-tt-token-supplement",
-                "x-tt-passport-mfa-token",
-                "x-tt-passport-csrf-token",
-                "d-ticket",
-            }
-        )
+        foreach (string name in AuthHeaderNames)
         {
             if (response.Headers.TryGetValues(name, out IEnumerable<string>? headerValues))
             {
                 string? value = headerValues.FirstOrDefault();
                 if (!string.IsNullOrWhiteSpace(value))
                 {
-                    _authHeaders[name] = value;
+                    if (!_authHeaders.TryGetValue(name, out string? existing) || existing != value)
+                    {
+                        _authHeaders[name] = value;
+                        changed = true;
+                    }
                 }
             }
         }
-        SaveSessionSnapshot();
+
+        if (changed)
+        {
+            _cachedCookieHeader = null;
+            SaveSessionSnapshot();
+        }
     }
 
     internal void EnsureAuthenticationSession()
@@ -334,17 +385,11 @@ internal sealed class PhoenixReadSessionStore
 
         lock (_sessionFileLock)
         {
-            foreach (
-                string path in new[]
-                {
-                    _sessionStateFilePath,
-                    _sessionStateFilePath + ".response.json",
-                    _sessionStateFilePath + ".tmp",
-                }
-            )
+            foreach (string ext in CleanupFileExtensions)
             {
                 try
                 {
+                    string path = _sessionStateFilePath + ext;
                     if (File.Exists(path))
                     {
                         File.Delete(path);
@@ -384,7 +429,6 @@ internal sealed class PhoenixReadSessionStore
                 $"Path: {path}\nStatus: {(int)response.StatusCode}\nHeaders:\n{headers}\nBody:\n{System.Text.Encoding.UTF8.GetString(body)}\n"
             );
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        { }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
     }
 }

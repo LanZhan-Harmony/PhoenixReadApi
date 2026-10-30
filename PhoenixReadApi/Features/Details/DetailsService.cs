@@ -100,7 +100,7 @@ internal sealed class DetailsService : PhoenixFeatureService
         catch (Exception webException) when (IsRecoverable(webException))
         {
             throw new PhoenixReadApiFallbackException(
-                $"App 详情失败：{PublicError(appError!)}；网页详情失败：{PublicError(webException)}",
+                $"App 详情失败：{PublicError(appError)}；网页详情失败：{PublicError(webException)}",
                 "detail",
                 webException
             );

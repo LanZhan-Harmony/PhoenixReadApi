@@ -19,9 +19,7 @@ internal static class ResponseReader
 
         long? contentLength = response.Content.Headers.ContentLength;
         int initialCapacity =
-            contentLength.HasValue && contentLength.Value > 0 && contentLength.Value <= maxBytes
-                ? (int)contentLength.Value
-                : 0;
+            contentLength is > 0 && contentLength.Value <= maxBytes ? (int)contentLength.Value : 0;
 
         using MemoryStream buffer =
             initialCapacity > 0 ? new MemoryStream(initialCapacity) : new MemoryStream();

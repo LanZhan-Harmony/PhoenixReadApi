@@ -17,4 +17,4 @@ public class PhoenixReadApiTransportException(
         null,
         isTransient,
         innerException
-    ) { }
+    );

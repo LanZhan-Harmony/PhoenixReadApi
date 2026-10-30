@@ -510,42 +510,28 @@ internal sealed class PhoenixReadAppTransport
         IEnumerable<KeyValuePair<string, string>>? extraQuery = null
     )
     {
-        StringBuilder sb = new();
-        KeyValuePair<string, string>[] baseQuery = _deviceManager.BuildAppQuery();
-
-        bool first = true;
-        foreach (KeyValuePair<string, string> pair in baseQuery)
-        {
-            AppendParam(sb, ref first, pair.Key, pair.Value);
-        }
+        StringBuilder sb = new(512);
+        _deviceManager.AppendAppQuery(sb);
 
         if (extraQuery is not null)
         {
             foreach (KeyValuePair<string, string> pair in extraQuery)
             {
-                AppendParam(sb, ref first, pair.Key, pair.Value);
+                sb.Append('&');
+                sb.Append(Uri.EscapeDataString(pair.Key));
+                sb.Append('=');
+                sb.Append(Uri.EscapeDataString(pair.Value));
             }
         }
 
         string rticket = DateTimeOffset
             .UtcNow.ToUnixTimeMilliseconds()
             .ToString(CultureInfo.InvariantCulture);
-        AppendParam(sb, ref first, "_rticket", rticket);
+        sb.Append("&_rticket=");
+        sb.Append(rticket);
 
         Uri baseUri = new(_options.AppBaseUri, path.TrimStart('/'));
         return new UriBuilder(baseUri) { Query = sb.ToString() }.Uri;
-
-        static void AppendParam(StringBuilder sb, ref bool first, string key, string value)
-        {
-            if (!first)
-            {
-                sb.Append('&');
-            }
-            first = false;
-            sb.Append(Uri.EscapeDataString(key));
-            sb.Append('=');
-            sb.Append(Uri.EscapeDataString(value));
-        }
     }
 
     private static void EnsureSuccess(

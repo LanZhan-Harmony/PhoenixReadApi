@@ -49,7 +49,7 @@ internal sealed class AppReadProgressResponse
 
 /// <summary>成功但没有业务返回字段的写操作响应。</summary>
 [JsonConverter(typeof(AppOperationResponseConverter))]
-internal sealed class AppOperationResponse { }
+internal sealed class AppOperationResponse;
 
 internal sealed class AppOperationResponseConverter : JsonConverter<AppOperationResponse>
 {

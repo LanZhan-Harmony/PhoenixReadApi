@@ -119,13 +119,13 @@ internal sealed class CommentService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        bool isEpisode = !string.IsNullOrWhiteSpace(videoId) && !string.Equals(seriesId, videoId, StringComparison.Ordinal);
+        bool isEpisode =
+            !string.IsNullOrWhiteSpace(videoId)
+            && !string.Equals(seriesId, videoId, StringComparison.Ordinal);
         string normalizedSeriesId = string.IsNullOrWhiteSpace(seriesId)
             ? string.Empty
             : NormalizeSeriesOrVideoId(seriesId);
-        string normalizedVideoId = isEpisode
-            ? NormalizeSeriesOrVideoId(videoId)
-            : string.Empty;
+        string normalizedVideoId = isEpisode ? NormalizeSeriesOrVideoId(videoId) : string.Empty;
 
         int commentSource = isEpisode ? 504 : 501;
         int serverChannel = isEpisode ? 18 : 34;
@@ -336,7 +336,15 @@ internal sealed class CommentService : PhoenixFeatureService
     internal Task<PhoenixOperationResult> DeleteReplyAsync(
         string replyId,
         CancellationToken cancellationToken
-    ) => DeleteCommentAsync(replyId, replyId, cancellationToken, dataType: 9, serviceId: 4, groupType: 0);
+    ) =>
+        DeleteCommentAsync(
+            replyId,
+            replyId,
+            cancellationToken,
+            dataType: 9,
+            serviceId: 4,
+            groupType: 0
+        );
 
     private async Task<CommentPage> LoadAsync(
         string seriesId,
@@ -414,12 +422,7 @@ internal sealed class CommentService : PhoenixFeatureService
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (AppCommentRecord? record in data.Items ?? [])
         {
-            if (
-                record is null
-                || record.Comment is null
-                || record.Comment.Common is null
-                || record.Comment.Common.Content is null
-            )
+            if (record?.Comment?.Common?.Content is null)
             {
                 continue;
             }
@@ -497,7 +500,10 @@ internal sealed class CommentService : PhoenixFeatureService
         text = NormalizeText(text);
         int reqCommentSource = isEpisode ? 504 : 501;
         int reqServerChannel = isEpisode ? 18 : 34;
-        int commentType = danmaku ? 20 : isEpisode ? 4 : 2;
+        int commentType =
+            danmaku ? 20
+            : isEpisode ? 4
+            : 2;
 
         AppResponse<AppCommentAddData> response = await _appTransport
             .PostAsync<AppCommentAddPayload, AppCommentAddData>(
@@ -559,12 +565,12 @@ internal sealed class CommentService : PhoenixFeatureService
             record.Common?.UserInfo?.BaseInfo?.UserAvatar,
             record.Reply?.User?.AvatarUrl
         );
-        long createdAt = record.Common?.CreateTimestamp > 0
-            ? record.Common.CreateTimestamp
-            : record.Reply?.CreatedAt ?? 0;
-        long likeCount = record.Stat?.DiggCount > 0
-            ? record.Stat.DiggCount
-            : record.Reply?.LikeCount ?? 0;
+        long createdAt =
+            record.Common?.CreateTimestamp > 0
+                ? record.Common.CreateTimestamp
+                : record.Reply?.CreatedAt ?? 0;
+        long likeCount =
+            record.Stat?.DiggCount > 0 ? record.Stat.DiggCount : record.Reply?.LikeCount ?? 0;
 
         return new CommentReply
         {
@@ -601,7 +607,7 @@ internal sealed class CommentService : PhoenixFeatureService
     private static string NormalizeCommentId(string value)
     {
         value = (value ?? string.Empty).Trim();
-        if (value.Length == 0 || value.Length > 128)
+        if (value.Length is 0 or > 128)
         {
             throw new ArgumentException("评论 ID 无效。", nameof(value));
         }
@@ -619,7 +625,7 @@ internal sealed class CommentService : PhoenixFeatureService
     private static string NormalizeText(string value)
     {
         value = SanitizeText(value ?? string.Empty);
-        if (value.Length == 0 || value.Length > 4000)
+        if (value.Length is 0 or > 4000)
         {
             throw new ArgumentException("内容必须为 1 到 4000 个字符。", nameof(value));
         }

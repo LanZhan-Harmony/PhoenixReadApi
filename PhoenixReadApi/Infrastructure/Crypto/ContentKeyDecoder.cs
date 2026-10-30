@@ -42,7 +42,7 @@ internal static class ContentKeyDecoder
             array2[i] = (byte)(array[array.Length - num + i] ^ b);
         }
         string text = Encoding.UTF8.GetString(array2);
-        if (text == "app_v2" || text == "web_v2")
+        if (text is "app_v2" or "web_v2")
         {
             throw new PhoenixReadApiMediaException("媒体密钥版本暂不支持。", "media");
         }
@@ -93,18 +93,12 @@ internal static class ContentKeyDecoder
     private static int ParseBase36(byte value)
     {
         char c = (char)value;
-        if (c >= '0' && c <= '9')
+        return c switch
         {
-            return c - 48;
-        }
-        if (c >= 'a' && c <= 'z')
-        {
-            return c - 97 + 10;
-        }
-        if (c >= 'A' && c <= 'Z')
-        {
-            return c - 65 + 10;
-        }
-        return -1;
+            >= '0' and <= '9' => c - 48,
+            >= 'a' and <= 'z' => c - 97 + 10,
+            >= 'A' and <= 'Z' => c - 65 + 10,
+            _ => -1,
+        };
     }
 }

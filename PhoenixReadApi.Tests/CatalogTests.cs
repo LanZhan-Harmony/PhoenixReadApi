@@ -96,7 +96,9 @@ public sealed class CatalogTests
     public async Task TestGetTagCategoriesAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-        IReadOnlyList<TagCategoryGroup> groups = await SharedScenario.Client.GetTagCategoriesAsync(timeout.Token);
+        IReadOnlyList<TagCategoryGroup> groups = await SharedScenario.Client.GetTagCategoriesAsync(
+            timeout.Token
+        );
 
         await Assert.That(groups).IsNotNull();
         await Assert.That(groups.Count > 0).IsTrue();
@@ -133,7 +135,9 @@ public sealed class CatalogTests
         await SharedScenario.AssertValidTagDramaPage(latestPage);
 
         // 3. 测试通过分类树中的具体标签进行过滤
-        IReadOnlyList<TagCategoryGroup> groups = await SharedScenario.Client.GetTagCategoriesAsync(timeout.Token);
+        IReadOnlyList<TagCategoryGroup> groups = await SharedScenario.Client.GetTagCategoriesAsync(
+            timeout.Token
+        );
         TagCategoryItem? firstItem = groups.SelectMany(g => g.Items).FirstOrDefault();
         if (firstItem is not null && !string.IsNullOrWhiteSpace(firstItem.Id))
         {
@@ -146,7 +150,7 @@ public sealed class CatalogTests
             );
             await SharedScenario.AssertValidTagDramaPage(filteredPage);
 
-            if (filteredPage.HasMore && filteredPage.NextOffset > 0)
+            if (filteredPage is { HasMore: true, NextOffset: > 0 })
             {
                 TagDramaPage nextPage = await SharedScenario.Client.GetTagDramaPageAsync(
                     tagItemId: firstItem.Id,

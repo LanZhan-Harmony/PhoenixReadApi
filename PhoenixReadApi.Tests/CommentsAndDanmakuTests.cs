@@ -64,7 +64,7 @@ public sealed class CommentsAndDanmakuTests
             await SharedScenario.AssertValidDramaComment(comment);
         }
 
-        if (reviews.HasMore && reviews.Cursor.Length > 0)
+        if (reviews is { HasMore: true, Cursor.Length: > 0 })
         {
             CommentPage nextPage = await SharedScenario.Client.GetDramaReviewsAsync(
                 scenario.SeriesId,
@@ -129,7 +129,7 @@ public sealed class CommentsAndDanmakuTests
             await SharedScenario.AssertValidDramaComment(comment);
         }
 
-        if (comments.HasMore && comments.Cursor.Length > 0)
+        if (comments is { HasMore: true, Cursor.Length: > 0 })
         {
             CommentPage nextPage = await SharedScenario.Client.GetEpisodeCommentsAsync(
                 scenario.SeriesId,
@@ -349,7 +349,10 @@ public sealed class CommentsAndDanmakuTests
         await Assert.That(string.IsNullOrWhiteSpace(reply.Id)).IsFalse();
 
         // 3. 删除时先删回复！删除失败纳入测试失败范畴
-        PhoenixOperationResult delReply = await authClient.DeleteReplyAsync(reply.Id, timeout.Token);
+        PhoenixOperationResult delReply = await authClient.DeleteReplyAsync(
+            reply.Id,
+            timeout.Token
+        );
         await Assert.That(delReply).IsNotNull();
         await Assert.That(delReply.Succeeded).IsTrue();
 
@@ -399,7 +402,8 @@ public sealed class CommentsAndDanmakuTests
         }
 
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
-        string reviewText = $"测试剧评_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Guid.NewGuid().ToString("N")[..6]}";
+        string reviewText =
+            $"测试剧评_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Guid.NewGuid().ToString("N")[..6]}";
 
         PhoenixOperationResult review = await authClient.SendDramaReviewAsync(
             scenario.SeriesId,

@@ -16,7 +16,5 @@ internal static class DeviceIdGenerator
     }
 
     internal static bool IsValid(string? value) =>
-        value is not null
-        && value.Length is > 0 and <= 32
-        && value.All(static c => c is >= '0' and <= '9');
+        value?.Length is > 0 and <= 32 && value.All(static c => c is >= '0' and <= '9');
 }
