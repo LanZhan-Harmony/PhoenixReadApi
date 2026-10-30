@@ -130,7 +130,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
             {
                 try
                 {
-                    key = Convert.ToHexString(ContentKeyDecoder.Decode(spade)).ToLowerInvariant();
+                    key = Convert.ToHexStringLower(ContentKeyDecoder.Decode(spade));
                 }
                 catch (Exception exception) when (exception is PhoenixReadApiException)
                 {

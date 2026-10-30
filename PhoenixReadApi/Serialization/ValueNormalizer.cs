@@ -9,9 +9,18 @@ internal static partial class ValueNormalizer
     internal static bool IsNumericId(string? value) =>
         value is not null && NumericIdRegex().IsMatch(value);
 
-    internal static string First(params string?[] values) =>
-        values.FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))?.Trim()
-        ?? string.Empty;
+    internal static string First(params ReadOnlySpan<string?> values)
+    {
+        foreach (string? value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return string.Empty;
+    }
 
     internal static int Quality(string name) =>
         int.TryParse(

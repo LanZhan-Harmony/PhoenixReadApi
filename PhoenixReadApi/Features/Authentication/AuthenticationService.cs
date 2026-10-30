@@ -332,6 +332,6 @@ internal sealed class AuthenticationService : PhoenixFeatureService
         {
             bytes[index] ^= 5;
         }
-        return Convert.ToHexString(bytes).ToLowerInvariant();
+        return Convert.ToHexStringLower(bytes);
     }
 }

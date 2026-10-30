@@ -1,6 +1,6 @@
-namespace PhoenixReadApi;
-
 using PhoenixReadApi.Internal.Features.Library;
+
+namespace PhoenixReadApi;
 
 public sealed partial class PhoenixReadApiClient
 {

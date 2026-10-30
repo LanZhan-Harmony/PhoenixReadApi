@@ -20,7 +20,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
 {
     // SearchAsync only needs a small name lookup to supplement the web result.
     private const int SearchNameLookupCount = 5;
-    internal const int DefaultSuggestionLimit = 5;
     private const int MaxSuggestionLimit = 20;
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan SuggestionCacheLifetime = TimeSpan.FromMinutes(2);
@@ -166,16 +165,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
     }
 
     internal Task<RecommendationPage> GetRecommendationsAsync(
-        RecommendationQuery query,
-        CancellationToken cancellationToken
-    )
-    {
-        ArgumentNullException.ThrowIfNull(query);
-        ValidateRecommendationQuery(query);
-        return GetRecommendationsCoreAsync(query, cancellationToken);
-    }
-
-    internal Task<RecommendationPage> GetRecommendationsAsync(
         RecommendationGenre genre,
         int offset = 0,
         string? sessionId = null,
@@ -245,7 +234,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
             && !cancellationToken.IsCancellationRequested
         )
         {
-            bool seasonLimited = await CompleteSearchSeasonsAsync(keyword, merged, cancellationToken)
+            bool seasonLimited = await CompleteSearchSeasonsAsync(
+                    keyword,
+                    merged,
+                    cancellationToken
+                )
                 .ConfigureAwait(false);
             if (seasonLimited)
             {
@@ -350,11 +343,14 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 )
                 .ConfigureAwait(false);
 
-            IReadOnlyList<AppSearchTabItem> allTabs = (tabResponse?.SearchTabs?.Count ?? 0) > 0
-                ? tabResponse!.SearchTabs
-                : tabResponse?.Data?.SearchTabs ?? [];
+            IReadOnlyList<AppSearchTabItem> allTabs =
+                (
+                    (tabResponse?.SearchTabs?.Count ?? 0) > 0
+                        ? tabResponse!.SearchTabs
+                        : tabResponse?.Data?.SearchTabs
+                ) ?? [];
             AppSearchTabItem? tab =
-                allTabs.FirstOrDefault(static t => t.TabType == "11" || t.TabType == "29")
+                allTabs.FirstOrDefault(static t => t.TabType is "11" or "29")
                 ?? allTabs.FirstOrDefault();
             if (tab?.Data is { Count: > 0 } cells)
             {
@@ -477,8 +473,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return output;
     }
 
-    private static string SuggestionCacheKey(string query, int maxResults) =>
-        query + "\0" + maxResults.ToString(CultureInfo.InvariantCulture);
+    private static string SuggestionCacheKey(string query, int maxResults)
+    {
+        return query + "\0" + maxResults.ToString(CultureInfo.InvariantCulture);
+    }
 
     private async Task<IReadOnlyList<WebSuggestionDto>> FetchSuggestionRecordsAsync(
         string query,
@@ -525,12 +523,14 @@ internal sealed partial class SearchService : PhoenixFeatureService
     )
     {
         (string genre, string scene, string category) = CategoryInfo(query.Genre);
-        string[] seen = query
-            .Seen.Select(static id =>
-                id.StartsWith("hongguo:", StringComparison.Ordinal) ? id[8..] : id
-            )
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+        string[] seen =
+        [
+            .. query
+                .Seen.Select(static id =>
+                    id.StartsWith("hongguo:", StringComparison.Ordinal) ? id[8..] : id
+                )
+                .Distinct(StringComparer.Ordinal),
+        ];
         AppCatalogPayload payload = new()
         {
             RequestScene = scene,
@@ -662,19 +662,19 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     break;
                 }
 
-                string[] labels = new[]
-                {
+                string[] labels =
+                [
                     ChineseSeason(missing),
                     missing.ToString(CultureInfo.InvariantCulture),
-                };
+                ];
                 string[] queries =
                     missing == 1
-                        ? new[]
-                        {
+                        ?
+                        [
                             group.Title,
                             group.Title + "第" + labels[0] + group.Unit,
                             group.Title + "第1" + group.Unit,
-                        }
+                        ]
                         :
                         [
                             group.Title + "第" + labels[0] + group.Unit,
@@ -932,13 +932,15 @@ internal sealed partial class SearchService : PhoenixFeatureService
             return 2;
         }
 
-        string[] words = query
-            .Split(
-                (char[]?)null,
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-            )
-            .Select(SearchText)
-            .ToArray();
+        string[] words =
+        [
+            .. query
+                .Split(
+                    (char[]?)null,
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                )
+                .Select(SearchText),
+        ];
         return words.Length > 0 && words.All(normalizedTitle.Contains) ? 3 : 4;
     }
 

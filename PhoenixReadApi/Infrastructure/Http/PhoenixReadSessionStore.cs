@@ -47,7 +47,7 @@ internal sealed class PhoenixReadSessionStore
         {
             Span<byte> value = stackalloc byte[16];
             RandomNumberGenerator.Fill(value);
-            TtReq = "1$" + Convert.ToHexString(value).ToLowerInvariant();
+            TtReq = "1$" + Convert.ToHexStringLower(value);
         }
     }
 
@@ -167,7 +167,7 @@ internal sealed class PhoenixReadSessionStore
         {
             Span<byte> token = stackalloc byte[16];
             RandomNumberGenerator.Fill(token);
-            PassportCsrfToken = Convert.ToHexString(token).ToLowerInvariant();
+            PassportCsrfToken = Convert.ToHexStringLower(token);
         }
 
         _cookies.TryAdd("install_id", InstallId);

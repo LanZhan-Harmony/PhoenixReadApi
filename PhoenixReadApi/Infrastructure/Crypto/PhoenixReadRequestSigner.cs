@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Numerics;
@@ -46,15 +47,17 @@ internal static class PhoenixReadRequestSigner
     {
         uint value = checked((uint)now.ToUnixTimeSeconds());
         string s = request.RequestUri?.Query.TrimStart('?') ?? string.Empty;
-        byte[] array = MD5.HashData(Encoding.UTF8.GetBytes(s));
+        Span<byte> md5Hash = stackalloc byte[16];
+        HashQuery(s, md5Hash);
         Span<byte> destination = stackalloc byte[20];
-        array.AsSpan(0, 4).CopyTo(destination);
+        md5Hash[..4].CopyTo(destination);
         if (!body.IsEmpty)
         {
-            byte[] array2 = MD5.HashData(body);
-            array2.AsSpan(0, 4).CopyTo(destination[4..]);
+            Span<byte> bodyHash = stackalloc byte[16];
+            MD5.HashData(body, bodyHash);
+            bodyHash[..4].CopyTo(destination[4..]);
             request.Headers.Remove("X-SS-STUB");
-            request.Headers.TryAddWithoutValidation("X-SS-STUB", Convert.ToHexString(array2));
+            request.Headers.TryAddWithoutValidation("X-SS-STUB", Convert.ToHexString(bodyHash));
         }
         destination[12] = 0;
         destination[13] = 6;
@@ -70,38 +73,15 @@ internal static class PhoenixReadRequestSigner
             int num = RotateLeft(destination[j], 4) ^ destination[(j + 1) % destination.Length];
             destination[j] = (byte)(ReverseBits((byte)num) ^ 0xFF ^ destination.Length);
         }
-        byte[] array3 =
-        [
-            132,
-            4,
-            64,
-            28,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ];
-        destination.CopyTo(array3.AsSpan(6));
+        Span<byte> array3 = stackalloc byte[26];
+        array3.Clear();
+        array3[0] = 132;
+        array3[1] = 4;
+        array3[2] = 64;
+        array3[3] = 28;
+        destination.CopyTo(array3[6..]);
         SetHeader(request, "X-Khronos", value.ToString(CultureInfo.InvariantCulture));
-        SetHeader(request, "X-Gorgon", Convert.ToHexString(array3).ToLowerInvariant());
+        SetHeader(request, "X-Gorgon", Convert.ToHexStringLower(array3));
         SetHeader(
             request,
             "X-SS-Req-Ticket",
@@ -161,10 +141,12 @@ internal static class PhoenixReadRequestSigner
     )
     {
         Span<byte> payload = stackalloc byte[20];
-        byte[] queryHash = MD5.HashData(Encoding.UTF8.GetBytes(query));
-        byte[] bodyHash = MD5.HashData(body);
-        queryHash.AsSpan(0, 4).CopyTo(payload[..4]);
-        bodyHash.AsSpan(0, 4).CopyTo(payload[4..8]);
+        Span<byte> queryHash = stackalloc byte[16];
+        HashQuery(query, queryHash);
+        Span<byte> bodyHash = stackalloc byte[16];
+        MD5.HashData(body, bodyHash);
+        queryHash[..4].CopyTo(payload[..4]);
+        bodyHash[..4].CopyTo(payload[4..8]);
         payload[8..12].Clear();
         BinaryPrimitives.WriteUInt32LittleEndian(payload[12..16], 0x04060400);
         BinaryPrimitives.WriteUInt32BigEndian(payload[16..], timestamp);
@@ -183,17 +165,19 @@ internal static class PhoenixReadRequestSigner
         for (int index = 0; index < payload.Length; index++)
         {
             byte next = payload[(index + 1) % payload.Length];
-            payload[index] = (byte)(ReverseBits((byte)(RotateLeft(payload[index], 4) ^ next)) ^ 0xEB);
+            payload[index] = (byte)(
+                ReverseBits((byte)(RotateLeft(payload[index], 4) ^ next)) ^ 0xEB
+            );
         }
 
-        byte[] signature = new byte[26];
+        Span<byte> signature = stackalloc byte[26];
         signature[0] = 0x84;
         signature[1] = 0x04;
-        BinaryPrimitives.WriteUInt16LittleEndian(signature.AsSpan(2), seed);
+        BinaryPrimitives.WriteUInt16LittleEndian(signature[2..], seed);
         signature[4] = 0x44;
         signature[5] = 0x80;
-        payload.CopyTo(signature.AsSpan(6));
-        return Convert.ToHexString(signature).ToLowerInvariant();
+        payload.CopyTo(signature[6..]);
+        return Convert.ToHexStringLower(signature);
     }
 
     private static byte[] BuildPassportTuple(
@@ -208,8 +192,14 @@ internal static class PhoenixReadRequestSigner
         byte[] tuple = new byte[queryBytes.Length + bodyHash.Length + 6];
         queryBytes.CopyTo(tuple, 0);
         bodyHash.CopyTo(tuple, queryBytes.Length);
-        BinaryPrimitives.WriteUInt32BigEndian(tuple.AsSpan(queryBytes.Length + bodyHash.Length), timestamp);
-        BinaryPrimitives.WriteUInt16LittleEndian(tuple.AsSpan(queryBytes.Length + bodyHash.Length + 4), seed);
+        BinaryPrimitives.WriteUInt32BigEndian(
+            tuple.AsSpan(queryBytes.Length + bodyHash.Length),
+            timestamp
+        );
+        BinaryPrimitives.WriteUInt16LittleEndian(
+            tuple.AsSpan(queryBytes.Length + bodyHash.Length + 4),
+            seed
+        );
         return tuple;
     }
 
@@ -220,7 +210,9 @@ internal static class PhoenixReadRequestSigner
         for (int offset = 0; offset < output.Length; offset += state.Length)
         {
             state = Sha256(Combine(state, tuple));
-            state.AsSpan(0, Math.Min(state.Length, output.Length - offset)).CopyTo(output.AsSpan(offset));
+            state
+                .AsSpan(0, Math.Min(state.Length, output.Length - offset))
+                .CopyTo(output.AsSpan(offset));
         }
         return output;
     }
@@ -272,10 +264,10 @@ internal static class PhoenixReadRequestSigner
         }
         uint num = checked((uint)now.ToUnixTimeSeconds());
         string text = request.RequestUri?.Query.TrimStart('?') ?? string.Empty;
-        byte b = (byte)(nonce[0] % 7 + 1 << 5);
+        byte b = (byte)((nonce[0] % 7 + 1) << 5);
         byte b2 = (byte)(0xE0 | (nonce[1] & 0xF));
         Span<byte> span = stackalloc byte[20];
-        MD5.HashData(Encoding.UTF8.GetBytes(text), span[..16]);
+        HashQuery(text, span[..16]);
         span[12] = 0;
         span[13] = 1;
         span[14] = 7;
@@ -327,37 +319,14 @@ internal static class PhoenixReadRequestSigner
             span[l] = ReverseBits(span[l]);
             span[l] ^= 235;
         }
-        byte[] array =
-        [
-            132,
-            4,
-            b,
-            b2,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ];
-        span.CopyTo(array.AsSpan(6));
-        SetHeader(request, "X-Gorgon", Convert.ToHexString(array).ToLowerInvariant());
+        Span<byte> array = stackalloc byte[26];
+        array.Clear();
+        array[0] = 132;
+        array[1] = 4;
+        array[2] = b;
+        array[3] = b2;
+        span.CopyTo(array[6..]);
+        SetHeader(request, "X-Gorgon", Convert.ToHexStringLower(array));
         SetHeader(request, "X-Khronos", num.ToString(CultureInfo.InvariantCulture));
         SetHeader(
             request,
@@ -392,30 +361,48 @@ internal static class PhoenixReadRequestSigner
         {
             return string.Empty;
         }
-        string[] array = uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries);
-        foreach (string text in array)
+
+        ReadOnlySpan<char> query = uri.Query.AsSpan().TrimStart('?');
+        while (!query.IsEmpty)
         {
-            string[] array2 = text.Split('=', 2);
-            if (Uri.UnescapeDataString(array2[0]) == key)
+            int ampIndex = query.IndexOf('&');
+            ReadOnlySpan<char> pair = ampIndex >= 0 ? query[..ampIndex] : query;
+            query = ampIndex >= 0 ? query[(ampIndex + 1)..] : default;
+
+            if (pair.IsEmpty)
             {
-                return (array2.Length == 2) ? Uri.UnescapeDataString(array2[1]) : string.Empty;
+                continue;
+            }
+
+            int eqIndex = pair.IndexOf('=');
+            ReadOnlySpan<char> paramKey = eqIndex >= 0 ? pair[..eqIndex] : pair;
+            ReadOnlySpan<char> paramVal = eqIndex >= 0 ? pair[(eqIndex + 1)..] : default;
+
+            if (Uri.UnescapeDataString(paramKey.ToString()) == key)
+            {
+                return eqIndex >= 0 ? Uri.UnescapeDataString(paramVal.ToString()) : string.Empty;
             }
         }
+
         return string.Empty;
     }
 
     private static string CommentLadon(string aid, uint timestamp, ReadOnlySpan<byte> prefix)
     {
-        byte[] array = new byte[prefix.Length + Encoding.UTF8.GetByteCount(aid)];
-        prefix.CopyTo(array);
-        Encoding.UTF8.GetBytes(aid, array.AsSpan(prefix.Length));
-        string s = Convert.ToHexString(MD5.HashData(array)).ToLowerInvariant();
-        byte[] bytes = Encoding.ASCII.GetBytes(s);
+        int aidBytesCount = Encoding.UTF8.GetByteCount(aid);
+        Span<byte> input = stackalloc byte[prefix.Length + aidBytesCount];
+        prefix.CopyTo(input);
+        Encoding.UTF8.GetBytes(aid, input[prefix.Length..]);
+        Span<byte> md5 = stackalloc byte[16];
+        MD5.HashData(input, md5);
+        Span<byte> bytes = stackalloc byte[32];
+        FormatHexBytesLower(md5, bytes);
+
         ulong num = BinaryPrimitives.ReadUInt64LittleEndian(bytes);
-        ulong value = BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(8));
+        ulong value = BinaryPrimitives.ReadUInt64LittleEndian(bytes[8..]);
         Queue<ulong> queue = new([
-            BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(16)),
-            BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(24)),
+            BinaryPrimitives.ReadUInt64LittleEndian(bytes[16..]),
+            BinaryPrimitives.ReadUInt64LittleEndian(bytes[24..]),
         ]);
         ulong[] array2 = new ulong[34];
         for (int i = 0; i < array2.Length; i++)
@@ -462,7 +449,7 @@ internal static class PhoenixReadRequestSigner
         Bytes(list, 8uL, "v04.07.01-ml-android"u8);
         Varint(list, 9uL, 135135744uL);
         Bytes(list, 10uL, new byte[8]);
-        Varint(list, 12uL, (ulong)timestamp * 2uL);
+        Varint(list, 12uL, timestamp * 2uL);
         byte[] array = Sm3(new byte[16]);
         byte[] array2 = Sm3(Encoding.UTF8.GetBytes(query));
         Bytes(list, 13uL, array.AsSpan()[..6]);
@@ -480,7 +467,7 @@ internal static class PhoenixReadRequestSigner
             WriteVarint(list3, num2 * 8);
             WriteVarint(list3, 1388734uL);
         }
-        Bytes(list, 15uL, list3.ToArray());
+        Bytes(list, 15uL, [.. list3]);
         Bytes(list, 20uL, "none"u8);
         Varint(list, 21uL, 738uL);
         byte[] array4 = Pad([.. list]);
@@ -502,7 +489,7 @@ internal static class PhoenixReadRequestSigner
             ulong num3 = BitOperations.RotateRight(array7[k - 1], 3) ^ array7[k - 3];
             num3 ^= BitOperations.RotateRight(num3, 1);
             array7[k] =
-                ~array7[k - 4] ^ num3 ^ (ulong)((4452173518698538891L >>> (k - 4) % 62) & 1) ^ 3;
+                ~array7[k - 4] ^ num3 ^ (ulong)((4452173518698538891L >>> ((k - 4) % 62)) & 1) ^ 3;
         }
         for (int l = 0; l < array4.Length; l += 16)
         {
@@ -562,13 +549,15 @@ internal static class PhoenixReadRequestSigner
     {
         uint timestamp = checked((uint)now.ToUnixTimeSeconds());
         string query = request.RequestUri?.Query.TrimStart('?') ?? string.Empty;
-        byte[] queryHash = MD5.HashData(Encoding.UTF8.GetBytes(query));
+        Span<byte> queryHash = stackalloc byte[16];
+        HashQuery(query, queryHash);
         Span<byte> payload = stackalloc byte[20];
-        queryHash.AsSpan(0, 4).CopyTo(payload[..4]);
+        queryHash[..4].CopyTo(payload[..4]);
         if (!body.IsEmpty)
         {
-            byte[] bodyHash = MD5.HashData(body);
-            bodyHash.AsSpan(0, 4).CopyTo(payload[4..8]);
+            Span<byte> bodyHash = stackalloc byte[16];
+            MD5.HashData(body, bodyHash);
+            bodyHash[..4].CopyTo(payload[4..8]);
             SetHeader(request, "X-SS-STUB", Convert.ToHexString(bodyHash));
         }
 
@@ -589,17 +578,17 @@ internal static class PhoenixReadRequestSigner
             payload[j] = (byte)(ReverseBits((byte)mixed) ^ 0xFF ^ payload.Length);
         }
 
-        byte[] signature = new byte[26];
+        Span<byte> signature = stackalloc byte[26];
         signature[0] = 0x84;
         signature[1] = 0x04;
         signature[2] = 0x40;
         signature[3] = 0x1C;
         signature[4] = 0;
         signature[5] = 0;
-        payload.CopyTo(signature.AsSpan(6));
+        payload.CopyTo(signature[6..]);
 
         SetHeader(request, "X-Khronos", timestamp.ToString(CultureInfo.InvariantCulture));
-        SetHeader(request, "X-Gorgon", Convert.ToHexString(signature).ToLowerInvariant());
+        SetHeader(request, "X-Gorgon", Convert.ToHexStringLower(signature));
         SetHeader(
             request,
             "X-SS-Req-Ticket",
@@ -623,25 +612,25 @@ internal static class PhoenixReadRequestSigner
             "X-Argus",
             PlayerArgus(query, body, timestamp, effectiveDeviceId, nonce)
         );
-        SetHeader(
-            request,
-            "X-Ladon",
-            PlayerLadon(aid, timestamp, nonce.AsSpan(2, 4))
-        );
+        SetHeader(request, "X-Ladon", PlayerLadon(aid, timestamp, nonce.AsSpan(2, 4)));
     }
 
     private static string PlayerLadon(string aid, uint timestamp, ReadOnlySpan<byte> prefix)
     {
-        byte[] array = new byte[prefix.Length + Encoding.UTF8.GetByteCount(aid)];
-        prefix.CopyTo(array);
-        Encoding.UTF8.GetBytes(aid, array.AsSpan(prefix.Length));
-        string s = Convert.ToHexString(MD5.HashData(array)).ToLowerInvariant();
-        byte[] bytes = Encoding.ASCII.GetBytes(s);
+        int aidBytesCount = Encoding.UTF8.GetByteCount(aid);
+        Span<byte> input = stackalloc byte[prefix.Length + aidBytesCount];
+        prefix.CopyTo(input);
+        Encoding.UTF8.GetBytes(aid, input[prefix.Length..]);
+        Span<byte> md5 = stackalloc byte[16];
+        MD5.HashData(input, md5);
+        Span<byte> bytes = stackalloc byte[32];
+        FormatHexBytesLower(md5, bytes);
+
         ulong num = BinaryPrimitives.ReadUInt64LittleEndian(bytes);
-        ulong value = BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(8));
+        ulong value = BinaryPrimitives.ReadUInt64LittleEndian(bytes[8..]);
         Queue<ulong> queue = new([
-            BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(16)),
-            BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(24)),
+            BinaryPrimitives.ReadUInt64LittleEndian(bytes[16..]),
+            BinaryPrimitives.ReadUInt64LittleEndian(bytes[24..]),
         ]);
         ulong[] array2 = new ulong[34];
         for (int i = 0; i < array2.Length; i++)
@@ -675,6 +664,49 @@ internal static class PhoenixReadRequestSigner
         return Convert.ToBase64String(array5);
     }
 
+    private static void HashQuery(string query, Span<byte> destination)
+    {
+        if (query.Length == 0)
+        {
+            MD5.HashData([], destination);
+            return;
+        }
+
+        int maxByteCount = Encoding.UTF8.GetMaxByteCount(query.Length);
+        if (maxByteCount <= 512)
+        {
+            Span<byte> utf8Bytes = stackalloc byte[maxByteCount];
+            int written = Encoding.UTF8.GetBytes(query, utf8Bytes);
+            MD5.HashData(utf8Bytes[..written], destination);
+        }
+        else
+        {
+            byte[] rented = ArrayPool<byte>.Shared.Rent(maxByteCount);
+            try
+            {
+                int written = Encoding.UTF8.GetBytes(query, rented);
+                MD5.HashData(rented.AsSpan(0, written), destination);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+    }
+
+    private static void FormatHexBytesLower(ReadOnlySpan<byte> source, Span<byte> destination)
+    {
+        for (int i = 0; i < source.Length; i++)
+        {
+            byte b = source[i];
+            destination[i * 2] = GetHexCharLower(b >> 4);
+            destination[i * 2 + 1] = GetHexCharLower(b & 0xF);
+        }
+    }
+
+    private static byte GetHexCharLower(int nibble) =>
+        (byte)(nibble < 10 ? '0' + nibble : 'a' + (nibble - 10));
+
     private static string PlayerArgus(
         string query,
         ReadOnlySpan<byte> body,
@@ -701,7 +733,11 @@ internal static class PhoenixReadRequestSigner
         List<byte> message = new(256);
         Varint(message, 1uL, 0x20200929uL * 2uL);
         Varint(message, 2uL, 2uL);
-        Varint(message, 3uL, BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(6, 4)) & 0x7fffffffu);
+        Varint(
+            message,
+            3uL,
+            BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(6, 4)) & 0x7fffffffu
+        );
         Bytes(message, 4uL, "8662"u8);
         Bytes(message, 5uL, Encoding.UTF8.GetBytes(deviceId));
         Bytes(message, 6uL, "1611921764"u8);
@@ -710,14 +746,14 @@ internal static class PhoenixReadRequestSigner
         Varint(message, 9uL, 135135744uL);
         Bytes(message, 10uL, new byte[8]);
         Varint(message, 11uL, 0uL);
-        Varint(message, 12uL, (ulong)timestamp * 2uL);
+        Varint(message, 12uL, timestamp * 2uL);
         Bytes(message, 13uL, bodyHash.AsSpan(0, 6));
         Bytes(message, 14uL, queryHash.AsSpan(0, 6));
-        Bytes(message, 15uL, counters.ToArray());
+        Bytes(message, 15uL, [.. counters]);
         Bytes(message, 16uL, []);
         Bytes(message, 20uL, "none"u8);
         Varint(message, 21uL, 738uL);
-        Bytes(message, 23uL, environment.ToArray());
+        Bytes(message, 23uL, [.. environment]);
         Varint(message, 25uL, 2uL);
 
         byte[] data = Pad([.. message]);
@@ -739,8 +775,7 @@ internal static class PhoenixReadRequestSigner
         {
             ulong mixed = BitOperations.RotateRight(rounds[k - 1], 3) ^ rounds[k - 3];
             mixed ^= BitOperations.RotateRight(mixed, 1);
-            rounds[k] =
-                ~rounds[k - 4] ^ mixed ^ (ulong)((0x3dc94c3a046d678bUL >>> ((k - 4) % 62)) & 1) ^ 3;
+            rounds[k] = ~rounds[k - 4] ^ mixed ^ (0x3dc94c3a046d678bUL >>> ((k - 4) % 62)) & 1 ^ 3;
         }
 
         for (int l = 0; l < data.Length; l += 16)
@@ -786,7 +821,8 @@ internal static class PhoenixReadRequestSigner
         aes.IV = iv;
         aes.Mode = CipherMode.CBC;
         aes.Padding = PaddingMode.None;
-        byte[] encrypted = aes.CreateEncryptor().TransformFinalBlock(container, 0, container.Length);
+        byte[] encrypted = aes.CreateEncryptor()
+            .TransformFinalBlock(container, 0, container.Length);
 
         byte[] result = new byte[2 + encrypted.Length];
         result[0] = 0x3C;
@@ -799,7 +835,7 @@ internal static class PhoenixReadRequestSigner
     {
         WriteVarint(target, field * 8 + 2);
         WriteVarint(target, (ulong)value.Length);
-        target.AddRange(value.ToArray());
+        target.AddRange([.. value]);
     }
 
     private static void Varint(List<byte> target, ulong field, ulong value)
@@ -811,7 +847,7 @@ internal static class PhoenixReadRequestSigner
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte RotateLeft(byte value, int offset)
     {
-        return (byte)((value << offset) | (value >> 8 - offset));
+        return (byte)((value << offset) | (value >> (8 - offset)));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -889,15 +925,12 @@ internal static class PhoenixReadRequestSigner
                 uint num15 = num7;
                 uint num16 = num8;
                 uint num17 = num9;
-                uint value2 = ((m < 16) ? 2043430169u : 2055708042u);
-                uint num18 = (
-                    (m < 16)
-                        ? (num10 ^ num11 ^ num12)
-                        : ((num10 & num11) | (num10 & num12) | (num11 & num12))
-                );
-                uint num19 = (
-                    (m < 16) ? (num14 ^ num15 ^ num16) : ((num14 & num15) | (~num14 & num16))
-                );
+                uint value2 = m < 16 ? 2043430169u : 2055708042u;
+                uint num18 =
+                    m < 16
+                        ? num10 ^ num11 ^ num12
+                        : (num10 & num11) | (num10 & num12) | (num11 & num12);
+                uint num19 = m < 16 ? num14 ^ num15 ^ num16 : (num14 & num15) | (~num14 & num16);
                 uint num20 = BitOperations.RotateLeft(
                     BitOperations.RotateLeft(num10, 12)
                         + num14

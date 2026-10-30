@@ -11,10 +11,4 @@
   <ItemGroup>
     <ProjectReference Include="..\PhoenixReadApi\PhoenixReadApi.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Phone.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
 </Project>
