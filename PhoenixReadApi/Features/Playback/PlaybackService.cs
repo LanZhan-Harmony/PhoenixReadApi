@@ -68,31 +68,52 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        AppMultiMediaPayload payload = new()
+        AppMediaPayload payload = new()
         {
-            MixedVideoIdMap = new Dictionary<string, List<string>> { ["1004"] = [videoId] },
+            VideoId = videoId,
+            BusinessParameter = new AppMediaBusinessParameter
+            {
+                NeedAllVideoDefinition = true,
+                VideoPlatform = 3,
+            },
         };
 
-        AppResponse<Dictionary<string, AppMultiPlaybackEntry>> result = await _appTransport
-            .PostAsync<AppMultiMediaPayload, Dictionary<string, AppMultiPlaybackEntry>>(
-                "/novel/player/multi_video_model/v1/",
+        AppResponse<AppPlaybackData> result = await _appTransport
+            .PostAsync<AppMediaPayload, AppPlaybackData>(
+                "/novel/player/video_model/v1/",
                 payload,
                 commentRequest: false,
                 cancellationToken
             )
             .ConfigureAwait(false);
 
-        if (
-            result.Data is null
-            || !result.Data.TryGetValue(videoId, out AppMultiPlaybackEntry? entry)
-            || entry?.VideoModel is not { } model
-            || model.Variants.Count == 0
-        )
+        AppPlaybackData? data = result.Data;
+        AppPlaybackModel model = data?.VideoModel ?? new();
+        IReadOnlyList<AppMediaVariantDto> variants = model.Variants.Count > 0
+            ? model.Variants
+            : data?.VideoList ?? [];
+
+        if (variants.Count == 0)
         {
             throw new PhoenixReadApiResponseException("App 播放信息格式异常。", "media");
         }
 
-        return SelectAppMedia(model);
+        double duration = model.VideoDuration > 0
+            ? model.VideoDuration
+            : model.Duration > 0
+                ? model.Duration
+                : data?.VideoDuration > 0
+                    ? data.VideoDuration
+                    : data?.Duration ?? 0;
+
+        AppPlaybackModel effectiveModel = new()
+        {
+            VideoDuration = duration,
+            Duration = duration,
+            Variants = variants,
+        };
+
+        return SelectAppMedia(effectiveModel);
     }
 
     private static PlaybackMedia SelectAppMedia(AppPlaybackModel model)

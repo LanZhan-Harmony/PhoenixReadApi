@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text;
 using PhoenixReadApi.Internal.Contracts.App.Auth;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
 using PhoenixReadApi.Internal.Serialization;
@@ -42,19 +43,19 @@ internal sealed class PhoenixReadDeviceManager
     internal const string StaticAppQueryPrefix =
         "aid=8662&app_name=novelread&version_code=69132&version_name=6.9.1.32&manifest_version_code=73932&update_version_code=73932&channel=update_64&device_platform=android&os=android&ssmix=a&device_type=WKL-AN20&device_brand=HONOR&language=zh&os_api=37&os_version=17&resolution=1320*2868&dpi=360&compliance_status=0&need_personal_recommend=1&player_so_load=1&is_android_pad_screen=0&rom_version=V417IR%20release-keys&dragon_device_type=phone&host_abi=arm64-v8a&pv_player=73932";
 
-    internal void AppendAppQuery(System.Text.StringBuilder sb)
+    internal void AppendAppQuery(StringBuilder sb)
     {
         sb.Append(StaticAppQueryPrefix);
         sb.Append("&device_id=")
             .Append(
                 Uri.EscapeDataString(
-                    string.IsNullOrWhiteSpace(DeviceId) ? "1589262967141403" : DeviceId
+                    DeviceIdGenerator.IsValid(DeviceId) ? DeviceId : "1589262967141403"
                 )
             );
         sb.Append("&iid=")
             .Append(
                 Uri.EscapeDataString(
-                    string.IsNullOrWhiteSpace(InstallId) ? "2380912043756905" : InstallId
+                    DeviceIdGenerator.IsValid(InstallId) ? InstallId : "2380912043756905"
                 )
             );
         string cdid = string.IsNullOrWhiteSpace(Cdid)

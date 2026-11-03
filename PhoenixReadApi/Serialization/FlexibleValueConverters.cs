@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
+using PhoenixReadApi.Internal.Infrastructure.Crypto;
 
 namespace PhoenixReadApi.Internal.Serialization;
 
@@ -166,6 +167,16 @@ internal sealed class VideoModelDtoConverter : JsonConverter<AppPlaybackModel>
             if (text.Trim().Length == 0)
             {
                 return new AppPlaybackModel();
+            }
+
+            if (!text.TrimStart().StartsWith('{'))
+            {
+                try
+                {
+                    byte[] decoded = Base64Decoder.Decode(text);
+                    text = System.Text.Encoding.UTF8.GetString(decoded);
+                }
+                catch (FormatException) { }
             }
 
             try
