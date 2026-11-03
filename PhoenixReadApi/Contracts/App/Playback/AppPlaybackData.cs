@@ -8,4 +8,15 @@ internal sealed class AppPlaybackData
     [JsonPropertyName("video_model")]
     [JsonConverter(typeof(VideoModelDtoConverter))]
     public AppPlaybackModel VideoModel { get; init; } = new();
+
+    [JsonPropertyName("video_list")]
+    public IReadOnlyList<AppMediaVariantDto> VideoList { get; init; } = [];
+
+    [JsonPropertyName("video_duration")]
+    [JsonConverter(typeof(FlexibleDoubleConverter))]
+    public double VideoDuration { get; init; }
+
+    [JsonPropertyName("duration")]
+    [JsonConverter(typeof(FlexibleDoubleConverter))]
+    public double Duration { get; init; }
 }

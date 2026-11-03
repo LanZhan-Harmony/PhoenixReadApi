@@ -335,9 +335,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
                         new("query", keyword),
                         new("offset", "0"),
                         new("count", "20"),
-                        new("tab_type", "11"),
-                        new("bookshelf_search_plan", "4"),
-                        new("use_correct", "true"),
+                        new("tab_type", "29"),
                     ],
                     cancellationToken
                 )
@@ -349,9 +347,12 @@ internal sealed partial class SearchService : PhoenixFeatureService
                         ? tabResponse!.SearchTabs
                         : tabResponse?.Data?.SearchTabs
                 ) ?? [];
+
             AppSearchTabItem? tab =
-                allTabs.FirstOrDefault(static t => t.TabType is "11" or "29")
-                ?? allTabs.FirstOrDefault();
+                allTabs.FirstOrDefault(static t => t.TabType == "29" && t.Data is { Count: > 0 })
+                ?? allTabs.FirstOrDefault(static t => t.TabType == "11" && t.Data is { Count: > 0 })
+                ?? allTabs.FirstOrDefault(static t => t.Data is { Count: > 0 });
+
             if (tab?.Data is { Count: > 0 } cells)
             {
                 List<Drama> appOutput = [];
@@ -394,17 +395,27 @@ internal sealed partial class SearchService : PhoenixFeatureService
             // App 搜索接口不可用时回退到网页搜索
         }
 
-        Uri uri = new(_options.WebBaseUri, "search/" + Uri.EscapeDataString(keyword));
-        using JsonDocument? document = RouterDataExtractor.Parse(
-            await GetTextAsync(uri, _options.WebBaseUri, "search", cancellationToken)
-                .ConfigureAwait(false)
+        Uri uri = new(
+            _options.WebBaseUri,
+            $"api/search/result?aid=8662&query={Uri.EscapeDataString(keyword)}&page=1"
         );
-        WebSearchPageDto? page = RouterDataLocator.Deserialize<WebSearchPageDto>(
-            document,
-            "search_(keyword)/page",
-            "search_"
-        );
-        if (page is null || !page.IsSuccess || page.Query != keyword)
+        string body = await GetTextAsync(uri, _options.WebBaseUri, "search", cancellationToken)
+            .ConfigureAwait(false);
+        WebSearchPageDto? page;
+        try
+        {
+            page = JsonAotSerializer.Deserialize<WebSearchPageDto>(body);
+        }
+        catch (JsonException exception)
+        {
+            throw new PhoenixReadApiResponseException(
+                "红果搜索未返回有效结果。",
+                "search",
+                exception
+            );
+        }
+
+        if (page is null || page.Items.Count == 0)
         {
             throw new PhoenixReadApiResponseException("红果搜索未返回有效结果。", "search");
         }
@@ -413,10 +424,13 @@ internal sealed partial class SearchService : PhoenixFeatureService
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (WebSearchRecordDto row in page.Items)
         {
-            Drama drama = DramaMapper.FromDto(row.VideoData, "短剧");
-            if (drama.Id.Length > 0 && seen.Add(drama.Id))
+            if (row.VideoData is not null)
             {
-                output.Add(drama);
+                Drama drama = DramaMapper.FromDto(row.VideoData, "短剧");
+                if (drama.Id.Length > 0 && seen.Add(drama.Id))
+                {
+                    output.Add(drama);
+                }
             }
         }
 
@@ -429,7 +443,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         {
             Items = output,
             Total = Math.Max(page.TotalCount, output.Count),
-            Limited = page.TotalCount > output.Count,
+            Limited = page.HasMore,
         };
     }
 

@@ -19,6 +19,9 @@ internal sealed class WebSearchPageDto
     [JsonPropertyName("totalCount")]
     [JsonConverter(typeof(FlexibleIntConverter))]
     public int TotalCount { get; init; }
+
+    [JsonPropertyName("hasMore")]
+    public bool HasMore { get; init; }
 }
 
 internal sealed class WebSearchRecordDto
