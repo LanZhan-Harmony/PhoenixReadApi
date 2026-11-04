@@ -32,7 +32,7 @@ internal sealed class AppSearchTabData
     public IReadOnlyList<AppSearchTabItem> SearchTabs { get; init; } = [];
 }
 
-/// <summary>单个搜索 Tab 项（如短剧 Tab 29）。</summary>
+/// <summary>单个搜索 Tab 项（如短剧 Tab 29、小说 Tab 1、用户 Tab 27 等）。</summary>
 internal sealed class AppSearchTabItem
 {
     [JsonPropertyName("tab_type")]
@@ -46,14 +46,83 @@ internal sealed class AppSearchTabItem
     [JsonPropertyName("has_more")]
     public bool HasMore { get; init; }
 
+    [JsonPropertyName("next_offset")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int NextOffset { get; init; }
+
     [JsonPropertyName("data")]
     public IReadOnlyList<AppSearchTabCell> Data { get; init; } = [];
 }
 
-/// <summary>搜索结果单元格，包含视频数据列表。</summary>
+/// <summary>搜索结果单元格，包含视频数据、小说、明星演职人员等列表。</summary>
 internal sealed class AppSearchTabCell
 {
     [JsonPropertyName("video_data")]
     [JsonConverter(typeof(FlexibleDramaListConverter))]
     public IReadOnlyList<DramaDto> VideoData { get; init; } = [];
+
+    [JsonPropertyName("book_data")]
+    [JsonConverter(typeof(FlexibleSearchBookListConverter))]
+    public IReadOnlyList<AppSearchBookDto> BookData { get; init; } = [];
+
+    [JsonPropertyName("celebrity_user_list")]
+    public IReadOnlyList<AppSearchUserDto> CelebrityUserList { get; init; } = [];
+}
+
+/// <summary>搜索结果中的原著小说 DTO。</summary>
+internal sealed class AppSearchBookDto
+{
+    [JsonPropertyName("book_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookId { get; init; } = string.Empty;
+
+    [JsonPropertyName("book_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookName { get; init; } = string.Empty;
+
+    [JsonPropertyName("abstract")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Abstract { get; init; } = string.Empty;
+
+    [JsonPropertyName("author")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Author { get; init; } = string.Empty;
+
+    [JsonPropertyName("thumb_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string CoverUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("serial_count")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int SerialCount { get; init; }
+
+    [JsonPropertyName("read_count")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long ReadCount { get; init; }
+}
+
+/// <summary>搜索结果中的明星、创作者或演员用户 DTO。</summary>
+internal sealed class AppSearchUserDto
+{
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string UserId { get; init; } = string.Empty;
+
+    [JsonPropertyName("base_info")]
+    public AppSearchUserBaseInfo BaseInfo { get; init; } = new();
+}
+
+internal sealed class AppSearchUserBaseInfo
+{
+    [JsonPropertyName("user_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string UserName { get; init; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Description { get; init; } = string.Empty;
+
+    [JsonPropertyName("avatar_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string AvatarUrl { get; init; } = string.Empty;
 }

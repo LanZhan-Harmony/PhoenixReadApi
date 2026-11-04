@@ -217,9 +217,35 @@ internal sealed class DramaDto
     [JsonPropertyName("video_relate_book")]
     public DramaRelateBookContainerDto RelateBook { get; init; } = new();
 
+    [JsonPropertyName("video_detail")]
+    public DramaVideoDetailDto? VideoDetail { get; init; } = new();
+
     [JsonIgnore]
     public string EffectiveAlbumId =>
         !string.IsNullOrWhiteSpace(RelatedAlbumId) ? RelatedAlbumId : AlbumId;
+}
+
+internal sealed class DramaVideoDetailDto
+{
+    [JsonPropertyName("series_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string SeriesId { get; init; } = string.Empty;
+
+    [JsonPropertyName("series_title")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string SeriesTitle { get; init; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Title { get; init; } = string.Empty;
+
+    [JsonPropertyName("cover_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string CoverUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("episode_cnt")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int EpisodeCount { get; init; }
 }
 
 internal sealed class DramaSecondaryInfoDto
@@ -256,4 +282,20 @@ internal sealed class DramaRelateBookInfoDto
     [JsonPropertyName("book_short_name")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string BookShortName { get; init; } = string.Empty;
+
+    [JsonPropertyName("creation_status")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string CreationStatus { get; init; } = string.Empty;
+
+    [JsonPropertyName("read_count")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long ReadCount { get; init; }
+
+    [JsonPropertyName("thumb_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ThumbUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("tags")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Tags { get; init; } = string.Empty;
 }

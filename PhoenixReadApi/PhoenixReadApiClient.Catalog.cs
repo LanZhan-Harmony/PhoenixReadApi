@@ -112,4 +112,59 @@ public sealed partial class PhoenixReadApiClient
         int maxPages = 10,
         CancellationToken cancellationToken = default
     ) => _catalog.EnumerateActorLeaderboardAsync(maxPages, cancellationToken);
+
+    /// <summary>获取 App 首页指定频道的发现页内容列表及流式翻页游标。</summary>
+    /// <param name="channel">发现频道枚举，默认 <see cref="DiscoverChannel.Recommend"/>（推荐）。</param>
+    /// <param name="cursor">分页游标（初次传 null，后续传上一页的 Cursor）。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>包含短剧与小说列表及下一页游标的 <see cref="DiscoverPage"/>。</returns>
+    public Task<DiscoverPage> GetDiscoverPageAsync(
+        DiscoverChannel channel = DiscoverChannel.Recommend,
+        string? cursor = null,
+        CancellationToken cancellationToken = default
+    ) => _discover.GetDiscoverPageAsync(channel, cursor, cancellationToken);
+
+    /// <summary>获取短剧多维筛选面板选项列表（题材、角色、状态、排序等）。</summary>
+    /// <param name="genre">短剧分类大类（真人剧、漫剧、AI剧），默认为 <see cref="ShortDramaGenre.ShortPlay"/>。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>筛选维度行及其可选选项列表。</returns>
+    public Task<IReadOnlyList<ShortDramaFilterRow>> GetShortDramaFilterPanelAsync(
+        ShortDramaGenre genre = ShortDramaGenre.ShortPlay,
+        CancellationToken cancellationToken = default
+    ) => _shortFilter.GetFilterPanelAsync(genre, cancellationToken);
+
+    /// <summary>按多维筛选条件矩阵分页筛选短剧。</summary>
+    /// <param name="query">多维筛选查询参数。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>筛选结果短剧页。</returns>
+    public Task<ShortDramaFilterPage> FilterShortDramasAsync(
+        ShortDramaFilterQuery query,
+        CancellationToken cancellationToken = default
+    ) => _shortFilter.FilterShortDramasAsync(query, cancellationToken);
+
+    /// <summary>按指定日期查询短剧上新日历及预告排期剧集。</summary>
+    /// <param name="targetDate">目标日期（如 2026-11-04），为 null 时查询今天。</param>
+    /// <param name="offset">分页偏移量，初次请求传 0。</param>
+    /// <param name="sessionId">上一页返回的会话 ID，初次传 null。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>当天上新及排期预告短剧结果页。</returns>
+    public Task<DailyReleasePage> GetDailyReleasesAsync(
+        DateOnly? targetDate = null,
+        int offset = 0,
+        string? sessionId = null,
+        CancellationToken cancellationToken = default
+    ) => _dailyRelease.GetDailyReleasesAsync(targetDate, offset, sessionId, cancellationToken);
+
+    /// <summary>获取原著小说/书籍分类落地页信息。</summary>
+    /// <param name="categoryId">分类 ID。</param>
+    /// <param name="offset">分页偏移量，默认 0。</param>
+    /// <param name="count">返回条数，默认 20。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>原著小说落地页及书籍列表。</returns>
+    public Task<NovelCategoryPage> GetNovelCategoryFrontAsync(
+        string categoryId,
+        int offset = 0,
+        int count = 20,
+        CancellationToken cancellationToken = default
+    ) => _novelCategory.GetCategoryFrontAsync(categoryId, offset, count, cancellationToken);
 }

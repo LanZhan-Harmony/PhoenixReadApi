@@ -44,13 +44,13 @@ internal sealed class SampleContext
 
     public Drama? FindDrama()
     {
-        return Search?.Items.FirstOrDefault(item =>
+        return Search?.Dramas.FirstOrDefault(item =>
                 string.Equals(item.Title, Keyword, StringComparison.OrdinalIgnoreCase)
             )
-            ?? Search?.Items.FirstOrDefault(item =>
+            ?? Search?.Dramas.FirstOrDefault(item =>
                 item.Title.Contains(Keyword, StringComparison.OrdinalIgnoreCase)
             )
-            ?? Search?.Items.FirstOrDefault()
+            ?? Search?.Dramas.FirstOrDefault()
             ?? Catalog?.FirstOrDefault(item =>
                 item.Title.Contains(Keyword, StringComparison.OrdinalIgnoreCase)
             )

@@ -11,13 +11,27 @@ internal static class DramaMapper
     internal static Drama FromDto(DramaDto value, string category, DateTimeOffset? now = null)
     {
         DramaDto data = value;
-        string sourceId = ValueNormalizer.First(data.SeriesId, data.SeriesIdNumber, data.BookId, data.Keyword);
+        string sourceId = ValueNormalizer.First(
+            data.SeriesId,
+            data.SeriesIdNumber,
+            data.BookId,
+            data.Keyword,
+            data.VideoDetail?.SeriesId
+        );
         if (!ValueNormalizer.IsNumericId(sourceId))
         {
             return new Drama();
         }
 
-        string title = ValueNormalizer.First(data.SeriesTitle, data.SeriesName, data.Title, data.Name, sourceId);
+        string title = ValueNormalizer.First(
+            data.SeriesTitle,
+            data.SeriesName,
+            data.Title,
+            data.Name,
+            data.VideoDetail?.SeriesTitle,
+            data.VideoDetail?.Title,
+            sourceId
+        );
         string remark = ValueNormalizer.First(data.EpisodeRemark);
         List<string> tags = DtoTags(data);
         string genre = ValueNormalizer.First(
@@ -30,7 +44,10 @@ internal static class DramaMapper
             data.EpisodeCount,
             Math.Max(
                 data.EpisodeCountAlias,
-                Math.Max(data.DramaChapterNumber, data.ChapterNumber)
+                Math.Max(
+                    data.DramaChapterNumber,
+                    Math.Max(data.ChapterNumber, data.VideoDetail?.EpisodeCount ?? 0)
+                )
             )
         );
         if (remark.Length == 0 && episodeCount > 0)
@@ -50,27 +67,31 @@ internal static class DramaMapper
             data.Cover,
             data.CoverUrl,
             data.ThumbUrl,
-            data.ExpandThumbUrl
+            data.ExpandThumbUrl,
+            data.VideoDetail?.CoverUrl
         );
-        string score = ValueNormalizer.First(
-            data.FinalScoreV2,
-            data.FinalScore,
-            data.Score
-        );
-        string status = ValueNormalizer.First(
-            data.SeriesStatus,
-            data.Status
-        );
+        string score = ValueNormalizer.First(data.FinalScoreV2, data.FinalScore, data.Score);
+        string status = ValueNormalizer.First(data.SeriesStatus, data.Status);
 
         long playCount = 0;
         string playCountStr = ValueNormalizer.First(data.SeriesPlayCount, data.PlayCount);
-        if (long.TryParse(playCountStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsedPlay))
+        if (
+            long.TryParse(
+                playCountStr,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out long parsedPlay
+            )
+        )
         {
             playCount = parsedPlay;
         }
 
         string novelId = data.RelateBook?.BookInfo?.BookId ?? string.Empty;
-        string novelTitle = ValueNormalizer.First(data.RelateBook?.BookInfo?.BookName, data.RelateBook?.BookInfo?.BookShortName);
+        string novelTitle = ValueNormalizer.First(
+            data.RelateBook?.BookInfo?.BookName,
+            data.RelateBook?.BookInfo?.BookShortName
+        );
 
         return new Drama
         {
@@ -167,7 +188,7 @@ internal static class DramaMapper
             if (
                 cleanRemark.Contains("完结", StringComparison.OrdinalIgnoreCase)
                 || cleanRemark.Contains("全集", StringComparison.OrdinalIgnoreCase)
-                || (cleanRemark.StartsWith("全", StringComparison.Ordinal) && cleanRemark.EndsWith("集", StringComparison.Ordinal))
+                || (cleanRemark.StartsWith('全') && cleanRemark.EndsWith('集'))
             )
             {
                 return DramaReleaseStatus.Finished;

@@ -56,7 +56,7 @@ public sealed class DetailsAndPlaybackTests
 
         // 2. 批量传入多个剧集 ID（2 部），严格断言返回数量严格等于 2 且对应
         SearchResult search = await SharedScenario.Client.SearchAsync("战神", timeout.Token);
-        string[] multiIds = [.. search.Items.Select(d => d.Id).Where(id => id.Length > 0).Take(2)];
+        string[] multiIds = [.. search.Dramas.Select(d => d.Id).Where(id => id.Length > 0).Take(2)];
         if (multiIds.Length >= 2)
         {
             IReadOnlyList<Drama> multiDramas = await SharedScenario.Client.GetBatchDramaDetailsAsync(

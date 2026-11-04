@@ -59,13 +59,13 @@ public static class SharedScenario
     {
         using CancellationTokenSource timeout = new(TimeSpan.FromMinutes(4));
         SearchResult search = await Client.SearchAsync(DefaultKeyword, timeout.Token);
-        Drama? selected = search.Items.FirstOrDefault(item =>
+        Drama? selected = search.Dramas.FirstOrDefault(item =>
             string.Equals(item.Title, DefaultKeyword, StringComparison.OrdinalIgnoreCase)
         );
-        selected ??= search.Items.FirstOrDefault(item =>
+        selected ??= search.Dramas.FirstOrDefault(item =>
             item.Title.Contains(DefaultKeyword, StringComparison.OrdinalIgnoreCase)
         );
-        selected ??= search.Items.FirstOrDefault(IsValidDramaItem);
+        selected ??= search.Dramas.FirstOrDefault(IsValidDramaItem);
 
         if (selected is null)
         {

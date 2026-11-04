@@ -149,6 +149,8 @@ internal sealed class PhoenixReadAppTransport
 
     internal void ClearSession() => _sessionStore.ClearSession();
 
+    internal bool IsAuthenticated => _sessionStore.HasSession;
+
     internal Task ResetDeviceAsync(CancellationToken cancellationToken) =>
         _deviceManager.ResetDeviceAsync(cancellationToken);
 

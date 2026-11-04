@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Details;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
@@ -13,7 +14,7 @@ using PhoenixReadApi.Internal.Serialization;
 namespace PhoenixReadApi.Internal.Features.Details;
 
 /// <summary>加载详情、校验分集归属，并缓存已完成的结果。</summary>
-internal sealed class DetailsService : PhoenixFeatureService
+internal sealed partial class DetailsService : PhoenixFeatureService
 {
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(5);
     private readonly Lock _stateLock = new();
@@ -153,7 +154,15 @@ internal sealed class DetailsService : PhoenixFeatureService
             throw new PhoenixReadApiResponseException("App 未返回完整且连续的分集。", "detail");
         }
 
-        return new DramaDetails { Drama = drama, Episodes = episodes };
+        return new DramaDetails
+        {
+            Drama = drama,
+            Episodes = episodes,
+            RelatedAlbumId = detail.EffectiveAlbumId,
+            IsMultiSeason = detail.IsMultiSeason,
+            SeasonIndex = detail.SeasonIndex > 0 ? detail.SeasonIndex : 1,
+            SourceNovel = MapSourceNovel(detail.RelateBook),
+        };
     }
 
     private async Task<DramaDetails> FetchWebDetailsAsync(
@@ -239,7 +248,8 @@ internal sealed class DetailsService : PhoenixFeatureService
             VideoId = dto.VideoId,
             Title = string.IsNullOrWhiteSpace(dto.Title) ? $"第{number}集" : dto.Title,
             Number = number,
-            Duration = dto.DurationSeconds > 0 ? TimeSpan.FromSeconds(dto.DurationSeconds) : TimeSpan.Zero,
+            Duration =
+                dto.DurationSeconds > 0 ? TimeSpan.FromSeconds(dto.DurationSeconds) : TimeSpan.Zero,
             CoverUrl = dto.EffectiveCover,
             Playable = !dto.DisablePlay,
             IsVertical = dto.Vertical,
@@ -272,15 +282,12 @@ internal sealed class DetailsService : PhoenixFeatureService
         const int batchSize = 10;
         for (int i = 0; i < ids.Count; i += batchSize)
         {
-            List<string> chunk = ids.Skip(i).Take(batchSize).ToList();
+            List<string> chunk = [.. ids.Skip(i).Take(batchSize)];
             AppPlayerBatchDetailPayload payload = new()
             {
                 SeriesId = string.Join(",", chunk),
                 Scene = "player",
-                BizParam = new AppPlayerBatchBizParam
-                {
-                    Source = 7,
-                },
+                BizParam = new AppPlayerBatchBizParam { Source = 7 },
             };
 
             AppResponse<Dictionary<string, AppPlayerSeriesEntry>> response = await _appTransport
@@ -306,18 +313,18 @@ internal sealed class DetailsService : PhoenixFeatureService
                 HashSet<int> seenEpisodes = [];
                 foreach (DramaEpisodeDto epDto in videoData.VideoList)
                 {
-                    if (ValueNormalizer.IsNumericId(epDto.VideoId) && epDto.Episode > 0 && seenEpisodes.Add(epDto.Episode))
+                    if (
+                        ValueNormalizer.IsNumericId(epDto.VideoId)
+                        && epDto.Episode > 0
+                        && seenEpisodes.Add(epDto.Episode)
+                    )
                     {
                         episodes.Add(CreateEpisode(epDto, epDto.Episode));
                     }
                 }
 
                 episodes.Sort(static (left, right) => left.Number.CompareTo(right.Number));
-                found[sid] = new DramaDetails
-                {
-                    Drama = drama,
-                    Episodes = episodes,
-                };
+                found[sid] = new DramaDetails { Drama = drama, Episodes = episodes };
             }
         }
 
@@ -341,9 +348,10 @@ internal sealed class DetailsService : PhoenixFeatureService
         try
         {
             IReadOnlyList<DramaDetails> withEpisodes = await GetBatchDramaDetailsWithEpisodesAsync(
-                seriesIds,
-                cancellationToken
-            ).ConfigureAwait(false);
+                    seriesIds,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
 
             if (withEpisodes.Count > 0)
             {
@@ -456,5 +464,307 @@ internal sealed class DetailsService : PhoenixFeatureService
         };
     }
 
+    internal async Task<DramaAlbum> GetAlbumAsync(
+        string albumId,
+        CancellationToken cancellationToken
+    )
+    {
+        albumId = (albumId ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(albumId))
+        {
+            throw new ArgumentException("合集 ID 不能为空。", nameof(albumId));
+        }
+
+        AppAlbumPayload payload = new() { AlbumId = albumId, NeedVideoDetailInfo = true };
+
+        AppResponse<AppAlbumData> response = await _appTransport
+            .PostAsync<AppAlbumPayload, AppAlbumData>(
+                "/novel/player/album_detail/v1/",
+                payload,
+                commentRequest: false,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        AppAlbumModel? model = response.Data?.AlbumData;
+        if (
+            model is null
+            || (string.IsNullOrWhiteSpace(model.EffectiveId) && model.EffectiveItems.Count == 0)
+        )
+        {
+            throw new PhoenixReadApiResponseException("合集信息不存在或暂不可用。", "album");
+        }
+
+        List<DramaSeason> seasons = [];
+        foreach (AppAlbumSeasonItemDto item in model.EffectiveItems)
+        {
+            string sid = item.EffectiveSeriesId;
+            if (string.IsNullOrWhiteSpace(sid))
+            {
+                continue;
+            }
+
+            seasons.Add(
+                new DramaSeason
+                {
+                    SeriesId = sid,
+                    Title = item.Title,
+                    Index = item.SeasonIndex > 0 ? item.SeasonIndex : (seasons.Count + 1),
+                    CoverUrl = item.Cover,
+                    EpisodeCount = item.EpisodeCount,
+                    Status =
+                        item.SeriesStatus == 1
+                            ? DramaReleaseStatus.Finished
+                            : DramaReleaseStatus.Ongoing,
+                }
+            );
+        }
+
+        seasons.Sort(static (a, b) => a.Index.CompareTo(b.Index));
+
+        return new DramaAlbum
+        {
+            Id = !string.IsNullOrWhiteSpace(model.EffectiveId) ? model.EffectiveId : albumId,
+            Title = model.Title,
+            Description = model.Intro,
+            CoverUrl = model.Cover,
+            SeasonCount = model.SeasonCount > 0 ? model.SeasonCount : seasons.Count,
+            Seasons = seasons,
+        };
+    }
+
+    internal async Task<DramaAlbum> GetDramaSeasonsAsync(
+        string seriesId,
+        CancellationToken cancellationToken
+    )
+    {
+        DramaDetails details = await GetAsync(seriesId, cancellationToken).ConfigureAwait(false);
+
+        // 1. 优先尝试从 plan feed 中获取系列剧行 (show_type 547)
+        try
+        {
+            AppPlanResponse plan = await _appTransport
+                .GetRootAsync<AppPlanResponse>(
+                    "/reading/bookapi/plan/v1/",
+                    [
+                        new("book_id", seriesId),
+                        new("from", "single_col_same_ip_series"),
+                        new("scene", "10"),
+                        new("session_uuid", Guid.NewGuid().ToString("N")),
+                        new("filter_ids", seriesId),
+                        new("user_is_login", "0"),
+                    ],
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            AppPlanCellDto? seasonsCell = plan.Data.FirstOrDefault(static c =>
+                c.ShowType == 547 && c.EffectiveItems.Count > 0
+            );
+            if (seasonsCell is not null && seasonsCell.EffectiveItems.Count > 0)
+            {
+                List<DramaSeason> seasons = [];
+                foreach (DramaDto item in seasonsCell.EffectiveItems)
+                {
+                    string sid = ValueNormalizer.First(
+                        item.SeriesId,
+                        item.SeriesIdNumber,
+                        item.BookId
+                    );
+                    if (string.IsNullOrWhiteSpace(sid))
+                    {
+                        continue;
+                    }
+
+                    seasons.Add(
+                        new DramaSeason
+                        {
+                            SeriesId = sid,
+                            Title = ValueNormalizer.First(item.SeriesTitle, item.Title, item.Name),
+                            Index = item.SeasonIndex > 0 ? item.SeasonIndex : (seasons.Count + 1),
+                            CoverUrl = ValueNormalizer.First(item.Cover, item.SeriesCover),
+                            EpisodeCount = item.EpisodeCount,
+                            Status =
+                                sid == seriesId
+                                    ? details.Drama.ReleaseStatus
+                                    : DramaReleaseStatus.Unknown,
+                        }
+                    );
+                }
+
+                if (seasons.Count > 0)
+                {
+                    seasons.Sort(static (a, b) => a.Index.CompareTo(b.Index));
+                    return new DramaAlbum
+                    {
+                        Id = details.RelatedAlbumId,
+                        Title = ExtractBaseTitle(details.Drama.Title),
+                        SeasonCount = seasons.Count,
+                        Seasons = seasons,
+                    };
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Plan feed 降级
+        }
+
+        // 2. 如果存在合集 ID，尝试请求合集接口
+        if (!string.IsNullOrWhiteSpace(details.RelatedAlbumId))
+        {
+            try
+            {
+                DramaAlbum album = await GetAlbumAsync(details.RelatedAlbumId, cancellationToken)
+                    .ConfigureAwait(false);
+                if (album.Seasons.Count > 0)
+                {
+                    return album;
+                }
+            }
+            catch (Exception)
+            {
+                // 合集接口降级
+            }
+        }
+
+        // 3. 基础作品单季快速返回
+        string baseTitle = ExtractBaseTitle(details.Drama.Title);
+        return new DramaAlbum
+        {
+            Id = details.RelatedAlbumId,
+            Title = baseTitle,
+            Description = details.Drama.Description,
+            CoverUrl = details.Drama.CoverUrl,
+            SeasonCount = 1,
+            Seasons =
+            [
+                new DramaSeason
+                {
+                    SeriesId = seriesId,
+                    Title = details.Drama.Title,
+                    Index = details.SeasonIndex > 0 ? details.SeasonIndex : 1,
+                    CoverUrl = details.Drama.CoverUrl,
+                    EpisodeCount = details.Episodes.Count,
+                    Status = details.Drama.ReleaseStatus,
+                },
+            ],
+        };
+    }
+
+    internal async Task<DramaRelatedRecommendations> GetSeriesRecommendationsAsync(
+        string seriesId,
+        CancellationToken cancellationToken
+    )
+    {
+        seriesId = NormalizeSeriesId(seriesId);
+        AppPlanResponse plan = await _appTransport
+            .GetRootAsync<AppPlanResponse>(
+                "/reading/bookapi/plan/v1/",
+                [
+                    new("book_id", seriesId),
+                    new("from", "select_panel_recommend"),
+                    new("scene", "10"),
+                    new("session_uuid", Guid.NewGuid().ToString("N")),
+                    new("user_is_login", "0"),
+                ],
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        AppPlanCellDto? targetCell =
+            plan.Data.FirstOrDefault(static c => c.ShowType == 160 && c.EffectiveItems.Count > 0)
+            ?? plan.Data.FirstOrDefault(static c => c.EffectiveItems.Count > 0);
+
+        if (targetCell is null || targetCell.EffectiveItems.Count == 0)
+        {
+            throw new PhoenixReadApiResponseException("暂无该剧的关联推荐内容。", "recommend");
+        }
+
+        List<Drama> items = [];
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        foreach (DramaDto dto in targetCell.EffectiveItems)
+        {
+            Drama drama = DramaMapper.FromDto(dto, "短剧");
+            if (drama.Id.Length > 0 && seen.Add(drama.Id))
+            {
+                items.Add(drama);
+            }
+        }
+
+        string cellTitle = !string.IsNullOrWhiteSpace(targetCell.CellName)
+            ? targetCell.CellName
+            : "更多好剧";
+        string sessionId = !string.IsNullOrWhiteSpace(targetCell.SessionId)
+            ? targetCell.SessionId
+            : plan.SessionId;
+
+        return new DramaRelatedRecommendations
+        {
+            Title = cellTitle,
+            SessionId = sessionId,
+            Items = items,
+        };
+    }
+
+    private static Novel? MapSourceNovel(DramaRelateBookContainerDto? container)
+    {
+        DramaRelateBookInfoDto? info = container?.BookInfo;
+        if (info is null || string.IsNullOrWhiteSpace(info.BookId) || info.BookId == "0")
+        {
+            return null;
+        }
+
+        NovelCreationStatus status = info.CreationStatus switch
+        {
+            "1" => NovelCreationStatus.Ongoing,
+            "2" => NovelCreationStatus.Completed,
+            _ => NovelCreationStatus.Unknown,
+        };
+
+        IReadOnlyList<string> tags = string.IsNullOrWhiteSpace(info.Tags)
+            ? []
+            :
+            [
+                .. info.Tags.Split(
+                    [',', '，', ' '],
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                ),
+            ];
+
+        return new Novel
+        {
+            Id = info.BookId,
+            Title = info.BookName,
+            ShortTitle = info.BookShortName,
+            Status = status,
+            CoverUrl = info.ThumbUrl,
+            ReadCount = info.ReadCount,
+            Tags = tags,
+        };
+    }
+
+    private static string ExtractBaseTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return string.Empty;
+        }
+
+        string cleaned = ChineseSeasonMarkerRegex().Replace(title, string.Empty).Trim();
+        cleaned = EnglishSeasonMarkerRegex().Replace(cleaned, string.Empty).Trim();
+        return cleaned.Length > 0 ? cleaned : title;
+    }
+
     private sealed record CachedValue<T>(T Value, DateTimeOffset ExpiresAt);
+
+    [GeneratedRegex(
+        @"[\(（]?\s*第[0-9一二三四五六七八九十\d]+[季部篇]\s*[\)）]?",
+        RegexOptions.IgnoreCase,
+        "zh-CN"
+    )]
+    private static partial Regex ChineseSeasonMarkerRegex();
+
+    [GeneratedRegex(@"[\(（]?\s*Season\s*\d+\s*[\)）]?", RegexOptions.IgnoreCase, "zh-CN")]
+    private static partial Regex EnglishSeasonMarkerRegex();
 }

@@ -42,28 +42,44 @@ internal static class ContentKeyDecoder
             array2[i] = (byte)(array[array.Length - num + i] ^ b);
         }
         string text = Encoding.UTF8.GetString(array2);
-        if (text is "app_v2" or "web_v2")
-        {
-            throw new PhoenixReadApiMediaException("媒体密钥版本暂不支持。", "media");
-        }
+        bool isV2 =
+            text.StartsWith("app_v2", StringComparison.Ordinal)
+            || text.StartsWith("web_v2", StringComparison.Ordinal);
+
         byte[] array3 = new byte[num2];
-        byte b2 = 250;
-        byte b3 = 85;
+        Array.Copy(array, 1, array3, 0, num2);
+
+        if (isV2)
+        {
+            int last = array3.Length - 1;
+            for (int i = 0; i + 1 < array3.Length; i += 2)
+            {
+                (array3[i], array3[i + 1]) = (array3[i + 1], array3[i]);
+                if (i == last - 2)
+                {
+                    break;
+                }
+            }
+        }
+
+        byte cur = 0xfa;
+        byte prev = 0x55;
         for (int j = 0; j < num2; j++)
         {
-            byte b4 = array[j + 1];
-            byte b5 = b2;
+            byte b4 = array3[j];
+            byte term = (byte)(-(0x15 + BitOperations.PopCount((uint)j)));
             if (j % 2 == 0)
             {
-                b2 = b4;
+                array3[j] = isV2 ? (byte)((cur ^ b4) - prev + term) : (byte)(term + (cur ^ b4));
+                cur = b4;
             }
             else
             {
-                b5 = b3;
-                b3 = b4;
+                array3[j] = isV2 ? (byte)((prev ^ b4) - prev + term) : (byte)(term + (prev ^ b4));
+                prev = b4;
             }
-            array3[j] = (byte)((b5 ^ b4) - 21 - BitOperations.PopCount((uint)j));
         }
+
         int num3 = ParseBase36(array3[0]);
         if (num3 < 0 || num2 - num3 - 1 != 32)
         {

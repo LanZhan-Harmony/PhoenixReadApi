@@ -37,6 +37,10 @@ public sealed partial class PhoenixReadApiClient : IDisposable
     private readonly ReservationsService _reservations;
     private readonly DiscoveryService _discovery;
     private readonly AuthenticationService _authentication;
+    private readonly DiscoverService _discover;
+    private readonly ShortFilterService _shortFilter;
+    private readonly DailyReleaseService _dailyRelease;
+    private readonly NovelCategoryService _novelCategory;
 
     /// <summary>创建并拥有一个 API 客户端。</summary>
     /// <param name="options">
@@ -87,6 +91,10 @@ public sealed partial class PhoenixReadApiClient : IDisposable
         _reservations = new ReservationsService(_runtime);
         _discovery = new DiscoveryService(_runtime);
         _authentication = new AuthenticationService(_runtime);
+        _discover = new DiscoverService(_runtime);
+        _shortFilter = new ShortFilterService(_runtime);
+        _dailyRelease = new DailyReleaseService(_runtime);
+        _novelCategory = new NovelCategoryService(_runtime);
     }
 
     /// <summary>释放 API 客户端使用的资源。</summary>

@@ -142,7 +142,7 @@ public sealed class FeatureExpansionTests
 
         // 从搜索结果选取 2 部短剧 ID，严格测试批量返回的数量必须等于 2
         SearchResult search = await SharedScenario.Client.SearchAsync("逆袭", timeout.Token);
-        string[] targetIds = [.. search.Items.Select(d => d.Id).Where(id => id.Length > 0).Take(2)];
+        string[] targetIds = [.. search.Dramas.Select(d => d.Id).Where(id => id.Length > 0).Take(2)];
         if (targetIds.Length < 2)
         {
             targetIds = [scenario.SeriesId];
