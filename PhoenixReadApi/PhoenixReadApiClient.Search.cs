@@ -17,6 +17,15 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _search.SearchAsync(keyword, cancellationToken);
 
+    /// <summary>使用自定义分页游标与分类参数高级搜索剧集。</summary>
+    /// <param name="query">搜索高级查询参数，包含关键词、偏移量、期望返回条数及标签类型。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>包含当前页剧集、下一页偏移量与更多状态的搜索结果。</returns>
+    public Task<SearchResult> SearchAsync(
+        SearchQuery query,
+        CancellationToken cancellationToken = default
+    ) => _search.SearchAsync(query, cancellationToken);
+
     /// <summary>获取搜索联想建议。</summary>
     /// <param name="keyword">要联想的关键词，不能为空，最多 80 个字符。</param>
     /// <param name="maxResults">最多返回的建议数量，必须大于 0；超过 20 时按 20 处理。</param>
@@ -58,6 +67,7 @@ public sealed partial class PhoenixReadApiClient
     /// <returns>包含“猜你想搜”短剧及热搜各榜单的 <see cref="HotSearch"/> 对象。</returns>
     public Task<HotSearch> GetHotSearchAsync(CancellationToken cancellationToken = default) =>
         _search.GetHotSearchAsync(cancellationToken);
+
     /// <summary>流式遍历指定题材的推荐短剧，并在跨页时自动追踪并过滤重复的剧集。</summary>
     /// <param name="genre">推荐题材分类枚举。</param>
     /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>

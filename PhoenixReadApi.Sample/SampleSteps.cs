@@ -130,14 +130,14 @@ internal static partial class SampleSteps
         if (context.Search is not null)
         {
             Console.WriteLine(
-                $"  搜索结果：{context.Search.Items.Count}/{context.Search.Total}, Warning='{context.Search.Warning}'"
+                $"  搜索结果：{context.Search.Dramas.Count}/{context.Search.Total}, Warning='{context.Search.Warning}'"
             );
         }
 
         // 批量详情：从搜索/剧库结果取前两个剧集 ID
         string[] batchIds =
         [
-            .. (context.Search?.Items ?? context.Catalog ?? [])
+            .. (context.Search?.Dramas ?? context.Catalog ?? [])
                 .Select(static item => item.Id)
                 .Where(static id => id.Length > 0)
                 .Distinct(StringComparer.Ordinal)

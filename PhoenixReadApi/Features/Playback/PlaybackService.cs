@@ -40,6 +40,19 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         catch (Exception exception) when (IsRecoverable(exception))
         {
             appError = exception;
+            if (!Runtime.IsAuthenticated)
+            {
+                try
+                {
+                    await Runtime.ResetDeviceAsync(cancellationToken).ConfigureAwait(false);
+                    return await ResolveAppMediaAsync(videoId, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception retryException) when (IsRecoverable(retryException))
+                {
+                    appError = retryException;
+                }
+            }
         }
 
         Exception? webError = null;
@@ -89,32 +102,31 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
 
         AppPlaybackData? data = result.Data;
         AppPlaybackModel model = data?.VideoModel ?? new();
-        IReadOnlyList<AppMediaVariantDto> variants = model.Variants.Count > 0
-            ? model.Variants
-            : (model.DynamicVideo?.DynamicVideoList is { Count: > 0 } dynamicList
-                ? dynamicList
-                : data?.VideoList ?? []);
+        IReadOnlyList<AppMediaVariantDto> variants =
+            model.Variants.Count > 0
+                ? model.Variants
+                : (
+                    model.DynamicVideo?.DynamicVideoList is { Count: > 0 } dynamicList
+                        ? dynamicList
+                        : data?.VideoList ?? []
+                );
 
         if (variants.Count == 0)
         {
             throw new PhoenixReadApiResponseException("App 播放信息格式异常。", "media");
         }
 
-        double duration = model.VideoDuration > 0
-            ? model.VideoDuration
-            : model.Duration > 0
-                ? model.Duration
-                : data?.VideoDuration > 0
-                    ? data.VideoDuration
-                    : data?.Duration ?? 0;
+        double duration =
+            model.VideoDuration > 0 ? model.VideoDuration
+            : model.Duration > 0 ? model.Duration
+            : data?.VideoDuration > 0 ? data.VideoDuration
+            : data?.Duration ?? 0;
 
         string audioUrl = model.DynamicVideo?.DynamicAudioList is { Count: > 0 } audioList
             ? audioList[0].MainUrl
             : string.Empty;
 
-        long expiresAt = model.UrlExpire > 0
-            ? model.UrlExpire
-            : data?.ExpireTime ?? 0;
+        long expiresAt = model.UrlExpire > 0 ? model.UrlExpire : data?.ExpireTime ?? 0;
 
         AppPlaybackModel effectiveModel = new()
         {
@@ -191,7 +203,10 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
                 }
             }
 
-            MediaDefinition definition = ValueNormalizer.ParseDefinition(height, variant.EffectiveDefinition);
+            MediaDefinition definition = ValueNormalizer.ParseDefinition(
+                height,
+                variant.EffectiveDefinition
+            );
             MediaCodec codec = ValueNormalizer.ParseCodec(codecRaw);
             int qualityScore = height * 10 + (codec == MediaCodec.H264 ? 1 : 0);
 
@@ -321,7 +336,10 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
                     continue;
                 }
 
-                string normalized = UrlNormalizer.NormalizeMediaUrl(contentUrl.GetString(), pageUri);
+                string normalized = UrlNormalizer.NormalizeMediaUrl(
+                    contentUrl.GetString(),
+                    pageUri
+                );
                 if (
                     normalized.Length == 0
                     || !Uri.TryCreate(normalized, UriKind.Absolute, out Uri? mediaUri)

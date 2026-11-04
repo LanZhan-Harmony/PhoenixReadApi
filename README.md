@@ -97,7 +97,7 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
 // 2. 搜索短剧
 SearchResult search = await client.SearchAsync("请君入我怀", cts.Token);
-Drama? drama = search.Items.FirstOrDefault();
+Drama? drama = search.Dramas.FirstOrDefault();
 
 if (drama is not null)
 {
@@ -179,6 +179,33 @@ foreach (ActorLeaderboardItem actor in actorBoard.Items.Take(5))
     Console.WriteLine($"TOP {actor.Position}: {actor.Name} ({actor.Popularity}) - 代表作: {actor.RepresentativeWork}");
 }
 
+// 首页发现频道流式瀑布流（DiscoverPage，支持推荐、真人剧、漫剧、找剧、小说、听书各频道）
+DiscoverPage discover = await client.GetDiscoverPageAsync(
+    channel: DiscoverChannel.Recommend,
+    cursor: null,
+    cancellationToken: cts.Token
+);
+Console.WriteLine($"推荐频道短剧数: {discover.Dramas.Count}, 下一页游标: {discover.Cursor}");
+
+// 短剧动态多维筛选面板与组合矩阵筛选
+IReadOnlyList<ShortDramaFilterRow> filterRows = await client.GetShortDramaFilterPanelAsync(ShortDramaGenre.ShortPlay, cts.Token);
+ShortDramaFilterPage filterPage = await client.FilterShortDramasAsync(
+    new ShortDramaFilterQuery
+    {
+        Genre = ShortDramaGenre.ShortPlay,
+        Selections = new Dictionary<string, IReadOnlyList<string>> { ["category"] = ["战神"] },
+        Offset = 0,
+    },
+    cts.Token
+);
+
+// 按日期指定查询上新日历（查看指定日期的已上线与即将上线作品）
+DailyReleasePage dailyPage = await client.GetDailyReleasesAsync(targetDate: "20261104", offset: 0, cancellationToken: cts.Token);
+foreach (DailyReleaseItem item in dailyPage.Items)
+{
+    Console.WriteLine($"日历作品: 《{item.Drama.Title}》 - {item.Note} (上线: {item.IsOnline})");
+}
+
 // 短剧排行榜（支持多榜单切换：真人剧榜、漫剧榜、热播榜等）
 ShortDramaLeaderboardPage rankBoard = await client.GetShortDramaLeaderboardAsync(
     category: ShortDramaLeaderboardCategory.Human,
@@ -201,9 +228,40 @@ foreach (SearchSuggestion suggestion in suggestions)
     Console.WriteLine($"建议词: {suggestion.Name} (类型: {suggestion.Type})");
 }
 
-// 综合短剧搜索
+// 1. 综合短剧搜索（返回短剧、原著小说与明星演员用户）
 SearchResult searchResult = await client.SearchAsync("逆袭", cts.Token);
-Console.WriteLine($"搜索命中: {searchResult.Total} 部短剧 (是否受限: {searchResult.Limited})");
+Console.WriteLine($"短剧命中: {searchResult.Dramas.Count} 部 (总计: {searchResult.Total}, 是否受限: {searchResult.Limited})");
+
+// 2. 高级多维度分类搜索（指定 Tab 如原著小说、用户、影视剧及分页游标）
+SearchResult novelSearch = await client.SearchAsync(
+    new SearchQuery
+    {
+        Keyword = "逆袭",
+        Tab = SearchTab.CommonBook, // 搜索番茄/红果原著小说
+        Offset = 0,
+        Count = 10,
+    },
+    cts.Token
+);
+foreach (Novel novel in novelSearch.Novels)
+{
+    Console.WriteLine($"原著小说: 《{novel.Title}》 作者: {novel.Author} (连载: {novel.StatusText})");
+}
+
+// 搜索明星演职人员
+SearchResult userSearch = await client.SearchAsync(
+    new SearchQuery
+    {
+        Keyword = "张",
+        Tab = SearchTab.User,
+        Count = 5,
+    },
+    cts.Token
+);
+foreach (User user in userSearch.Users)
+{
+    Console.WriteLine($"明星/演员: {user.Name} (ID: {user.Id}) - 简介: {user.Introduction}");
+}
 
 // 获取搜索框轮播提示词（滚动热搜词）
 IReadOnlyList<string> cues = await client.GetSearchCuesAsync(cts.Token);
@@ -245,6 +303,21 @@ foreach (DramaCredit credit in details.Drama.Credits)
     // 支持直接根据署名对象或用户 ID 查询演职员主页
     UserProfile profile = await client.GetUserProfileAsync(credit, cts.Token);
     Console.WriteLine($"  关联作品数: {profile.RelatedDramas.Count}");
+}
+
+// 多季合集与智能聚合（自动获取多季合集中的所有季及分集）
+DramaAlbum seasonsAlbum = await client.GetDramaSeasonsAsync("74123456789", cts.Token);
+Console.WriteLine($"合集: 《{seasonsAlbum.Title}》 (总季数: {seasonsAlbum.Seasons.Count})");
+foreach (DramaSeason season in seasonsAlbum.Seasons)
+{
+    Console.WriteLine($"  - 第 {season.Index} 季: 《{season.Title}》 ({season.EpisodeCount}集)");
+}
+
+// 单剧专属关联推荐（播放器/选集面板“更多好剧”推荐）
+DramaRelatedRecommendations related = await client.GetSeriesRecommendationsAsync("74123456789", cts.Token);
+foreach (Drama drama in related.Items)
+{
+    Console.WriteLine($"  - 相关好剧: 《{drama.Title}》 评分: {drama.Score}");
 }
 
 // 批量获取多部剧集基础信息（单次最多 50 部）

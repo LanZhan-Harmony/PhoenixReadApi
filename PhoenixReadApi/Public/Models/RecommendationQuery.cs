@@ -15,4 +15,3 @@ public sealed class RecommendationQuery
     /// <summary>之前返回过的剧集 ID。</summary>
     public IReadOnlyList<string> Seen { get; init; } = [];
 }
-

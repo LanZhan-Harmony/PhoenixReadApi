@@ -31,6 +31,11 @@ internal sealed class PhoenixReadClientRuntime : IDisposable
 
     internal PhoenixReadWebTransport WebTransport { get; }
 
+    internal bool IsAuthenticated => AppTransport.IsAuthenticated;
+
+    internal Task ResetDeviceAsync(CancellationToken cancellationToken) =>
+        AppTransport.ResetDeviceAsync(cancellationToken);
+
     internal Task<string> GetTextAsync(
         Uri endpoint,
         Uri refererBase,

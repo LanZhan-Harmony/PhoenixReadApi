@@ -34,4 +34,31 @@ public sealed partial class PhoenixReadApiClient
         IEnumerable<string> seriesIds,
         CancellationToken cancellationToken = default
     ) => _details.GetBatchDramaDetailsWithEpisodesAsync(seriesIds, cancellationToken);
+
+    /// <summary>根据合集 ID 获取短剧多季合集详情及各季列表。</summary>
+    /// <param name="albumId">多季合集 ID（可从 <see cref="DramaDetails.RelatedAlbumId"/> 获取）。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>包含各季剧集元数据的 <see cref="DramaAlbum"/> 对象。</returns>
+    public Task<DramaAlbum> GetAlbumAsync(
+        string albumId,
+        CancellationToken cancellationToken = default
+    ) => _details.GetAlbumAsync(albumId, cancellationToken);
+
+    /// <summary>智能聚合短剧的所有季数（多源回退与派生聚合）。</summary>
+    /// <param name="seriesId">当前短剧的 ID。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>按季数升序排列的完整季集合。</returns>
+    public Task<DramaAlbum> GetDramaSeasonsAsync(
+        string seriesId,
+        CancellationToken cancellationToken = default
+    ) => _details.GetDramaSeasonsAsync(seriesId, cancellationToken);
+
+    /// <summary>获取指定短剧的专属关联推荐好剧（播放器/详情页相关推荐）。</summary>
+    /// <param name="seriesId">短剧 ID。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>包含推荐列表和推荐标题的 <see cref="DramaRelatedRecommendations"/> 对象。</returns>
+    public Task<DramaRelatedRecommendations> GetSeriesRecommendationsAsync(
+        string seriesId,
+        CancellationToken cancellationToken = default
+    ) => _details.GetSeriesRecommendationsAsync(seriesId, cancellationToken);
 }
