@@ -29,11 +29,6 @@ SampleContext context = new()
     CancellationToken = timeout.Token,
 };
 
-// 第 7 步：场景功能演示（对应红果 App 三大特色页面：筛选找剧、排行榜、上新日历）
-await SampleSteps.RunFeatureDemosAsync(context);
-
-return;
-
 // 第 1 步：登录（会话校验 → 短信登录 → 二维码登录演示）
 await SampleSteps.LoginAsync(context, phone);
 
@@ -49,7 +44,10 @@ await SampleSteps.RunUserRelatedAsync(context);
 // 第 5 步：分享链接
 await SampleSteps.RunShareAsync(context);
 
-// 第 6 步：写入接口（需要登录）
+// 第 6 步：场景特色功能演示（筛选找剧、短剧排行榜、上新日历）
+await SampleSteps.RunFeatureDemosAsync(context);
+
+// 第 7 步：写入接口（需要登录）
 if (context.Authentication.IsAuthenticated)
 {
     await SampleSteps.RunWriteOperationsAsync(context);

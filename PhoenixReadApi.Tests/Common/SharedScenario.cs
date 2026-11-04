@@ -233,18 +233,6 @@ public static class SharedScenario
         }
     }
 
-    public static async Task AssertValidFeedSection(FeedSection? section)
-    {
-        await Assert.That(section).IsNotNull();
-        await Assert.That(section!.Id).IsNotNull();
-        await Assert.That(section.Title).IsNotNull();
-        await Assert.That(section.Items).IsNotNull();
-        foreach (Drama drama in section.Items)
-        {
-            await AssertValidDrama(drama);
-        }
-    }
-
     public static async Task AssertValidReservation(Reservation? reservation)
     {
         await Assert.That(reservation).IsNotNull();

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -11,7 +11,6 @@ using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Search;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
-using PhoenixReadApi.Internal.Infrastructure.Web;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Search;
@@ -229,7 +228,9 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
     }
 
-    internal async Task<IReadOnlyList<string>> GetSearchCuesAsync(CancellationToken cancellationToken)
+    internal async Task<IReadOnlyList<string>> GetSearchCuesAsync(
+        CancellationToken cancellationToken
+    )
     {
         KeyValuePair<string, string>[] query =
         [
@@ -241,7 +242,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
         ];
 
         AppSearchCueResponse response = await _appTransport
-            .GetRootAsync<AppSearchCueResponse>("/reading/bookapi/search/cue/v1/", query, cancellationToken)
+            .GetRootAsync<AppSearchCueResponse>(
+                "/reading/bookapi/search/cue/v1/",
+                query,
+                cancellationToken
+            )
             .ConfigureAwait(false);
 
         List<string> result = [];
@@ -283,7 +288,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
         ];
 
         AppResponse<IReadOnlyList<AppHotSearchPlanCellDto>> response = await _appTransport
-            .GetAsync<IReadOnlyList<AppHotSearchPlanCellDto>>("/reading/bookapi/plan/v1/", query, cancellationToken)
+            .GetAsync<IReadOnlyList<AppHotSearchPlanCellDto>>(
+                "/reading/bookapi/plan/v1/",
+                query,
+                cancellationToken
+            )
             .ConfigureAwait(false);
 
         List<HotSearchItem> guesses = [];
@@ -300,7 +309,9 @@ internal sealed partial class SearchService : PhoenixFeatureService
             List<AppHotSearchLynxCellDto>? lynxCells = null;
             try
             {
-                lynxCells = JsonAotSerializer.Deserialize<List<AppHotSearchLynxCellDto>>(planCell.LynxData);
+                lynxCells = JsonAotSerializer.Deserialize<List<AppHotSearchLynxCellDto>>(
+                    planCell.LynxData
+                );
             }
             catch (JsonException)
             {
@@ -318,36 +329,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 {
                     foreach (AppHotSearchVideoDto video in cell.VideoData ?? [])
                     {
-                        guesses.Add(new HotSearchItem
-                        {
-                            Id = video.SeriesId ?? string.Empty,
-                            Title = video.Title ?? string.Empty,
-                            CoverUrl = video.Cover ?? string.Empty,
-                            EpisodeCount = video.EpisodeCount,
-                            CardTips = video.CardTips ?? string.Empty,
-                            Heat = video.RecText ?? string.Empty,
-                            Tag = video.TagInfo?.Text ?? string.Empty,
-                        });
-                    }
-                }
-                else if (cell.CellData.Count > 0)
-                {
-                    foreach (AppHotSearchLynxCellDto boardCell in cell.CellData)
-                    {
-                        string boardTitle = !string.IsNullOrWhiteSpace(boardCell.CellName)
-                            ? boardCell.CellName
-                            : (boardCell.ShowType switch
-                            {
-                                388 => "短剧热搜榜",
-                                591 => "漫剧热搜榜",
-                                619 => "热点话题榜",
-                                _ => "热搜榜",
-                            });
-
-                        List<HotSearchItem> boardItems = [];
-                        foreach (AppHotSearchVideoDto video in boardCell.VideoData ?? [])
-                        {
-                            boardItems.Add(new HotSearchItem
+                        guesses.Add(
+                            new HotSearchItem
                             {
                                 Id = video.SeriesId ?? string.Empty,
                                 Title = video.Title ?? string.Empty,
@@ -356,41 +339,72 @@ internal sealed partial class SearchService : PhoenixFeatureService
                                 CardTips = video.CardTips ?? string.Empty,
                                 Heat = video.RecText ?? string.Empty,
                                 Tag = video.TagInfo?.Text ?? string.Empty,
-                            });
+                            }
+                        );
+                    }
+                }
+                else if (cell.CellData.Count > 0)
+                {
+                    foreach (AppHotSearchLynxCellDto boardCell in cell.CellData)
+                    {
+                        string boardTitle = !string.IsNullOrWhiteSpace(boardCell.CellName)
+                            ? boardCell.CellName
+                            : (
+                                boardCell.ShowType switch
+                                {
+                                    388 => "短剧热搜榜",
+                                    591 => "漫剧热搜榜",
+                                    619 => "热点话题榜",
+                                    _ => "热搜榜",
+                                }
+                            );
+
+                        List<HotSearchItem> boardItems = [];
+                        foreach (AppHotSearchVideoDto video in boardCell.VideoData ?? [])
+                        {
+                            boardItems.Add(
+                                new HotSearchItem
+                                {
+                                    Id = video.SeriesId ?? string.Empty,
+                                    Title = video.Title ?? string.Empty,
+                                    CoverUrl = video.Cover ?? string.Empty,
+                                    EpisodeCount = video.EpisodeCount,
+                                    CardTips = video.CardTips ?? string.Empty,
+                                    Heat = video.RecText ?? string.Empty,
+                                    Tag = video.TagInfo?.Text ?? string.Empty,
+                                }
+                            );
                         }
 
                         foreach (AppHotSearchTopicDto topic in boardCell.VideoTopics ?? [])
                         {
-                            string heatInfo = topic.SecondaryInfoList is { Count: > 0 } sec && sec[0] is not null
-                                ? sec[0].Content ?? string.Empty
-                                : string.Empty;
-                            boardItems.Add(new HotSearchItem
-                            {
-                                Id = topic.TopicId ?? string.Empty,
-                                Title = topic.Title ?? string.Empty,
-                                Url = topic.Url ?? string.Empty,
-                                Heat = heatInfo,
-                            });
+                            string heatInfo =
+                                topic.SecondaryInfoList is { Count: > 0 } sec && sec[0] is not null
+                                    ? sec[0].Content ?? string.Empty
+                                    : string.Empty;
+                            boardItems.Add(
+                                new HotSearchItem
+                                {
+                                    Id = topic.TopicId ?? string.Empty,
+                                    Title = topic.Title ?? string.Empty,
+                                    Url = topic.Url ?? string.Empty,
+                                    Heat = heatInfo,
+                                }
+                            );
                         }
 
                         if (boardItems.Count > 0)
                         {
-                            boards.Add(new HotSearchBoard
-                            {
-                                Title = boardTitle,
-                                Items = boardItems,
-                            });
+                            boards.Add(
+                                new HotSearchBoard { Title = boardTitle, Items = boardItems }
+                            );
                         }
                     }
                 }
             }
         }
 
-        return new HotSearch
-        {
-            Guesses = guesses,
-            Boards = boards,
-        };
+        return new HotSearch { Guesses = guesses, Boards = boards };
     }
 
     private async Task<SearchResult> SearchCoreAsync(string keyword)

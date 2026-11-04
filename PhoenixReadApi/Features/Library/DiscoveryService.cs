@@ -1,49 +1,16 @@
 using System.Globalization;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Library;
-using PhoenixReadApi.Internal.Contracts.Shared.Drama;
-using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Library;
 
-/// <summary>剧集分类、首页 Feed、关联剧集、书架字段和分享链接。</summary>
+/// <summary>分享链接生成与解析。</summary>
 internal sealed class DiscoveryService : LibraryServiceBase
 {
     internal DiscoveryService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
-
-    internal async Task<FeedPage> GetFeedCategoriesAsync(CancellationToken cancellationToken)
-    {
-        AppResponse<AppFeedTabData> response = await _appTransport
-            .GetAsync<AppFeedTabData>(
-                "/reading/bookapi/bookmall/tab/v",
-                [
-                    new("bottom_tab_type", "0"),
-                    new("landing_bottom_tab_type", "0"),
-                    new("need_personal_recommend", "true"),
-                    new("screen_width_px", "1080"),
-                    new("is_horizontal_screen", "false"),
-                    new("disable_digg_stat", "false"),
-                    new("has_video_cache", "false"),
-                    new("last_tab_index", "0"),
-                    new("req_rank_category_id", ""),
-                    new("video_type_preferences_str", ""),
-                    new("tab_type", "0"),
-                    new("client_req_type", "3"),
-                ],
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        AppFeedTabData data = response.Data ?? new();
-        List<FeedSection> sections = [];
-        foreach (AppFeedTab tab in data.Tabs ?? [])
-        {
-            sections.AddRange(MapFeedSections(tab.Cells ?? [], tab.Title));
-        }
-        return new FeedPage { Sections = sections };
-    }
 
     internal async Task<ShareLink> CreateShareLinkAsync(
         string seriesId,
@@ -114,38 +81,5 @@ internal sealed class DiscoveryService : LibraryServiceBase
             SeriesId = ValueNormalizer.IsNumericId(seriesId) ? seriesId : string.Empty,
             VideoId = ValueNormalizer.IsNumericId(videoId) ? videoId : string.Empty,
         };
-    }
-
-    private static IReadOnlyList<FeedSection> MapFeedSections(
-        IReadOnlyList<AppFeedCell> cells,
-        string parentTitle
-    )
-    {
-        List<FeedSection> sections = [];
-        foreach (AppFeedCell cell in cells ?? [])
-        {
-            IReadOnlyList<DramaDto> videoItems = cell.VideoItems ?? [];
-            IReadOnlyList<DramaDto> bookItems = cell.BookItems ?? [];
-            IReadOnlyList<DramaDto> rows = videoItems.Count > 0 ? videoItems : bookItems;
-            List<Drama> items =
-            [
-                .. rows.Select(item => DramaMapper.FromDto(item, "推荐"))
-                    .Where(static item => item.Id.Length > 0),
-            ];
-            string title = cell.Name.Length > 0 ? cell.Name : parentTitle;
-            if (items.Count > 0)
-            {
-                sections.Add(
-                    new FeedSection
-                    {
-                        Id = cell.Id,
-                        Title = title,
-                        Items = items,
-                    }
-                );
-            }
-            sections.AddRange(MapFeedSections(cell.Children ?? [], title));
-        }
-        return sections;
     }
 }
