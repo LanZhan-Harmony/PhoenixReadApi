@@ -24,10 +24,10 @@ public sealed class Drama
     /// <summary>剧集评分。</summary>
     public string Score { get; init; } = string.Empty;
 
-    /// <summary>播放量。</summary>
+    /// <summary>播放量文案（如 "120万"）。</summary>
     public string Views { get; init; } = string.Empty;
 
-    /// <summary>热度值。</summary>
+    /// <summary>热度值文案（如 "4011万热度"）。</summary>
     public string Heat { get; init; } = string.Empty;
 
     /// <summary>首次上架日期。</summary>
@@ -48,4 +48,28 @@ public sealed class Drama
     /// <see cref="DramaCredit.Roles"/>。
     /// </remarks>
     public IReadOnlyList<DramaCredit> Credits { get; init; } = [];
+
+    /// <summary>是否属于多季合集短剧。</summary>
+    public bool IsMultiSeason { get; init; }
+
+    /// <summary>在多季合集中的季序号（从 1 开始）。</summary>
+    public int SeasonIndex { get; init; } = 1;
+
+    /// <summary>多季合集 ID（若属于系列剧）。</summary>
+    public string AlbumId { get; init; } = string.Empty;
+
+    /// <summary>改编的原著小说 ID（若有）。</summary>
+    public string NovelBookId { get; init; } = string.Empty;
+
+    /// <summary>改编的原著小说标题（若有）。</summary>
+    public string NovelTitle { get; init; } = string.Empty;
+
+    /// <summary>总播放量数值。</summary>
+    public long PlayCount { get; init; }
+
+    /// <summary>关注人数。</summary>
+    public long FollowCount { get; init; }
+
+    /// <summary>点赞数量。</summary>
+    public long DiggCount { get; init; }
 }

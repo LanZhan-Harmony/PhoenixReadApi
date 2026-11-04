@@ -41,7 +41,7 @@ internal sealed class PhoenixReadDeviceManager
     }
 
     internal const string StaticAppQueryPrefix =
-        "aid=8662&app_name=novelread&version_code=69132&version_name=6.9.1.32&manifest_version_code=73932&update_version_code=73932&channel=update_64&device_platform=android&os=android&ssmix=a&device_type=WKL-AN20&device_brand=HONOR&language=zh&os_api=37&os_version=17&resolution=1320*2868&dpi=360&compliance_status=0&need_personal_recommend=1&player_so_load=1&is_android_pad_screen=0&rom_version=V417IR%20release-keys&dragon_device_type=phone&host_abi=arm64-v8a&pv_player=73932";
+        "aid=8662&app_name=novelread&version_code=69132&version_name=6.9.1.32&manifest_version_code=69132&update_version_code=69132&channel=update_64&device_platform=android&os=android&ssmix=a&device_type=WKL-AN20&device_brand=HONOR&language=zh&os_api=37&os_version=17&resolution=1320*2868&dpi=360&compliance_status=0&need_personal_recommend=1&player_so_load=1&is_android_pad_screen=0&rom_version=V417IR%20release-keys&dragon_device_type=phone&host_abi=arm64-v8a&pv_player=69132";
 
     internal void AppendAppQuery(StringBuilder sb)
     {
@@ -93,11 +93,30 @@ internal sealed class PhoenixReadDeviceManager
                 return;
             }
 
-            if (DateTimeOffset.UtcNow < _registerPausedUntil)
+            if (!forceNew && DateTimeOffset.UtcNow < _registerPausedUntil)
             {
                 return;
             }
 
+            await RegisterDeviceCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _deviceLock.Release();
+        }
+    }
+
+    internal async Task ResetDeviceAsync(CancellationToken cancellationToken)
+    {
+        await _deviceLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            DeviceId = string.Empty;
+            InstallId = string.Empty;
+            Cdid = string.Empty;
+            KlinkEgdi = string.Empty;
+            IsRegistered = false;
+            _registerPausedUntil = DateTimeOffset.MinValue;
             await RegisterDeviceCoreAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -129,9 +148,15 @@ internal sealed class PhoenixReadDeviceManager
                 },
             };
 
-            byte[] body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+            byte[] jsonBytes = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+            byte[] encryptedBody = TtEncrypt.GzipAndEncrypt(jsonBytes);
+            string bodyStub = Convert.ToHexString(MD5.HashData(encryptedBody));
+
+            string reqId = Guid.NewGuid().ToString();
             KeyValuePair<string, string>[] registerQuery =
             [
+                new("req_id", reqId),
+                new("tt_data", "a"),
                 new("aid", "8662"),
                 new("app_name", "novelread"),
                 new("version_code", "69132"),
@@ -150,22 +175,29 @@ internal sealed class PhoenixReadDeviceManager
                 new("resolution", "1320*2868"),
                 new("dpi", "360"),
                 new("ac", "wifi"),
-                new("req_id", Guid.NewGuid().ToString()),
                 new("_rticket", nowMs.ToString(CultureInfo.InvariantCulture)),
             ];
 
             Uri registerUri = HttpUriHelper.CreateRawUri(
-                new Uri("https://log.snssdk.com/"),
+                new Uri("https://log5-applog-lq.fqnovel.com/"),
                 "service/2/device_register/",
                 registerQuery
             );
             using HttpRequestMessage request = new(HttpMethod.Post, registerUri);
             request.Headers.TryAddWithoutValidation("User-Agent", _userAgent);
             request.Headers.TryAddWithoutValidation("Accept", "application/json");
-            request.Content = new ByteArrayContent(body);
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+            request.Headers.TryAddWithoutValidation("log-encode-type", "gzip");
+            request.Headers.TryAddWithoutValidation("sdk-version", "2");
+            request.Headers.TryAddWithoutValidation("passport-sdk-version", "5051452");
+            request.Headers.TryAddWithoutValidation("x-vc-bdturing-sdk-version", "4.0.3.cn");
+            request.Headers.TryAddWithoutValidation("x-ss-dp", "8662");
+            request.Headers.TryAddWithoutValidation("X-SS-STUB", bodyStub);
+            request.Content = new ByteArrayContent(encryptedBody);
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue(
+                "application/octet-stream"
+            )
             {
-                CharSet = "utf-8",
+                Parameters = { new NameValueHeaderValue("tt-data", "a") },
             };
 
             using HttpResponseMessage response = await _http
@@ -173,7 +205,7 @@ internal sealed class PhoenixReadDeviceManager
                 .ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(10);
+                _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(5);
                 return;
             }
 
@@ -182,7 +214,7 @@ internal sealed class PhoenixReadDeviceManager
                 .ConfigureAwait(false);
             if (bytes.Length == 0)
             {
-                _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(10);
+                _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(5);
                 return;
             }
 
@@ -214,7 +246,7 @@ internal sealed class PhoenixReadDeviceManager
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(10);
+            _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(5);
         }
     }
 }

@@ -120,7 +120,7 @@ public sealed class CommentsAndDanmakuTests
         await Assert.That(comments).IsNotNull();
         await Assert.That(comments.TargetId).IsEqualTo(scenario.Episode.VideoId);
         await Assert.That(comments.Items).IsNotNull();
-        await Assert.That(comments.Items.Count <= 5).IsTrue();
+        await Assert.That(comments.Items.Count).IsGreaterThan(0);
         await Assert.That(comments.Total >= comments.Items.Count).IsTrue();
         await Assert.That(comments.Cursor).IsNotNull();
 

@@ -62,6 +62,16 @@ internal static class DramaMapper
             data.Status
         );
 
+        long playCount = 0;
+        string playCountStr = ValueNormalizer.First(data.SeriesPlayCount, data.PlayCount);
+        if (long.TryParse(playCountStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsedPlay))
+        {
+            playCount = parsedPlay;
+        }
+
+        string novelId = data.RelateBook?.BookInfo?.BookId ?? string.Empty;
+        string novelTitle = ValueNormalizer.First(data.RelateBook?.BookInfo?.BookName, data.RelateBook?.BookInfo?.BookShortName);
+
         return new Drama
         {
             Id = sourceId,
@@ -72,12 +82,20 @@ internal static class DramaMapper
             Remark = remark,
             EpisodeCount = Math.Max(0, episodeCount),
             Tags = tags,
-            ReleaseStatus = ReleaseStatusFromValue(status, remark),
+            ReleaseStatus = ReleaseStatusFromValue(status, remark, tags),
             Score = score,
             Views = ValueNormalizer.First(data.SeriesPlayCount, data.PlayCount),
             Heat = DtoHeat(data),
             OnlineDate = DtoOnlineDate(data, now ?? DateTimeOffset.Now),
             Credits = DtoCredits(data.MainCreatorUsers, data.Celebrities),
+            IsMultiSeason = data.IsMultiSeason || !string.IsNullOrWhiteSpace(data.EffectiveAlbumId),
+            SeasonIndex = data.SeasonIndex > 0 ? data.SeasonIndex : 1,
+            AlbumId = data.EffectiveAlbumId,
+            NovelBookId = novelId,
+            NovelTitle = novelTitle,
+            PlayCount = playCount,
+            FollowCount = data.FollowedCount,
+            DiggCount = data.DiggCount,
         };
     }
 
@@ -113,7 +131,7 @@ internal static class DramaMapper
             Description = description,
             CoverUrl = coverUrl,
             EpisodeCount = Math.Max(0, episodeCount),
-            ReleaseStatus = ReleaseStatusFromValue(status),
+            ReleaseStatus = ReleaseStatusFromValue(status, tags: tags),
             Tags = tags ?? [],
         };
 
@@ -127,21 +145,71 @@ internal static class DramaMapper
         IReadOnlyList<string> tags
     ) => FromShelf(seriesId, title, description, coverUrl, episodeCount, status, tags);
 
-    internal static DramaReleaseStatus ReleaseStatusFromValue(string value, string remark = "")
+    internal static DramaReleaseStatus ReleaseStatusFromValue(
+        string value,
+        string remark = "",
+        IReadOnlyList<string>? tags = null
+    )
     {
         value = (value ?? string.Empty).Trim().ToLowerInvariant();
-        return value switch
+        if (value is "1" or "finished" or "complete" or "completed" or "end")
         {
-            "1" or "finished" or "complete" or "completed" => DramaReleaseStatus.Finished,
-            "0" or "ongoing" or "serializing" or "updating" => DramaReleaseStatus.Ongoing,
-            _ when remark.Contains("完结", StringComparison.OrdinalIgnoreCase)
-                    || remark.Contains("全集", StringComparison.OrdinalIgnoreCase) =>
-                DramaReleaseStatus.Finished,
-            _ when remark.Contains("更新", StringComparison.OrdinalIgnoreCase)
-                    || remark.Contains("连载", StringComparison.OrdinalIgnoreCase) =>
-                DramaReleaseStatus.Ongoing,
-            _ => DramaReleaseStatus.Unknown,
-        };
+            return DramaReleaseStatus.Finished;
+        }
+        if (value is "0" or "ongoing" or "serializing" or "updating")
+        {
+            return DramaReleaseStatus.Ongoing;
+        }
+
+        if (!string.IsNullOrWhiteSpace(remark))
+        {
+            string cleanRemark = remark.Trim();
+            if (
+                cleanRemark.Contains("完结", StringComparison.OrdinalIgnoreCase)
+                || cleanRemark.Contains("全集", StringComparison.OrdinalIgnoreCase)
+                || (cleanRemark.StartsWith("全", StringComparison.Ordinal) && cleanRemark.EndsWith("集", StringComparison.Ordinal))
+            )
+            {
+                return DramaReleaseStatus.Finished;
+            }
+
+            if (
+                cleanRemark.Contains("更新", StringComparison.OrdinalIgnoreCase)
+                || cleanRemark.Contains("连载", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                return DramaReleaseStatus.Ongoing;
+            }
+        }
+
+        if (tags is not null)
+        {
+            foreach (string tag in tags)
+            {
+                if (string.IsNullOrWhiteSpace(tag))
+                {
+                    continue;
+                }
+
+                if (
+                    tag.Contains("完结", StringComparison.OrdinalIgnoreCase)
+                    || tag.Contains("全集", StringComparison.OrdinalIgnoreCase)
+                )
+                {
+                    return DramaReleaseStatus.Finished;
+                }
+
+                if (
+                    tag.Contains("更新", StringComparison.OrdinalIgnoreCase)
+                    || tag.Contains("连载", StringComparison.OrdinalIgnoreCase)
+                )
+                {
+                    return DramaReleaseStatus.Ongoing;
+                }
+            }
+        }
+
+        return DramaReleaseStatus.Unknown;
     }
 
     private static List<DramaCredit> DtoCredits(

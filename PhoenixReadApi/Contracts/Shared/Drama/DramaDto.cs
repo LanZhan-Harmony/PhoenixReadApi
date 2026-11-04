@@ -187,4 +187,73 @@ internal sealed class DramaDto
 
     [JsonPropertyName("main_creator_users")]
     public IReadOnlyList<DramaCreatorUserDto> MainCreatorUsers { get; init; } = [];
+
+    [JsonPropertyName("followed_cnt")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long FollowedCount { get; init; }
+
+    [JsonPropertyName("digg_cnt")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long DiggCount { get; init; }
+
+    [JsonPropertyName("is_multi_season")]
+    public bool IsMultiSeason { get; init; }
+
+    [JsonPropertyName("season_index")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int SeasonIndex { get; init; } = 1;
+
+    [JsonPropertyName("related_album_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string RelatedAlbumId { get; init; } = string.Empty;
+
+    [JsonPropertyName("album_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string AlbumId { get; init; } = string.Empty;
+
+    [JsonPropertyName("secondary_infos")]
+    public IReadOnlyList<DramaSecondaryInfoDto> SecondaryInfos { get; init; } = [];
+
+    [JsonPropertyName("video_relate_book")]
+    public DramaRelateBookContainerDto RelateBook { get; init; } = new();
+
+    [JsonIgnore]
+    public string EffectiveAlbumId =>
+        !string.IsNullOrWhiteSpace(RelatedAlbumId) ? RelatedAlbumId : AlbumId;
+}
+
+internal sealed class DramaSecondaryInfoDto
+{
+    [JsonPropertyName("content")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Content { get; init; } = string.Empty;
+
+    [JsonPropertyName("data_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int DataType { get; init; }
+
+    [JsonPropertyName("schema")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Schema { get; init; } = string.Empty;
+}
+
+internal sealed class DramaRelateBookContainerDto
+{
+    [JsonPropertyName("book_info")]
+    public DramaRelateBookInfoDto BookInfo { get; init; } = new();
+}
+
+internal sealed class DramaRelateBookInfoDto
+{
+    [JsonPropertyName("book_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookId { get; init; } = string.Empty;
+
+    [JsonPropertyName("book_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookName { get; init; } = string.Empty;
+
+    [JsonPropertyName("book_short_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookShortName { get; init; } = string.Empty;
 }

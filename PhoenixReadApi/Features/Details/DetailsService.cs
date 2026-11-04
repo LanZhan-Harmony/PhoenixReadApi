@@ -139,7 +139,7 @@ internal sealed class DetailsService : PhoenixFeatureService
                 throw new PhoenixReadApiResponseException("App 返回了其他剧集的分集。", "detail");
             }
 
-            episodes.Add(CreateEpisode(videoId, episode));
+            episodes.Add(CreateEpisode(item, episode));
         }
 
         episodes.Sort(static (left, right) => left.Number.CompareTo(right.Number));
@@ -233,11 +233,128 @@ internal sealed class DetailsService : PhoenixFeatureService
             Number = number,
         };
 
+    private static Episode CreateEpisode(DramaEpisodeDto dto, int number) =>
+        new()
+        {
+            VideoId = dto.VideoId,
+            Title = string.IsNullOrWhiteSpace(dto.Title) ? $"第{number}集" : dto.Title,
+            Number = number,
+            Duration = dto.DurationSeconds > 0 ? TimeSpan.FromSeconds(dto.DurationSeconds) : TimeSpan.Zero,
+            CoverUrl = dto.EffectiveCover,
+            Playable = !dto.DisablePlay,
+            IsVertical = dto.Vertical,
+            IsNewlyUpdated = dto.IsNewlyUpdate,
+            CommentCount = dto.CommentCount,
+            DiggCount = dto.DiggedCount,
+        };
+
+    internal async Task<IReadOnlyList<DramaDetails>> GetBatchDramaDetailsWithEpisodesAsync(
+        IEnumerable<string> seriesIds,
+        CancellationToken cancellationToken
+    )
+    {
+        ArgumentNullException.ThrowIfNull(seriesIds);
+        List<string> ids =
+        [
+            .. seriesIds
+                .Select(NormalizeSeriesId)
+                .Where(static id => id.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .Take(50),
+        ];
+
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        Dictionary<string, DramaDetails> found = new(StringComparer.Ordinal);
+        const int batchSize = 10;
+        for (int i = 0; i < ids.Count; i += batchSize)
+        {
+            List<string> chunk = ids.Skip(i).Take(batchSize).ToList();
+            AppPlayerBatchDetailPayload payload = new()
+            {
+                SeriesId = string.Join(",", chunk),
+                Scene = "player",
+                BizParam = new AppPlayerBatchBizParam
+                {
+                    Source = 7,
+                },
+            };
+
+            AppResponse<Dictionary<string, AppPlayerSeriesEntry>> response = await _appTransport
+                .PostAsync<AppPlayerBatchDetailPayload, Dictionary<string, AppPlayerSeriesEntry>>(
+                    "/novel/player/multi_video_detail/player/v1",
+                    payload,
+                    commentRequest: false,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            Dictionary<string, AppPlayerSeriesEntry> entries = response.Data ?? [];
+            foreach ((string sid, AppPlayerSeriesEntry entry) in entries)
+            {
+                DramaDto videoData = entry.VideoData;
+                Drama drama = DramaMapper.FromDto(videoData, "短剧");
+                if (string.IsNullOrWhiteSpace(drama.Id))
+                {
+                    continue;
+                }
+
+                List<Episode> episodes = [];
+                HashSet<int> seenEpisodes = [];
+                foreach (DramaEpisodeDto epDto in videoData.VideoList)
+                {
+                    if (ValueNormalizer.IsNumericId(epDto.VideoId) && epDto.Episode > 0 && seenEpisodes.Add(epDto.Episode))
+                    {
+                        episodes.Add(CreateEpisode(epDto, epDto.Episode));
+                    }
+                }
+
+                episodes.Sort(static (left, right) => left.Number.CompareTo(right.Number));
+                found[sid] = new DramaDetails
+                {
+                    Drama = drama,
+                    Episodes = episodes,
+                };
+            }
+        }
+
+        List<DramaDetails> result = [];
+        foreach (string id in ids)
+        {
+            if (found.TryGetValue(id, out DramaDetails? details))
+            {
+                result.Add(details);
+            }
+        }
+
+        return result;
+    }
+
     internal async Task<IReadOnlyList<Drama>> GetBatchDramaDetailsAsync(
         IEnumerable<string> seriesIds,
         CancellationToken cancellationToken
     )
     {
+        try
+        {
+            IReadOnlyList<DramaDetails> withEpisodes = await GetBatchDramaDetailsWithEpisodesAsync(
+                seriesIds,
+                cancellationToken
+            ).ConfigureAwait(false);
+
+            if (withEpisodes.Count > 0)
+            {
+                return [.. withEpisodes.Select(static d => d.Drama)];
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // 降级使用图书 multi-detail 接口
+        }
+
         ArgumentNullException.ThrowIfNull(seriesIds);
         List<string> ids =
         [

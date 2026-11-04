@@ -19,4 +19,8 @@ internal sealed class AppPlaybackData
     [JsonPropertyName("duration")]
     [JsonConverter(typeof(FlexibleDoubleConverter))]
     public double Duration { get; init; }
+
+    [JsonPropertyName("expire_time")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long ExpireTime { get; init; }
 }

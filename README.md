@@ -111,10 +111,11 @@ if (drama is not null)
     {
         Console.WriteLine($"第 {firstEpisode.Number} 集: {firstEpisode.Title}");
 
-        // 4. 解析第一集的视频播放信息
-        PlaybackMedia media = await client.ResolveMediaAsync(drama.Id, firstEpisode.VideoId, cts.Token);
+        // 4. 解析第一集的可播放媒体列表（按清晰度从高到低排序，首项为推荐最佳画质）
+        IReadOnlyList<PlaybackMedia> medias = await client.ResolveMediaAsync(drama.Id, firstEpisode.VideoId, cts.Token);
+        PlaybackMedia media = medias[0];
         Console.WriteLine($"播放直链: {media.Url}");
-        Console.WriteLine($"媒体时长: {media.Duration}, 画质得分: {media.Quality}");
+        Console.WriteLine($"媒体时长: {media.Duration}, 清晰度: {media.Definition} ({media.Codec})");
 
         // 若分集为 CENC 加密媒体，可取得对应的 AES-128 解密密钥
         if (!string.IsNullOrEmpty(media.DecryptionKey))
@@ -181,6 +182,22 @@ foreach (Reservation drama in upcoming.Items.Take(5))
 {
     Console.WriteLine($"新剧: 《{drama.Title}》 (ID: {drama.SeriesId}), 预约状态: {drama.IsActive}");
 }
+
+// 演员排行榜（名次、人气值、代表作品、排名升降）
+ActorLeaderboardPage actorBoard = await client.GetActorLeaderboardAsync(offset: 0, cancellationToken: cts.Token);
+foreach (ActorLeaderboardItem actor in actorBoard.Items.Take(5))
+{
+    Console.WriteLine($"TOP {actor.Position}: {actor.Name} ({actor.Popularity}) - 代表作: {actor.RepresentativeWork}");
+}
+
+// 短剧排行榜（支持多榜单切换：真人剧榜、漫剧榜、热播榜等）
+ShortDramaLeaderboardPage rankBoard = await client.GetShortDramaLeaderboardAsync(
+    category: ShortDramaLeaderboardCategory.Human,
+    board: ShortDramaLeaderboardBoard.HotPlay,
+    offset: 0,
+    cancellationToken: cts.Token
+);
+Console.WriteLine($"榜单: {rankBoard.BoardTitle} (返回 {rankBoard.Items.Count} 部短剧)");
 ```
 
 ---
@@ -198,6 +215,21 @@ foreach (SearchSuggestion suggestion in suggestions)
 // 综合短剧搜索
 SearchResult searchResult = await client.SearchAsync("逆袭", cts.Token);
 Console.WriteLine($"搜索命中: {searchResult.Total} 部短剧 (是否受限: {searchResult.Limited})");
+
+// 获取搜索框轮播提示词（滚动热搜词）
+IReadOnlyList<string> cues = await client.GetSearchCuesAsync(cts.Token);
+Console.WriteLine("轮播热词: " + string.Join(" / ", cues.Take(5)));
+
+// 获取搜索看板热搜榜单与“猜你想搜”
+HotSearch hotSearch = await client.GetHotSearchAsync(cts.Token);
+foreach (HotSearchBoard board in hotSearch.Boards)
+{
+    Console.WriteLine($"热搜看板: {board.Title}");
+    foreach (HotSearchItem item in board.Items.Take(3))
+    {
+        Console.WriteLine($"  - {item.Title} [{item.CardTips}]");
+    }
+}
 
 // 获取指定题材推荐流（支持基于上一页游标与已展示 ID 集合去重）
 RecommendationPage recommendations = await client.GetRecommendationsAsync(
@@ -231,6 +263,16 @@ IReadOnlyList<Drama> batchDramas = await client.GetBatchDramaDetailsAsync(
     ["74123456789", "74987654321"],
     cts.Token
 );
+
+// 播放器级批量获取完整详情与全部分集列表（单次最多 50 部）
+IReadOnlyList<DramaDetails> batchWithEpisodes = await client.GetBatchDramaDetailsWithEpisodesAsync(
+    ["74123456789", "74987654321"],
+    cts.Token
+);
+foreach (DramaDetails item in batchWithEpisodes)
+{
+    Console.WriteLine($"短剧: 《{item.Drama.Title}》, 分集数: {item.Episodes.Count}");
+}
 ```
 
 ---
@@ -238,21 +280,24 @@ IReadOnlyList<Drama> batchDramas = await client.GetBatchDramaDetailsAsync(
 ### 4. 视频播放解析与 CENC 内容解密
 
 ```csharp
-// 解析指定分集的可播放媒体信息
-PlaybackMedia media = await client.ResolveMediaAsync(
+// 解析指定分集的可播放媒体列表（按画质综合得分从高到低排序）
+IReadOnlyList<PlaybackMedia> medias = await client.ResolveMediaAsync(
     seriesId: details.Drama.Id,
     videoId: details.Episodes[0].VideoId,
     cancellationToken: cts.Token
 );
 
+// 首个条目即为推荐的最佳画质
+PlaybackMedia media = medias[0];
 Console.WriteLine($"主播放地址: {media.Url}");
 Console.WriteLine($"必要 Referer: {media.Referer}");
+Console.WriteLine($"清晰度: {media.Definition} ({media.QualityName}), 编码: {media.Codec}");
 Console.WriteLine($"视频时长: {media.Duration}");
 
-// 获取全部可用清晰度版本
-foreach (MediaVariant variant in media.Variants)
+// 遍历全部可用清晰度版本（每个条目均自包含完整的播放直链与解密密钥）
+foreach (PlaybackMedia variant in medias)
 {
-    Console.WriteLine($"  清晰度得分: {variant.Quality}, 地址: {variant.Url}");
+    Console.WriteLine($"  [{variant.Definition}] 编码: {variant.Codec}, 码率: {variant.Bitrate}b/s, 地址: {variant.Url}");
 }
 
 // 若视频采用 CENC 加密，DecryptionKey 包含 16 字节十六进制 AES-128 解密密钥
@@ -429,6 +474,24 @@ if (isSessionValid)
 
 // 退出登录：清空内存凭据并安全删除本地会话文件
 client.Logout();
+
+// 若遇到服务端匿名频控限制，可主动重置匿名设备并重新执行安全加密注册
+await client.ResetDeviceAsync(cts.Token);
+```
+
+---
+
+### 8. 跨页去重流式遍历
+
+对于推荐流、题材分类库或排行榜，客户端提供了基于 `IAsyncEnumerable<T>` 的流式遍历接口。底层自动维护已访问 ID 集合以实现跨页去重，并支持随时取消：
+
+```csharp
+// 流式消费真人短剧推荐，跨页自动去重
+await foreach (Drama drama in client.EnumerateRecommendationsAsync(genre: RecommendationGenre.ShortDrama, cancellationToken: cts.Token))
+{
+    Console.WriteLine($"流式接收: 《{drama.Title}》 (ID: {drama.Id})");
+    // 处理达到数量或条件后直接 break 退出
+}
 ```
 
 ---

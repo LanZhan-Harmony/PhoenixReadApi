@@ -203,16 +203,9 @@ public static class SharedScenario
         await Assert.That(media.Duration >= TimeSpan.Zero).IsTrue();
         await Assert.That(media.Quality >= 0).IsTrue();
         await Assert.That(media.DecryptionKey).IsNotNull();
-        await Assert.That(media.Variants).IsNotNull();
-        await Assert.That(media.Variants.Count > 0).IsTrue();
-
-        foreach (MediaVariant variant in media.Variants)
-        {
-            await Assert.That(variant).IsNotNull();
-            await Assert.That(IsHttpUrl(variant.Url)).IsTrue();
-            await Assert.That(variant.Quality >= 0).IsTrue();
-            await Assert.That(variant.DecryptionKey).IsNotNull();
-        }
+        await Assert.That(media.QualityName).IsNotNull();
+        await Assert.That(media.BackupUrl).IsNotNull();
+        await Assert.That(media.AudioUrl).IsNotNull();
     }
 
     public static async Task AssertValidTagCategoryGroup(TagCategoryGroup? group)

@@ -96,6 +96,33 @@ internal static partial class SampleSteps
         );
         PrintCount("  联想", suggestions?.Count);
 
+        IReadOnlyList<string>? searchCues = await TryAsync(
+            "GetSearchCuesAsync",
+            () => client.GetSearchCuesAsync(cancellationToken)
+        );
+        PrintCount("  搜索轮播热词", searchCues?.Count);
+        if (searchCues is { Count: > 0 })
+        {
+            Console.WriteLine($"    轮播热词预览: {string.Join(" / ", searchCues.Take(4))}");
+        }
+
+        HotSearch? hotSearch = await TryAsync(
+            "GetHotSearchAsync",
+            () => client.GetHotSearchAsync(cancellationToken)
+        );
+        if (hotSearch is not null)
+        {
+            Console.WriteLine($"  热搜看板：猜你想搜 {hotSearch.Guesses.Count} 条，看板榜单 {hotSearch.Boards.Count} 个");
+            foreach (HotSearchBoard board in hotSearch.Boards.Take(2))
+            {
+                Console.WriteLine($"    ★ {board.Title}:");
+                foreach (HotSearchItem item in board.Items.Take(3))
+                {
+                    Console.WriteLine($"       - {item.Title} [{item.CardTips}]");
+                }
+            }
+        }
+
         context.Search = await TryAsync(
             "SearchAsync",
             () => client.SearchAsync(context.Keyword, cancellationToken)
@@ -122,13 +149,19 @@ internal static partial class SampleSteps
                 "GetBatchDramaDetailsAsync",
                 () => client.GetBatchDramaDetailsAsync(batchIds, cancellationToken)
             );
-            PrintCount("  批量短剧详情", batchDramas?.Count);
-            if (batchDramas is not null)
+            PrintCount("  批量短剧详情 (图书级)", batchDramas?.Count);
+
+            IReadOnlyList<DramaDetails>? batchWithEpisodes = await TryAsync(
+                "GetBatchDramaDetailsWithEpisodesAsync",
+                () => client.GetBatchDramaDetailsWithEpisodesAsync(batchIds, cancellationToken)
+            );
+            PrintCount("  批量短剧详情 (播放器级含分集)", batchWithEpisodes?.Count);
+            if (batchWithEpisodes is not null)
             {
-                foreach (Drama drama in batchDramas)
+                foreach (DramaDetails item in batchWithEpisodes)
                 {
                     Console.WriteLine(
-                        $"    [{drama.Id}] {drama.Title} - {drama.EpisodeCount}集 - 评分: {drama.Score}"
+                        $"    [{item.Drama.Id}] 《{item.Drama.Title}》 - {item.Episodes.Count} 集 - 首集: {item.Episodes.FirstOrDefault()?.Title}"
                     );
                 }
             }
@@ -190,13 +223,13 @@ internal static partial class SampleSteps
             $"剧集：{context.SeriesId}，分集：{context.Details?.Episodes.Count ?? 0}，首集：{context.VideoId}"
         );
 
-        context.Media = await TryWhenIdsAsync(
+        context.Medias = await TryWhenIdsAsync(
             "ResolveMediaAsync(ids)",
             context.SeriesId,
             context.VideoId,
             (series, video) => client.ResolveMediaAsync(series, video, cancellationToken)
         );
-        PrintMedia(context.Media);
+        PrintMedia(context.Medias);
 
         long durationMs =
             context.Media?.Duration > TimeSpan.Zero

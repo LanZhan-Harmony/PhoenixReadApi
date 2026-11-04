@@ -29,6 +29,11 @@ SampleContext context = new()
     CancellationToken = timeout.Token,
 };
 
+// 第 7 步：场景功能演示（对应红果 App 三大特色页面：筛选找剧、排行榜、上新日历）
+await SampleSteps.RunFeatureDemosAsync(context);
+
+return;
+
 // 第 1 步：登录（会话校验 → 短信登录 → 二维码登录演示）
 await SampleSteps.LoginAsync(context, phone);
 
@@ -53,8 +58,5 @@ else
 {
     Console.WriteLine("未登录，跳过需要账号权限的写入接口。");
 }
-
-// 第 7 步：场景功能演示（对应红果 App 三大特色页面：筛选找剧、排行榜、上新日历）
-await SampleSteps.RunFeatureDemosAsync(context);
 
 Console.WriteLine("样例执行完成。会话文件按要求保留，未调用 Logout()。");
