@@ -45,4 +45,27 @@ public sealed partial class PhoenixReadApiClient
         IEnumerable<string>? seen = null,
         CancellationToken cancellationToken = default
     ) => _search.GetRecommendationsAsync(genre, offset, sessionId, seen, cancellationToken);
+
+    /// <summary>获取搜索框轮播提示词（搜索框默认占位与轮播推荐提示）。</summary>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>提示词列表，如“书名”、“主角”、“题材”等。</returns>
+    public Task<IReadOnlyList<string>> GetSearchCuesAsync(
+        CancellationToken cancellationToken = default
+    ) => _search.GetSearchCuesAsync(cancellationToken);
+
+    /// <summary>获取搜索页的“猜你想搜”及各个热搜榜单（短剧热搜榜、漫剧热搜榜、热点话题榜等）。</summary>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>包含“猜你想搜”短剧及热搜各榜单的 <see cref="HotSearch"/> 对象。</returns>
+    public Task<HotSearch> GetHotSearchAsync(CancellationToken cancellationToken = default) =>
+        _search.GetHotSearchAsync(cancellationToken);
+    /// <summary>流式遍历指定题材的推荐短剧，并在跨页时自动追踪并过滤重复的剧集。</summary>
+    /// <param name="genre">推荐题材分类枚举。</param>
+    /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
+    /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
+    /// <returns>去重后的短剧异步流。</returns>
+    public IAsyncEnumerable<Drama> EnumerateRecommendationsAsync(
+        RecommendationGenre genre = RecommendationGenre.ShortDrama,
+        int maxPages = 10,
+        CancellationToken cancellationToken = default
+    ) => _search.EnumerateRecommendationsAsync(genre, maxPages, cancellationToken);
 }

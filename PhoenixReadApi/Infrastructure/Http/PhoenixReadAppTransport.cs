@@ -100,6 +100,19 @@ internal sealed class PhoenixReadAppTransport
             cancellationToken
         );
 
+    /// <summary>读取未遵循通用 data 包装的顶层 JSON 接口。</summary>
+    internal Task<TResponse> GetRootAsync<TResponse>(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    ) =>
+        RetryPolicy.ExecuteAsync(
+            (_, token) => SendRootOnceAsync<TResponse>(path, query, token),
+            _options.RetryCount,
+            RetryPolicy.IsTransient,
+            cancellationToken
+        );
+
     /// <summary>发送登录等接口使用的 application/x-www-form-urlencoded 请求。</summary>
     internal Task<AppResponse<TResponse>> PostFormAsync<TResponse>(
         string path,
@@ -135,6 +148,9 @@ internal sealed class PhoenixReadAppTransport
         );
 
     internal void ClearSession() => _sessionStore.ClearSession();
+
+    internal Task ResetDeviceAsync(CancellationToken cancellationToken) =>
+        _deviceManager.ResetDeviceAsync(cancellationToken);
 
     private async Task<AppResponse<TResponse>> SendGetOnceAsync<TResponse>(
         string path,
@@ -359,6 +375,65 @@ internal sealed class PhoenixReadAppTransport
 
         EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
         return result;
+    }
+
+    private async Task<TResponse> SendRootOnceAsync<TResponse>(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    )
+    {
+        await _deviceManager
+            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        Uri requestUri = BuildAppRequestUri(path, query);
+        using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
+        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+        _sessionStore.ApplySession(request);
+        PhoenixReadRequestSigner.SignPlayer(
+            request,
+            [],
+            _deviceManager.DeviceId,
+            DateTimeOffset.UtcNow
+        );
+
+        using HttpResponseMessage response = await _http
+            .SendAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        _sessionStore.CaptureSession(response);
+        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new PhoenixReadApiHttpException(
+                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                path,
+                (int)response.StatusCode,
+                requestUri,
+                (int)response.StatusCode >= 500
+            );
+        }
+        if (bytes.Length == 0)
+        {
+            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+        }
+
+        try
+        {
+            return JsonAotSerializer.Deserialize<TResponse>(bytes)
+                ?? throw new JsonException("The App response was null.");
+        }
+        catch (JsonException exception)
+        {
+            throw new PhoenixReadApiDeserializationException(
+                "红果 App 接口返回格式异常。",
+                path,
+                exception
+            );
+        }
     }
 
     private async Task<AppResponse<TResponse>> SendOnceAsync<TResponse>(

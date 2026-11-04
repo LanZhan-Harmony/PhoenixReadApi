@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -9,6 +10,7 @@ using PhoenixReadApi.Internal.Contracts.Web.Catalog;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Infrastructure.Web;
+using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Catalog;
 
@@ -412,6 +414,14 @@ internal sealed class CatalogService : PhoenixFeatureService
         ];
     }
 
+    internal Task<TagDramaPage> GetTagDramaPageAsync(
+        string tagItemId,
+        TagDramaSortOrder sort,
+        int offset,
+        int count,
+        CancellationToken cancellationToken
+    ) => GetTagDramaPageAsync(tagItemId, MapTagSortOrder(sort), offset, count, cancellationToken);
+
     internal async Task<TagDramaPage> GetTagDramaPageAsync(
         string tagItemId,
         string sortType,
@@ -493,6 +503,314 @@ internal sealed class CatalogService : PhoenixFeatureService
         };
     }
 
+    internal async Task<ActorLeaderboardPage> GetActorLeaderboardAsync(
+        int offset = 0,
+        string? sessionId = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        List<KeyValuePair<string, string>> query =
+        [
+            new("cell_id", "7470092475068071998"),
+            new("tab_type", "26"),
+            new("selected_items", "ranklist_celebrity"),
+            new("offset", offset.ToString(CultureInfo.InvariantCulture)),
+            new("limit", "0"),
+            new("client_req_type", "2"),
+            new("client_template", "2"),
+            new("unlimited_selector_change_type", offset > 0 ? "2" : "1"),
+        ];
+
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            query.Add(new("session_id", sessionId));
+        }
+
+        AppResponse<AppShortRankDataContainer> response = await _appTransport
+            .GetAsync<AppShortRankDataContainer>("/reading/bookapi/bookmall/cell/change/v1/", query, cancellationToken)
+            .ConfigureAwait(false);
+
+        AppShortRankDataContainer data = response.Data ?? new();
+        List<ActorLeaderboardItem> items = [];
+
+        int position = offset + 1;
+        foreach (AppShortRankCellItemDto cell in data.CellView.CellData)
+        {
+            foreach (AppShortRankActorDto actor in cell.ActorData ?? [])
+            {
+                string userId = ValueNormalizer.First(actor.UserInfo?.BaseInfo?.UserId, actor.UserInfo?.UserId);
+                string actorId = actor.UserInfo?.BaseInfo?.EffectiveActorId ?? string.Empty;
+                string name = actor.UserInfo?.BaseInfo?.UserName ?? string.Empty;
+                string avatar = actor.UserInfo?.BaseInfo?.UserAvatar ?? string.Empty;
+
+                List<string> subTitles = [];
+                foreach (AppShortRankSubtitleDto sub in actor.Subtitles ?? [])
+                {
+                    string text = (sub.Content ?? string.Empty).Trim();
+                    if (text.Length > 0)
+                    {
+                        subTitles.Add(text);
+                    }
+                }
+
+                items.Add(new ActorLeaderboardItem
+                {
+                    Position = position++,
+                    UserId = userId,
+                    ActorId = actorId,
+                    Name = name,
+                    AvatarUrl = avatar,
+                    Popularity = actor.RecTextItem?.RecommendText ?? string.Empty,
+                    RepresentativeWork = actor.Intro ?? string.Empty,
+                    SubTitles = subTitles,
+                    RankChangeType = actor.RankChangeData?.ChangeType ?? 0,
+                    RankChangeValue = actor.RankChangeData?.ChangeNum ?? 0,
+                });
+            }
+        }
+
+        return new ActorLeaderboardPage
+        {
+            Items = items,
+            HasMore = data.HasMore,
+            NextOffset = data.NextOffset,
+            SessionId = data.SessionId,
+        };
+    }
+
+    internal Task<ShortDramaLeaderboardPage> GetShortDramaLeaderboardAsync(
+        ShortDramaLeaderboardCategory category = ShortDramaLeaderboardCategory.All,
+        ShortDramaLeaderboardBoard board = ShortDramaLeaderboardBoard.Default,
+        int offset = 0,
+        string? sessionId = null,
+        IEnumerable<string>? seenIds = null,
+        CancellationToken cancellationToken = default
+    ) => GetShortDramaLeaderboardAsync(
+        MapLeaderboardCategory(category),
+        MapLeaderboardBoard(category, board),
+        offset,
+        sessionId,
+        seenIds,
+        cancellationToken
+    );
+
+    internal async Task<ShortDramaLeaderboardPage> GetShortDramaLeaderboardAsync(
+        string content = "all",
+        string? board = null,
+        int offset = 0,
+        string? sessionId = null,
+        IEnumerable<string>? seenIds = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        string selectedContent = string.IsNullOrWhiteSpace(content) ? "all" : content.Trim();
+        List<KeyValuePair<string, string>> query =
+        [
+            new("cell_id", "7470092475068071998"),
+            new("tab_type", "26"),
+            new("selected_items", selectedContent),
+            new("offset", offset.ToString(CultureInfo.InvariantCulture)),
+            new("limit", "0"),
+            new("client_req_type", "2"),
+            new("client_template", "2"),
+            new("unlimited_selector_change_type", offset > 0 ? "2" : "1"),
+        ];
+
+        if (!string.IsNullOrWhiteSpace(board))
+        {
+            query.Add(new("sub_selected_items", board.Trim()));
+        }
+
+        if (seenIds is not null)
+        {
+            string joinedSeen = string.Join(",", seenIds.Where(id => !string.IsNullOrWhiteSpace(id)));
+            if (joinedSeen.Length > 0)
+            {
+                query.Add(new("filter_ids", joinedSeen));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            query.Add(new("session_id", sessionId));
+        }
+
+        AppResponse<AppShortRankDataContainer> response = await _appTransport
+            .GetAsync<AppShortRankDataContainer>("/reading/bookapi/bookmall/cell/change/v1/", query, cancellationToken)
+            .ConfigureAwait(false);
+
+        AppShortRankDataContainer data = response.Data ?? new();
+        List<Drama> items = [];
+        HashSet<string> localSeen = new(StringComparer.Ordinal);
+        string boardTitle = selectedContent;
+
+        foreach (AppShortRankCellItemDto cell in data.CellView.CellData)
+        {
+            if (!string.IsNullOrWhiteSpace(cell.CellName))
+            {
+                boardTitle = cell.CellName;
+            }
+
+            foreach (DramaDto video in cell.VideoData)
+            {
+                Drama drama = DramaMapper.FromDto(video, "短剧");
+                if (!string.IsNullOrWhiteSpace(drama.Id) && localSeen.Add(drama.Id))
+                {
+                    items.Add(drama);
+                }
+            }
+        }
+
+        return new ShortDramaLeaderboardPage
+        {
+            Items = items,
+            BoardTitle = boardTitle,
+            HasMore = data.HasMore,
+            NextOffset = data.NextOffset,
+            SessionId = data.SessionId,
+        };
+    }
+
+    internal async IAsyncEnumerable<Drama> EnumerateTagDramasAsync(
+        string tagItemId = "",
+        TagDramaSortOrder sort = TagDramaSortOrder.Hot,
+        int pageSize = 12,
+        int maxPages = 10,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        int offset = 0;
+        HashSet<string> seenIds = new(StringComparer.Ordinal);
+        int pageCount = 0;
+
+        while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
+        {
+            TagDramaPage page = await GetTagDramaPageAsync(
+                    tagItemId,
+                    sort,
+                    offset,
+                    pageSize,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (page.Items.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (Drama drama in page.Items)
+            {
+                if (!string.IsNullOrWhiteSpace(drama.Id) && seenIds.Add(drama.Id))
+                {
+                    yield return drama;
+                }
+            }
+
+            if (!page.HasMore || page.NextOffset <= offset)
+            {
+                yield break;
+            }
+
+            offset = page.NextOffset;
+            pageCount++;
+        }
+    }
+
+    internal async IAsyncEnumerable<Drama> EnumerateShortDramaLeaderboardAsync(
+        ShortDramaLeaderboardCategory category = ShortDramaLeaderboardCategory.All,
+        ShortDramaLeaderboardBoard board = ShortDramaLeaderboardBoard.Default,
+        int maxPages = 10,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        int offset = 0;
+        string? sessionId = null;
+        HashSet<string> seenIds = new(StringComparer.Ordinal);
+        int pageCount = 0;
+
+        while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
+        {
+            ShortDramaLeaderboardPage page = await GetShortDramaLeaderboardAsync(
+                    category,
+                    board,
+                    offset,
+                    sessionId,
+                    seenIds,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (page.Items.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (Drama drama in page.Items)
+            {
+                if (!string.IsNullOrWhiteSpace(drama.Id) && seenIds.Add(drama.Id))
+                {
+                    yield return drama;
+                }
+            }
+
+            if (!page.HasMore || page.NextOffset <= offset)
+            {
+                yield break;
+            }
+
+            offset = page.NextOffset;
+            sessionId = page.SessionId;
+            pageCount++;
+        }
+    }
+
+    internal async IAsyncEnumerable<ActorLeaderboardItem> EnumerateActorLeaderboardAsync(
+        int maxPages = 10,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        int offset = 0;
+        string? sessionId = null;
+        HashSet<string> seenActorIds = new(StringComparer.Ordinal);
+        int pageCount = 0;
+
+        while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
+        {
+            ActorLeaderboardPage page = await GetActorLeaderboardAsync(
+                    offset,
+                    sessionId,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (page.Items.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (ActorLeaderboardItem actor in page.Items)
+            {
+                string id = !string.IsNullOrWhiteSpace(actor.ActorId)
+                    ? actor.ActorId
+                    : actor.UserId;
+                if (!string.IsNullOrWhiteSpace(id) && seenActorIds.Add(id))
+                {
+                    yield return actor;
+                }
+            }
+
+            if (!page.HasMore || page.NextOffset <= offset)
+            {
+                yield break;
+            }
+
+            offset = page.NextOffset;
+            sessionId = page.SessionId;
+            pageCount++;
+        }
+    }
+
     private readonly record struct CatalogCursor(
         int Offset,
         string SessionId,
@@ -502,4 +820,64 @@ internal sealed class CatalogService : PhoenixFeatureService
         bool Exhausted,
         DateTimeOffset UpdatedAt
     );
+
+    private static string MapLeaderboardCategory(ShortDramaLeaderboardCategory category) =>
+        category switch
+        {
+            ShortDramaLeaderboardCategory.Human => "human",
+            ShortDramaLeaderboardCategory.Comic => "comic_series_rank",
+            ShortDramaLeaderboardCategory.Ai => "ai_playlet",
+            ShortDramaLeaderboardCategory.SeriesAlbum => "series_album",
+            _ => "all",
+        };
+
+    private static string? MapLeaderboardBoard(
+        ShortDramaLeaderboardCategory category,
+        ShortDramaLeaderboardBoard board
+    ) =>
+        (category, board) switch
+        {
+            (_, ShortDramaLeaderboardBoard.Default) => null,
+
+            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.Recommend) => "human_hot_sc",
+            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.HotPlay) => "human_hot_play",
+            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.NewRelease) => "human_new_rank",
+            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.HotSearch) => "human_hot_search",
+            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.MustWatch) => "human_must_watch",
+            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.Followed) => "human_followed",
+
+            (ShortDramaLeaderboardCategory.Comic, ShortDramaLeaderboardBoard.Recommend) => "comic_series_hot_rank",
+            (ShortDramaLeaderboardCategory.Comic, ShortDramaLeaderboardBoard.HotPlay) => "comic_series_hot_play",
+            (ShortDramaLeaderboardCategory.Comic, ShortDramaLeaderboardBoard.NewRelease) => "comic_series_new_rank",
+            (ShortDramaLeaderboardCategory.Comic, ShortDramaLeaderboardBoard.HotSearch) => "comic_series_hot_search",
+
+            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.Recommend) => "ai_playlet_hot_sc",
+            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.HotPlay) => "ai_playlet_hot_play",
+            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.NewRelease) => "ai_playlet_new_rank",
+            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.HotSearch) => "ai_playlet_hot_search",
+            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.MustWatch) => "ai_playlet_must_watch",
+            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.Followed) => "ai_playlet_followed",
+
+            (ShortDramaLeaderboardCategory.SeriesAlbum, ShortDramaLeaderboardBoard.Recommend) => "series_album_hot_sc",
+            (ShortDramaLeaderboardCategory.SeriesAlbum, ShortDramaLeaderboardBoard.NewRelease) => "series_album_new_rank",
+
+            (_, ShortDramaLeaderboardBoard.Recommend) => "ranklist_hot_sc",
+            (_, ShortDramaLeaderboardBoard.HotPlay) => "ranklist_hot_play_sc",
+            (_, ShortDramaLeaderboardBoard.NewRelease) => "ranklist_new_rank_sc",
+            (_, ShortDramaLeaderboardBoard.HotSearch) => "ranklist_hot_search_sc",
+            (_, ShortDramaLeaderboardBoard.MustWatch) => "ranklist_must_watch",
+            (_, ShortDramaLeaderboardBoard.Followed) => "ranklist_followed",
+            (_, ShortDramaLeaderboardBoard.Prestige) => "ranklist_prestige",
+            (_, ShortDramaLeaderboardBoard.Subscribe) => "ranklist_subscribe",
+            (_, ShortDramaLeaderboardBoard.ChaseUpdate) => "ranklist_chase_update",
+
+            _ => null,
+        };
+
+    private static string MapTagSortOrder(TagDramaSortOrder sort) =>
+        sort switch
+        {
+            TagDramaSortOrder.Latest => "new_sort_latest",
+            _ => "new_sort_hot",
+        };
 }

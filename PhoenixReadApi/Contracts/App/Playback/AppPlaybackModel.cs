@@ -16,6 +16,37 @@ internal sealed class AppPlaybackModel
     [JsonPropertyName("duration")]
     [JsonConverter(typeof(FlexibleDoubleConverter))]
     public double Duration { get; init; }
+
+    [JsonPropertyName("url_expire")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long UrlExpire { get; init; }
+
+    [JsonPropertyName("dynamic_video")]
+    public AppDynamicVideoDto DynamicVideo { get; init; } = new();
+}
+
+internal sealed class AppDynamicVideoDto
+{
+    [JsonPropertyName("dynamic_type")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string DynamicType { get; init; } = string.Empty;
+
+    [JsonPropertyName("dynamic_video_list")]
+    [JsonConverter(typeof(FlexibleMediaVariantListConverter))]
+    public IReadOnlyList<AppMediaVariantDto> DynamicVideoList { get; init; } = [];
+
+    [JsonPropertyName("dynamic_audio_list")]
+    public IReadOnlyList<AppDynamicAudioDto> DynamicAudioList { get; init; } = [];
+}
+
+internal sealed class AppDynamicAudioDto
+{
+    [JsonPropertyName("main_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string MainUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("encrypt_info")]
+    public AppEncryptionDto Encryption { get; init; } = new();
 }
 
 internal sealed class AppMediaVariantDto
@@ -105,6 +136,33 @@ internal sealed class AppMediaVariantDto
     [JsonIgnore]
     public string EffectiveEncryptionMethod =>
         !string.IsNullOrWhiteSpace(Encryption.Method) ? Encryption.Method : DirectEncryptionMethod;
+
+    [JsonIgnore]
+    public string EffectiveQualityName =>
+        !string.IsNullOrWhiteSpace(Metadata.Quality) ? Metadata.Quality : GearDescriptionKey;
+
+    [JsonIgnore]
+    public long EffectiveBitrate => Metadata.Bitrate;
+
+    [JsonIgnore]
+    public long EffectiveSize => Metadata.Size;
+
+    [JsonIgnore]
+    public string EffectiveBackupUrl =>
+        BackupUrls.Count > 0 ? BackupUrls[0] :
+        BackupUrlCollection.Count > 0 ? BackupUrlCollection[0] :
+        BackupUrls1.Count > 0 ? BackupUrls1[0] :
+        BackupUrls2.Count > 0 ? BackupUrls2[0] : string.Empty;
+
+    [JsonIgnore]
+    public bool EffectiveIsHls =>
+        GearDescriptionKey.Contains("HLS", StringComparison.OrdinalIgnoreCase)
+        || Metadata.VideoType.Contains("hls", StringComparison.OrdinalIgnoreCase);
+
+    [JsonIgnore]
+    public bool EffectiveIsDash =>
+        GearDescriptionKey.Contains("DASH", StringComparison.OrdinalIgnoreCase)
+        || Metadata.VideoType.Contains("dash", StringComparison.OrdinalIgnoreCase);
 }
 
 internal sealed class AppVideoMetaDto
@@ -124,6 +182,22 @@ internal sealed class AppVideoMetaDto
     [JsonPropertyName("definition")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Definition { get; init; } = string.Empty;
+
+    [JsonPropertyName("quality")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Quality { get; init; } = string.Empty;
+
+    [JsonPropertyName("bitrate")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long Bitrate { get; init; }
+
+    [JsonPropertyName("size")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long Size { get; init; }
+
+    [JsonPropertyName("vtype")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string VideoType { get; init; } = string.Empty;
 }
 
 internal sealed class AppEncryptionDto

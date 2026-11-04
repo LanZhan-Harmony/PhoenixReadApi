@@ -44,20 +44,34 @@ public sealed class DetailsAndPlaybackTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        // 批量查询单个或多个剧集
+        // 1. 批量传入单剧集 ID，严格断言返回数量与 ID 对应
         IReadOnlyList<Drama> dramas = await SharedScenario.Client.GetBatchDramaDetailsAsync(
             [scenario.SeriesId],
             timeout.Token
         );
-
         await Assert.That(dramas).IsNotNull();
-        await Assert.That(dramas.Count > 0).IsTrue();
-        foreach (Drama drama in dramas)
+        await Assert.That(dramas.Count).IsEqualTo(1);
+        await Assert.That(dramas[0].Id).IsEqualTo(scenario.SeriesId);
+        await SharedScenario.AssertValidDrama(dramas[0]);
+
+        // 2. 批量传入多个剧集 ID（2 部），严格断言返回数量严格等于 2 且对应
+        SearchResult search = await SharedScenario.Client.SearchAsync("战神", timeout.Token);
+        string[] multiIds = [.. search.Items.Select(d => d.Id).Where(id => id.Length > 0).Take(2)];
+        if (multiIds.Length >= 2)
         {
-            await SharedScenario.AssertValidDrama(drama);
+            IReadOnlyList<Drama> multiDramas = await SharedScenario.Client.GetBatchDramaDetailsAsync(
+                multiIds,
+                timeout.Token
+            );
+            await Assert.That(multiDramas).IsNotNull();
+            await Assert.That(multiDramas.Count).IsEqualTo(multiIds.Length);
+            for (int i = 0; i < multiIds.Length; i++)
+            {
+                await Assert.That(multiDramas[i].Id).IsEqualTo(multiIds[i]);
+            }
         }
 
-        // 测试空集合输入
+        // 3. 测试空集合输入
         IReadOnlyList<Drama> emptyResult = await SharedScenario.Client.GetBatchDramaDetailsAsync(
             [],
             timeout.Token
@@ -72,13 +86,18 @@ public sealed class DetailsAndPlaybackTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        PlaybackMedia media = await SharedScenario.Client.ResolveMediaAsync(
+        IReadOnlyList<PlaybackMedia> medias = await SharedScenario.Client.ResolveMediaAsync(
             scenario.SeriesId,
             scenario.Episode.VideoId,
             timeout.Token
         );
 
-        await SharedScenario.AssertValidPlaybackMedia(media);
+        await Assert.That(medias).IsNotNull();
+        await Assert.That(medias.Count > 0).IsTrue();
+        foreach (PlaybackMedia media in medias)
+        {
+            await SharedScenario.AssertValidPlaybackMedia(media);
+        }
     }
 
     [Test, NotInParallel("phoenix-read-api")]

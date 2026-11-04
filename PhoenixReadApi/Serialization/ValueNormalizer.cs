@@ -32,6 +32,43 @@ internal static partial class ValueNormalizer
             ? value
             : 0;
 
+    internal static MediaDefinition ParseDefinition(int height, string? rawDefinition)
+    {
+        int val = height;
+        if (val <= 0 && !string.IsNullOrWhiteSpace(rawDefinition))
+        {
+            val = Quality(rawDefinition);
+        }
+
+        return val switch
+        {
+            360 => MediaDefinition.P360,
+            480 => MediaDefinition.P480,
+            540 => MediaDefinition.P540,
+            720 => MediaDefinition.P720,
+            1080 => MediaDefinition.P1080,
+            2160 => MediaDefinition.P2160,
+            _ => MediaDefinition.Unknown,
+        };
+    }
+
+    internal static MediaCodec ParseCodec(string? rawCodec)
+    {
+        if (string.IsNullOrWhiteSpace(rawCodec))
+        {
+            return MediaCodec.Unknown;
+        }
+
+        string lower = rawCodec.Trim().ToLowerInvariant();
+        return lower switch
+        {
+            "h264" or "avc1" or "avc" => MediaCodec.H264,
+            "bytevc1" or "h265" or "hevc" => MediaCodec.ByteVC1,
+            "bytevc2" or "h266" or "vvc" => MediaCodec.ByteVC2,
+            _ => MediaCodec.Unknown,
+        };
+    }
+
     [GeneratedRegex("^[0-9]{1,32}$")]
     private static partial Regex NumericIdRegex();
 

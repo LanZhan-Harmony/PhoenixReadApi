@@ -18,7 +18,8 @@ internal sealed class SampleContext
     public string CreditUserId { get; set; } = string.Empty;
     public string ProfileUserId { get; set; } = string.Empty;
     public DramaDetails? Details { get; set; }
-    public PlaybackMedia? Media { get; set; }
+    public IReadOnlyList<PlaybackMedia>? Medias { get; set; }
+    public PlaybackMedia? Media => Medias?.FirstOrDefault();
     public DanmakuPage? Danmaku { get; set; }
     public CommentPage? Reviews { get; set; }
     public CommentPage? EpisodeComments { get; set; }
@@ -171,13 +172,20 @@ internal static partial class SampleSteps
         }
     }
 
-    private static void PrintMedia(PlaybackMedia? media)
+    private static void PrintMedia(IReadOnlyList<PlaybackMedia>? medias)
     {
-        if (media is not null)
+        if (medias is { Count: > 0 })
         {
+            PlaybackMedia best = medias[0];
             Console.WriteLine(
-                $"  播放：{media.Url} | {media.Quality}p | variants={media.Variants.Count} | key={(media.DecryptionKey.Length > 0 ? "yes" : "no")}"
+                $"  播放媒体数：{medias.Count} | 推荐最佳画质：{best.Definition} ({best.QualityName}, {best.Codec}) | key={(best.DecryptionKey.Length > 0 ? "yes" : "no")}"
             );
+            foreach (PlaybackMedia m in medias)
+            {
+                Console.WriteLine(
+                    $"    - [{m.Definition}] {m.QualityName} ({m.Codec}) {m.Width}x{m.Height} 码率:{m.Bitrate}b/s 大小:{m.Size}B 直链:{m.Url[..Math.Min(40, m.Url.Length)]}..."
+                );
+            }
         }
     }
 

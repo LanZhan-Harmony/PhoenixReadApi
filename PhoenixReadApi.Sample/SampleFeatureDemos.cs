@@ -46,7 +46,7 @@ internal static partial class SampleSteps
                 () =>
                     client.GetTagDramaPageAsync(
                         selectedTag.Id,
-                        sortType: "new_sort_hot",
+                        sort: TagDramaSortOrder.Hot,
                         offset: 0,
                         count: 5,
                         cancellationToken: cancellationToken

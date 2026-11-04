@@ -116,7 +116,7 @@ public sealed class CatalogTests
         // 1. 测试默认与空 tag
         TagDramaPage defaultPage = await SharedScenario.Client.GetTagDramaPageAsync(
             tagItemId: "",
-            sortType: "new_sort_hot",
+            sort: TagDramaSortOrder.Hot,
             offset: 0,
             count: 10,
             cancellationToken: timeout.Token
@@ -127,7 +127,7 @@ public sealed class CatalogTests
         // 2. 测试不同排序方式（最新排序）
         TagDramaPage latestPage = await SharedScenario.Client.GetTagDramaPageAsync(
             tagItemId: "",
-            sortType: "new_sort_latest",
+            sort: TagDramaSortOrder.Latest,
             offset: 0,
             count: 10,
             cancellationToken: timeout.Token
@@ -143,7 +143,7 @@ public sealed class CatalogTests
         {
             TagDramaPage filteredPage = await SharedScenario.Client.GetTagDramaPageAsync(
                 tagItemId: firstItem.Id,
-                sortType: "new_sort_hot",
+                sort: TagDramaSortOrder.Hot,
                 offset: 0,
                 count: 8,
                 cancellationToken: timeout.Token
@@ -154,7 +154,7 @@ public sealed class CatalogTests
             {
                 TagDramaPage nextPage = await SharedScenario.Client.GetTagDramaPageAsync(
                     tagItemId: firstItem.Id,
-                    sortType: "new_sort_hot",
+                    sort: TagDramaSortOrder.Hot,
                     offset: filteredPage.NextOffset,
                     count: 8,
                     cancellationToken: timeout.Token

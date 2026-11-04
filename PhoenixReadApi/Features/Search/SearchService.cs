@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -180,6 +181,216 @@ internal sealed partial class SearchService : PhoenixFeatureService
             Seen = [.. seen ?? []],
         };
         return GetRecommendationsCoreAsync(query, cancellationToken);
+    }
+
+    internal async IAsyncEnumerable<Drama> EnumerateRecommendationsAsync(
+        RecommendationGenre genre = RecommendationGenre.ShortDrama,
+        int maxPages = 10,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        int offset = 0;
+        string? sessionId = null;
+        HashSet<string> seenIds = new(StringComparer.Ordinal);
+        int pageCount = 0;
+
+        while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
+        {
+            RecommendationPage page = await GetRecommendationsAsync(
+                    genre,
+                    offset,
+                    sessionId,
+                    seenIds,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (page.Items.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (Drama drama in page.Items)
+            {
+                if (!string.IsNullOrWhiteSpace(drama.Id) && seenIds.Add(drama.Id))
+                {
+                    yield return drama;
+                }
+            }
+
+            if (!page.HasMore || page.NextOffset <= offset)
+            {
+                yield break;
+            }
+
+            offset = page.NextOffset;
+            sessionId = page.SessionId;
+            pageCount++;
+        }
+    }
+
+    internal async Task<IReadOnlyList<string>> GetSearchCuesAsync(CancellationToken cancellationToken)
+    {
+        KeyValuePair<string, string>[] query =
+        [
+            new("cue_type", "1"),
+            new("limit", "20"),
+            new("search_source", "1"),
+            new("tab_name", "feed"),
+            new("user_is_login", "0"),
+        ];
+
+        AppSearchCueResponse response = await _appTransport
+            .GetRootAsync<AppSearchCueResponse>("/reading/bookapi/search/cue/v1/", query, cancellationToken)
+            .ConfigureAwait(false);
+
+        List<string> result = [];
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        foreach (AppSearchCueItemDto item in response.DataV1)
+        {
+            string text = item.Text.Trim();
+            if (text.Length > 0 && seen.Add(text))
+            {
+                result.Add(text);
+            }
+        }
+
+        if (result.Count == 0 && !string.IsNullOrWhiteSpace(response.Data.Text))
+        {
+            result.Add(response.Data.Text.Trim());
+        }
+
+        return result;
+    }
+
+    internal async Task<HotSearch> GetHotSearchAsync(CancellationToken cancellationToken)
+    {
+        KeyValuePair<string, string>[] query =
+        [
+            new("user_is_login", "0"),
+            new("bookstore_tab", "16"),
+            new("bookstore_tab_type", "16"),
+            new("scene", "10"),
+            new("limit", "0"),
+            new("tab_name", "feed"),
+            new("from", "search_input_page"),
+            new("query_history_removed", "false"),
+            new("offset", "0"),
+            new("search_middle_page_version", "4"),
+            new("search_source", "1"),
+            new("new_search_middle_page", "true"),
+            new("hot_word_exchange", "false"),
+        ];
+
+        AppResponse<IReadOnlyList<AppHotSearchPlanCellDto>> response = await _appTransport
+            .GetAsync<IReadOnlyList<AppHotSearchPlanCellDto>>("/reading/bookapi/plan/v1/", query, cancellationToken)
+            .ConfigureAwait(false);
+
+        List<HotSearchItem> guesses = [];
+        List<HotSearchBoard> boards = [];
+
+        IReadOnlyList<AppHotSearchPlanCellDto> cells = response.Data ?? [];
+        foreach (AppHotSearchPlanCellDto planCell in cells)
+        {
+            if (string.IsNullOrWhiteSpace(planCell.LynxData))
+            {
+                continue;
+            }
+
+            List<AppHotSearchLynxCellDto>? lynxCells = null;
+            try
+            {
+                lynxCells = JsonAotSerializer.Deserialize<List<AppHotSearchLynxCellDto>>(planCell.LynxData);
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            if (lynxCells is null)
+            {
+                continue;
+            }
+
+            foreach (AppHotSearchLynxCellDto cell in lynxCells)
+            {
+                if (cell.CellName == "猜你想搜" || cell.ShowType == 483)
+                {
+                    foreach (AppHotSearchVideoDto video in cell.VideoData ?? [])
+                    {
+                        guesses.Add(new HotSearchItem
+                        {
+                            Id = video.SeriesId ?? string.Empty,
+                            Title = video.Title ?? string.Empty,
+                            CoverUrl = video.Cover ?? string.Empty,
+                            EpisodeCount = video.EpisodeCount,
+                            CardTips = video.CardTips ?? string.Empty,
+                            Heat = video.RecText ?? string.Empty,
+                            Tag = video.TagInfo?.Text ?? string.Empty,
+                        });
+                    }
+                }
+                else if (cell.CellData.Count > 0)
+                {
+                    foreach (AppHotSearchLynxCellDto boardCell in cell.CellData)
+                    {
+                        string boardTitle = !string.IsNullOrWhiteSpace(boardCell.CellName)
+                            ? boardCell.CellName
+                            : (boardCell.ShowType switch
+                            {
+                                388 => "短剧热搜榜",
+                                591 => "漫剧热搜榜",
+                                619 => "热点话题榜",
+                                _ => "热搜榜",
+                            });
+
+                        List<HotSearchItem> boardItems = [];
+                        foreach (AppHotSearchVideoDto video in boardCell.VideoData ?? [])
+                        {
+                            boardItems.Add(new HotSearchItem
+                            {
+                                Id = video.SeriesId ?? string.Empty,
+                                Title = video.Title ?? string.Empty,
+                                CoverUrl = video.Cover ?? string.Empty,
+                                EpisodeCount = video.EpisodeCount,
+                                CardTips = video.CardTips ?? string.Empty,
+                                Heat = video.RecText ?? string.Empty,
+                                Tag = video.TagInfo?.Text ?? string.Empty,
+                            });
+                        }
+
+                        foreach (AppHotSearchTopicDto topic in boardCell.VideoTopics ?? [])
+                        {
+                            string heatInfo = topic.SecondaryInfoList is { Count: > 0 } sec && sec[0] is not null
+                                ? sec[0].Content ?? string.Empty
+                                : string.Empty;
+                            boardItems.Add(new HotSearchItem
+                            {
+                                Id = topic.TopicId ?? string.Empty,
+                                Title = topic.Title ?? string.Empty,
+                                Url = topic.Url ?? string.Empty,
+                                Heat = heatInfo,
+                            });
+                        }
+
+                        if (boardItems.Count > 0)
+                        {
+                            boards.Add(new HotSearchBoard
+                            {
+                                Title = boardTitle,
+                                Items = boardItems,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        return new HotSearch
+        {
+            Guesses = guesses,
+            Boards = boards,
+        };
     }
 
     private async Task<SearchResult> SearchCoreAsync(string keyword)
@@ -562,12 +773,17 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 cancellationToken
             )
             .ConfigureAwait(false);
-        AppCatalogData data =
-            result.Data
-            ?? throw new PhoenixReadApiResponseException(
-                "红果推荐数据格式异常。",
-                "recommendations"
-            );
+        AppCatalogData data = result.Data ?? new();
+        if (data.Items.Count == 0)
+        {
+            return new RecommendationPage
+            {
+                Items = [],
+                NextOffset = query.Offset,
+                HasMore = false,
+                SessionId = query.SessionId ?? string.Empty,
+            };
+        }
 
         List<Drama> output = [];
         HashSet<string> seenIds = new(seen, StringComparer.Ordinal);

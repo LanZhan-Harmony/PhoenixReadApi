@@ -62,7 +62,6 @@ internal static partial class SampleSteps
                         cancellationToken
                     )
             );
-            bool wasFavorite = favoriteSeriesIds.Contains(seriesId);
             await TryAsync(
                 "SetFavoriteAsync",
                 () => client.SetFavoriteAsync(seriesId, videoId, true, cancellationToken)
@@ -71,15 +70,7 @@ internal static partial class SampleSteps
                 "RemoveFavoriteAsync",
                 () => client.RemoveFavoriteAsync(seriesId, videoId, cancellationToken)
             );
-            if (wasFavorite)
-            {
-                await TryAsync(
-                    "SetFavoriteAsync(restore)",
-                    () => client.SetFavoriteAsync(seriesId, videoId, true, cancellationToken)
-                );
-            }
 
-            bool wasLiked = likedSeriesIds.Contains(seriesId);
             await TryAsync(
                 "SetDramaEpisodeLikeAsync",
                 () => client.SetDramaEpisodeLikeAsync(seriesId, videoId, true, cancellationToken)
@@ -88,36 +79,46 @@ internal static partial class SampleSteps
                 "SetDramaEpisodeLikeAsync(false)",
                 () => client.SetDramaEpisodeLikeAsync(seriesId, videoId, false, cancellationToken)
             );
-            if (wasLiked)
-            {
-                await TryAsync(
-                    "SetDramaLikeAsync(restore)",
-                    () =>
-                        client.SetDramaEpisodeLikeAsync(seriesId, videoId, true, cancellationToken)
-                );
-            }
+
             // 1. 发表分集评论
             string commentText = $"分集评论_{marker}";
             PhoenixOperationResult? commentResult = await TryAsync(
                 "SendEpisodeCommentAsync",
-                () => client.SendEpisodeCommentAsync(seriesId, videoId, commentText, cancellationToken)
+                () =>
+                    client.SendEpisodeCommentAsync(
+                        seriesId,
+                        videoId,
+                        commentText,
+                        cancellationToken
+                    )
             );
             string createdCommentId = commentResult?.Id ?? string.Empty;
             if (string.IsNullOrWhiteSpace(createdCommentId))
             {
-                throw new InvalidOperationException("发表分集评论未返回有效 Comment ID，测试失败。");
+                throw new InvalidOperationException(
+                    "发表分集评论未返回有效 Comment ID，测试失败。"
+                );
             }
 
             // 2. 在自己刚刚发的评论里发表回复
             string replyText = $"回复_{marker}";
             PhoenixOperationResult? replyResult = await TryAsync(
                 "SendCommentReplyAsync(on self comment)",
-                () => client.SendCommentReplyAsync(createdCommentId, videoId, replyText, "", cancellationToken)
+                () =>
+                    client.SendCommentReplyAsync(
+                        createdCommentId,
+                        videoId,
+                        replyText,
+                        "",
+                        cancellationToken
+                    )
             );
             string createdReplyId = replyResult?.Id ?? string.Empty;
             if (string.IsNullOrWhiteSpace(createdReplyId))
             {
-                throw new InvalidOperationException("对自发评论发表回复未返回有效 Reply ID，测试失败。");
+                throw new InvalidOperationException(
+                    "对自发评论发表回复未返回有效 Reply ID，测试失败。"
+                );
             }
 
             // 3. 对自建回复进行点赞与取消点赞
@@ -137,7 +138,9 @@ internal static partial class SampleSteps
             );
             if (deleteReplyResult is null || !deleteReplyResult.Succeeded)
             {
-                throw new InvalidOperationException($"删除回复失败（Reply ID: {createdReplyId}），测试失败。");
+                throw new InvalidOperationException(
+                    $"删除回复失败（Reply ID: {createdReplyId}），测试失败。"
+                );
             }
 
             // 5. 再删自己发的评论！
@@ -147,7 +150,9 @@ internal static partial class SampleSteps
             );
             if (deleteCommentResult is null || !deleteCommentResult.Succeeded)
             {
-                throw new InvalidOperationException($"删除评论失败（Comment ID: {createdCommentId}），测试失败。");
+                throw new InvalidOperationException(
+                    $"删除评论失败（Comment ID: {createdCommentId}），测试失败。"
+                );
             }
 
             // 6. 发表弹幕
@@ -169,7 +174,9 @@ internal static partial class SampleSteps
             );
             if (deleteDanmakuResult is null || !deleteDanmakuResult.Succeeded)
             {
-                throw new InvalidOperationException($"删除弹幕失败（Danmaku ID: {createdDanmakuId}），测试失败。");
+                throw new InvalidOperationException(
+                    $"删除弹幕失败（Danmaku ID: {createdDanmakuId}），测试失败。"
+                );
             }
         }
 
@@ -181,19 +188,34 @@ internal static partial class SampleSteps
             PhoenixOperationResult? reviewResult = null;
             try
             {
-                reviewResult = await client.SendDramaReviewAsync(reviewSeriesId, 5.0, reviewText, cancellationToken);
+                reviewResult = await client.SendDramaReviewAsync(
+                    reviewSeriesId,
+                    5.0,
+                    reviewText,
+                    cancellationToken
+                );
             }
             catch (PhoenixReadApiProviderException ex) when (ex.ProviderCode == "103009")
             {
-                Console.WriteLine($"  [提示] 剧集 {reviewSeriesId} 历史已评过 (103009)，选用备选剧集测试剧评发表与删除生命周期...");
-                string? alternativeSeriesId = context.Catalog?.ElementAtOrDefault(10)?.Id
+                Console.WriteLine(
+                    $"  [提示] 剧集 {reviewSeriesId} 历史已评过 (103009)，选用备选剧集测试剧评发表与删除生命周期..."
+                );
+                string? alternativeSeriesId =
+                    context.Catalog?.ElementAtOrDefault(10)?.Id
                     ?? context.Catalog?.LastOrDefault()?.Id;
                 if (!string.IsNullOrEmpty(alternativeSeriesId))
                 {
                     reviewSeriesId = alternativeSeriesId;
                     string altReviewText = $"剧评_{marker}_{Guid.NewGuid().ToString("N")[..6]}";
-                    Console.WriteLine($"  [切换] 使用未评价短剧 {reviewSeriesId} 测试剧评发布与删除...");
-                    reviewResult = await client.SendDramaReviewAsync(reviewSeriesId, 5.0, altReviewText, cancellationToken);
+                    Console.WriteLine(
+                        $"  [切换] 使用未评价短剧 {reviewSeriesId} 测试剧评发布与删除..."
+                    );
+                    reviewResult = await client.SendDramaReviewAsync(
+                        reviewSeriesId,
+                        5.0,
+                        altReviewText,
+                        cancellationToken
+                    );
                 }
                 else
                 {
@@ -210,11 +232,18 @@ internal static partial class SampleSteps
             // 9. 删除剧评！删除失败纳入测试失败范畴
             PhoenixOperationResult? deleteReviewResult = await TryAsync(
                 "DeleteDramaReviewAsync(created)",
-                () => client.DeleteDramaReviewAsync(createdReviewId, reviewSeriesId, cancellationToken)
+                () =>
+                    client.DeleteDramaReviewAsync(
+                        createdReviewId,
+                        reviewSeriesId,
+                        cancellationToken
+                    )
             );
             if (deleteReviewResult is null || !deleteReviewResult.Succeeded)
             {
-                throw new InvalidOperationException($"删除剧评失败（Review ID: {createdReviewId}），测试失败。");
+                throw new InvalidOperationException(
+                    $"删除剧评失败（Review ID: {createdReviewId}），测试失败。"
+                );
             }
 
             string reservationSeriesId =
@@ -255,11 +284,23 @@ internal static partial class SampleSteps
             {
                 await TryAsync(
                     "SetDanmakuLikeAsync",
-                    () => client.SetDanmakuLikeAsync(sampleDanmakuId, videoId, true, cancellationToken)
+                    () =>
+                        client.SetDanmakuLikeAsync(
+                            sampleDanmakuId,
+                            videoId,
+                            true,
+                            cancellationToken
+                        )
                 );
                 await TryAsync(
                     "SetDanmakuLikeAsync(false)",
-                    () => client.SetDanmakuLikeAsync(sampleDanmakuId, videoId, false, cancellationToken)
+                    () =>
+                        client.SetDanmakuLikeAsync(
+                            sampleDanmakuId,
+                            videoId,
+                            false,
+                            cancellationToken
+                        )
                 );
             }
         }
@@ -282,25 +323,6 @@ internal static partial class SampleSteps
                 "DeleteHistoryAsync",
                 () => client.DeleteHistoryAsync(seriesId, videoId, cancellationToken)
             );
-            if (existingHistory is not null)
-            {
-                await TryAsync(
-                    "ReportProgressAsync(restore)",
-                    () =>
-                        client.ReportProgressAsync(
-                            new ProgressUpdate
-                            {
-                                SeriesId = existingHistory.SeriesId,
-                                VideoId = existingHistory.VideoId,
-                                EpisodeNumber = episode.Number,
-                                CurrentPositionMs = existingHistory.CurrentPositionMs,
-                                DurationMs = existingHistory.DurationMs,
-                                AccumulatedPlayTimeMs = existingHistory.CurrentPositionMs,
-                            },
-                            cancellationToken
-                        )
-                );
-            }
         }
     }
 }

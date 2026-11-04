@@ -67,10 +67,12 @@ public sealed class LibraryTests
         }
 
         // 测试空参数校验
-        await Assert.That(async () =>
-        {
-            await SharedScenario.Client.GetReadProgressForAsync([]);
-        }).Throws<ArgumentException>();
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.GetReadProgressForAsync([]);
+            })
+            .Throws<ArgumentException>();
     }
 
     [Test, NotInParallel("phoenix-read-api")]
@@ -96,11 +98,12 @@ public sealed class LibraryTests
         }
 
         // 测试 GetFavoriteIdsAsync 元组重载
-        (IReadOnlyList<string> ids, DramaPage page) = await SharedScenario.Client.GetFavoriteIdsAsync(
-            count: 10,
-            offset: 0,
-            cancellationToken: timeout.Token
-        );
+        (IReadOnlyList<string> ids, DramaPage page) =
+            await SharedScenario.Client.GetFavoriteIdsAsync(
+                count: 10,
+                offset: 0,
+                cancellationToken: timeout.Token
+            );
 
         await Assert.That(ids).IsNotNull();
         await Assert.That(page).IsNotNull();
@@ -134,40 +137,54 @@ public sealed class LibraryTests
     public async Task TestLibraryOperations_Validation()
     {
         // ReportProgress 参数空校验
-        await Assert.That(async () =>
-        {
-            await SharedScenario.Client.ReportProgressAsync(new ProgressUpdate { SeriesId = "", VideoId = "" });
-        }).Throws<ArgumentException>();
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.ReportProgressAsync(
+                    new ProgressUpdate { SeriesId = "", VideoId = "" }
+                );
+            })
+            .Throws<ArgumentException>();
 
         // DeleteHistory 参数空校验
-        await Assert.That(async () =>
-        {
-            await SharedScenario.Client.DeleteHistoryAsync("", "");
-        }).Throws<ArgumentException>();
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.DeleteHistoryAsync("", "");
+            })
+            .Throws<ArgumentException>();
 
         // SetFavorite 参数空校验
-        await Assert.That(async () =>
-        {
-            await SharedScenario.Client.SetFavoriteAsync("", "");
-        }).Throws<ArgumentException>();
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.SetFavoriteAsync("", "");
+            })
+            .Throws<ArgumentException>();
 
         // RemoveFavorite 参数空校验
-        await Assert.That(async () =>
-        {
-            await SharedScenario.Client.RemoveFavoriteAsync("", "");
-        }).Throws<ArgumentException>();
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.RemoveFavoriteAsync("", "");
+            })
+            .Throws<ArgumentException>();
 
         // SetFollow 参数空校验
-        await Assert.That(async () =>
-        {
-            await SharedScenario.Client.SetFollowAsync("");
-        }).Throws<ArgumentException>();
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.SetFollowAsync("");
+            })
+            .Throws<ArgumentException>();
 
         // SetDramaEpisodeLike 参数空校验
-        await Assert.That(async () =>
-        {
-            await SharedScenario.Client.SetDramaEpisodeLikeAsync("", "");
-        }).Throws<ArgumentException>();
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.SetDramaEpisodeLikeAsync("", "");
+            })
+            .Throws<ArgumentException>();
     }
 
     [Test, NotInParallel("phoenix-read-api")]
