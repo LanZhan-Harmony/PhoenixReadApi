@@ -65,26 +65,28 @@ internal static partial class SampleSteps
         }
 
         // ==========================================
-        // 功能展示 2: 排行榜 (热播/好评/飙升/新剧榜)
+        // 功能展示 2: 短剧排行榜 (真人剧·热播榜)
         // ==========================================
-        Console.WriteLine("\n--- [功能展示 2: 排行榜 (热播/好评/飙升/新剧榜)] ---");
-        FeedPage? feedCategories = await TryAsync(
-            "GetFeedCategoriesAsync",
-            () => client.GetFeedCategoriesAsync(cancellationToken)
+        Console.WriteLine("\n--- [功能展示 2: 短剧排行榜 (真人剧·热播榜)] ---");
+        ShortDramaLeaderboardPage? leaderboard = await TryAsync(
+            "GetShortDramaLeaderboardAsync",
+            () => client.GetShortDramaLeaderboardAsync(
+                category: ShortDramaLeaderboardCategory.Human,
+                board: ShortDramaLeaderboardBoard.HotPlay,
+                offset: 0,
+                cancellationToken: cancellationToken
+            )
         );
-        PrintCount("  榜单分组数量", feedCategories?.Sections.Count);
-        if (feedCategories is not null)
+        PrintCount("  排行榜剧集数量", leaderboard?.Items.Count);
+        if (leaderboard is not null)
         {
-            foreach (FeedSection section in feedCategories.Sections.Take(4))
+            Console.WriteLine($"  ★ 榜单名称: {leaderboard.BoardTitle}");
+            int rank = 1;
+            foreach (Drama drama in leaderboard.Items.Take(5))
             {
-                Console.WriteLine($"  ★ 榜单: {section.Title} (共 {section.Items.Count} 部剧)");
-                int rank = 1;
-                foreach (Drama drama in section.Items.Take(3))
-                {
-                    Console.WriteLine(
-                        $"     TOP {rank++}: 《{drama.Title}》 - {drama.Remark} (评分: {drama.Score})"
-                    );
-                }
+                Console.WriteLine(
+                    $"     TOP {rank++}: 《{drama.Title}》 - {drama.Remark} (评分: {drama.Score}, 热度: {drama.Heat})"
+                );
             }
         }
 

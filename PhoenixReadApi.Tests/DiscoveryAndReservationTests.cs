@@ -8,25 +8,6 @@ namespace PhoenixReadApi.Tests;
 public sealed class DiscoveryAndReservationTests
 {
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetFeedCategoriesAsync()
-    {
-        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-
-        FeedPage feed = await SharedScenario.Client.GetFeedCategoriesAsync(timeout.Token);
-
-        await Assert.That(feed).IsNotNull();
-        await Assert.That(feed.Sections).IsNotNull();
-        await Assert.That(feed.Sections.Count > 0).IsTrue();
-        await Assert.That(feed.SessionId).IsNotNull();
-        await Assert.That(feed.NextOffset >= 0).IsTrue();
-
-        foreach (FeedSection section in feed.Sections)
-        {
-            await SharedScenario.AssertValidFeedSection(section);
-        }
-    }
-
-    [Test, NotInParallel("phoenix-read-api")]
     public async Task TestGetUpcomingReservationsAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();

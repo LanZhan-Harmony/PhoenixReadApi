@@ -167,12 +167,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _reservations.SetReservationAsync(seriesId, active: false, cancellationToken);
 
-    /// <summary>获取首页剧场和推荐分组。</summary>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>按服务端分组返回的剧集。</returns>
-    public Task<FeedPage> GetFeedCategoriesAsync(CancellationToken cancellationToken = default) =>
-        _discovery.GetFeedCategoriesAsync(cancellationToken);
-
     /// <summary>创建剧集分集分享链接。</summary>
     /// <param name="seriesId">剧集 ID。</param>
     /// <param name="videoId">分集视频 ID。</param>

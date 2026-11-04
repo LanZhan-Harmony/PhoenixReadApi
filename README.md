@@ -165,17 +165,6 @@ Console.WriteLine($"当前页返回 {page.Items.Count} 部短剧，是否还有�
 
 #### 榜单与上新日历
 ```csharp
-// 获取首页精选榜单（热播榜、好评榜、飙升榜、新剧榜等）
-FeedPage feedCategories = await client.GetFeedCategoriesAsync(cts.Token);
-foreach (FeedSection section in feedCategories.Sections)
-{
-    Console.WriteLine($"★ 榜单: {section.Title} (共 {section.Items.Count} 部短剧)");
-    foreach (Drama drama in section.Items.Take(3))
-    {
-        Console.WriteLine($"   TOP: 《{drama.Title}》 - 评分: {drama.Score}");
-    }
-}
-
 // 获取待播新剧日历与可预约列表
 ReservationPage upcoming = await client.GetUpcomingReservationsAsync(cts.Token);
 foreach (Reservation drama in upcoming.Items.Take(5))
