@@ -12,9 +12,6 @@ public sealed class DramaPage
     /// <summary>下一次偏移量。</summary>
     public int NextOffset { get; init; }
 
-    /// <summary>下一页游标。</summary>
-    public string Cursor { get; init; } = string.Empty;
-
     /// <summary>是否还有下一页。</summary>
     public bool HasMore { get; init; }
 }
