@@ -304,18 +304,14 @@ internal sealed class CommentService : PhoenixFeatureService
     )
     {
         commentId = NormalizeCommentId(commentId);
+        seriesId = NormalizeSeriesId(seriesId);
         text = NormalizeText(text);
 
-        bool hasVideo = !string.IsNullOrWhiteSpace(videoId);
-        bool hasSeries = !string.IsNullOrWhiteSpace(seriesId);
-        bool isEpisode = hasVideo || (hasSeries && !string.Equals(seriesId, commentId, StringComparison.Ordinal));
+        bool isEpisode = !string.IsNullOrWhiteSpace(videoId)
+            && !string.Equals(seriesId, videoId, StringComparison.Ordinal);
+        string normalizedVideoId = isEpisode ? NormalizeVideoId(videoId) : string.Empty;
 
-        string normalizedSeriesId = hasSeries ? NormalizeSeriesOrVideoId(seriesId) : string.Empty;
-        string normalizedVideoId = hasVideo ? NormalizeSeriesOrVideoId(videoId) : string.Empty;
-        string groupId = isEpisode
-            ? (normalizedVideoId.Length > 0 ? normalizedVideoId : normalizedSeriesId)
-            : (normalizedSeriesId.Length > 0 ? normalizedSeriesId : commentId);
-
+        string groupId = isEpisode ? normalizedVideoId : seriesId;
         int commentSource = isEpisode ? 504 : 501;
         int serverChannel = isEpisode ? 18 : 34;
         int groupType = isEpisode ? 30 : 1;
@@ -339,8 +335,8 @@ internal sealed class CommentService : PhoenixFeatureService
                     ReplyToUserId = normalizedReplyUser,
                     BusinessParameter = new AppCommentAddBusinessParameter
                     {
-                        BookId = normalizedSeriesId.Length > 0 ? normalizedSeriesId : groupId,
-                        VideoId = isEpisode ? (normalizedVideoId.Length > 0 ? normalizedVideoId : groupId) : null,
+                        BookId = seriesId,
+                        VideoId = isEpisode ? normalizedVideoId : null,
                     },
                 },
                 commentRequest: true,
@@ -358,20 +354,13 @@ internal sealed class CommentService : PhoenixFeatureService
         return Operation(response.Message, replyId);
     }
 
-    internal Task<PhoenixOperationResult> SendReplyAsync(
+    internal Task<PhoenixOperationResult> SendDramaReviewReplyAsync(
         string commentId,
-        string groupId,
+        string seriesId,
         string text,
         string? replyToUserId,
         CancellationToken cancellationToken
-    ) => SendReplyAsync(commentId, seriesId: string.Empty, videoId: groupId, text, replyToUserId, cancellationToken);
-
-    internal Task<PhoenixOperationResult> SendReplyAsync(
-        string commentId,
-        string text,
-        string? replyToUserId,
-        CancellationToken cancellationToken
-    ) => SendReplyAsync(commentId, seriesId: string.Empty, videoId: string.Empty, text, replyToUserId, cancellationToken);
+    ) => SendReplyAsync(commentId, seriesId, videoId: string.Empty, text, replyToUserId, cancellationToken);
 
     internal Task<PhoenixOperationResult> DeleteReplyAsync(
         string replyId,
