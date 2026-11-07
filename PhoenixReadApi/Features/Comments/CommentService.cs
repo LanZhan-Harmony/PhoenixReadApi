@@ -233,6 +233,10 @@ internal sealed class CommentService : PhoenixFeatureService
     {
         commentId = NormalizeCommentId(commentId);
         groupId = NormalizeSeriesOrVideoId(groupId);
+        bool isReview = commentType == 2;
+        int likeCommentSource = isReview ? 501 : 504;
+        int likeServerChannel = isReview ? 34 : 18;
+
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppCommentActionPayload, AppOperationResponse>(
                 "/novel/commentapi/comment/do_action/v1/",
@@ -246,6 +250,8 @@ internal sealed class CommentService : PhoenixFeatureService
                 },
                 commentRequest: true,
                 cancellationToken,
+                commentSource: likeCommentSource,
+                serverChannel: likeServerChannel,
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
@@ -290,15 +296,34 @@ internal sealed class CommentService : PhoenixFeatureService
 
     internal async Task<PhoenixOperationResult> SendReplyAsync(
         string commentId,
-        string groupId,
+        string seriesId,
+        string videoId,
         string text,
-        string replyToUserId,
+        string? replyToUserId,
         CancellationToken cancellationToken
     )
     {
         commentId = NormalizeCommentId(commentId);
-        groupId = NormalizeSeriesOrVideoId(groupId);
         text = NormalizeText(text);
+
+        bool hasVideo = !string.IsNullOrWhiteSpace(videoId);
+        bool hasSeries = !string.IsNullOrWhiteSpace(seriesId);
+        bool isEpisode = hasVideo || (hasSeries && !string.Equals(seriesId, commentId, StringComparison.Ordinal));
+
+        string normalizedSeriesId = hasSeries ? NormalizeSeriesOrVideoId(seriesId) : string.Empty;
+        string normalizedVideoId = hasVideo ? NormalizeSeriesOrVideoId(videoId) : string.Empty;
+        string groupId = isEpisode
+            ? (normalizedVideoId.Length > 0 ? normalizedVideoId : normalizedSeriesId)
+            : (normalizedSeriesId.Length > 0 ? normalizedSeriesId : commentId);
+
+        int commentSource = isEpisode ? 504 : 501;
+        int serverChannel = isEpisode ? 18 : 34;
+        int groupType = isEpisode ? 30 : 1;
+        int dataType = isEpisode ? 4 : 2;
+        int commentType = isEpisode ? 4 : 2;
+
+        string? normalizedReplyUser = string.IsNullOrWhiteSpace(replyToUserId) ? null : replyToUserId.Trim();
+
         AppResponse<AppReplyAddData> response = await _appTransport
             .PostAsync<AppCommentAddPayload, AppReplyAddData>(
                 "/novel/commentapi/reply/add/v1/",
@@ -307,14 +332,21 @@ internal sealed class CommentService : PhoenixFeatureService
                     CommitSource = 9,
                     Text = text,
                     GroupId = groupId,
-                    GroupType = 30,
-                    DataType = 4,
+                    GroupType = groupType,
+                    DataType = dataType,
+                    CommentType = commentType,
                     ReplyToCommentId = commentId,
-                    ReplyToUserId = replyToUserId,
-                    BusinessParameter = new AppCommentAddBusinessParameter { BookId = groupId },
+                    ReplyToUserId = normalizedReplyUser,
+                    BusinessParameter = new AppCommentAddBusinessParameter
+                    {
+                        BookId = normalizedSeriesId.Length > 0 ? normalizedSeriesId : groupId,
+                        VideoId = isEpisode ? (normalizedVideoId.Length > 0 ? normalizedVideoId : groupId) : null,
+                    },
                 },
                 commentRequest: true,
                 cancellationToken,
+                commentSource: commentSource,
+                serverChannel: serverChannel,
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
@@ -328,10 +360,18 @@ internal sealed class CommentService : PhoenixFeatureService
 
     internal Task<PhoenixOperationResult> SendReplyAsync(
         string commentId,
+        string groupId,
         string text,
-        string replyToUserId,
+        string? replyToUserId,
         CancellationToken cancellationToken
-    ) => SendReplyAsync(commentId, commentId, text, replyToUserId, cancellationToken);
+    ) => SendReplyAsync(commentId, seriesId: string.Empty, videoId: groupId, text, replyToUserId, cancellationToken);
+
+    internal Task<PhoenixOperationResult> SendReplyAsync(
+        string commentId,
+        string text,
+        string? replyToUserId,
+        CancellationToken cancellationToken
+    ) => SendReplyAsync(commentId, seriesId: string.Empty, videoId: string.Empty, text, replyToUserId, cancellationToken);
 
     internal Task<PhoenixOperationResult> DeleteReplyAsync(
         string replyId,

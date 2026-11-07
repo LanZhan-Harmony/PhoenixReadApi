@@ -266,20 +266,37 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _comments.SendReplyAsync(commentId, text, replyToUserId, cancellationToken);
 
-    /// <summary>按所属视频回复一条评论。</summary>
+    /// <summary>按所属视频或剧集回复一条评论。</summary>
     /// <param name="commentId">目标评论 ID。</param>
     /// <param name="groupId">目标评论所属的视频或剧集 ID。</param>
     /// <param name="text">回复文本。</param>
-    /// <param name="replyToUserId">要回复的用户 ID。</param>
+    /// <param name="replyToUserId">要回复的用户 ID；没有指定时传空字符串。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>服务端操作结果。</returns>
     public Task<PhoenixOperationResult> SendCommentReplyAsync(
         string commentId,
         string groupId,
         string text,
-        string replyToUserId,
+        string replyToUserId = "",
         CancellationToken cancellationToken = default
     ) => _comments.SendReplyAsync(commentId, groupId, text, replyToUserId, cancellationToken);
+
+    /// <summary>按所属剧集与分集视频精准回复一条分集评论。</summary>
+    /// <param name="commentId">目标评论 ID。</param>
+    /// <param name="seriesId">所属剧集 ID。</param>
+    /// <param name="videoId">分集视频 ID。</param>
+    /// <param name="text">回复文本。</param>
+    /// <param name="replyToUserId">要回复的用户 ID；没有指定时传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> SendCommentReplyAsync(
+        string commentId,
+        string seriesId,
+        string videoId,
+        string text,
+        string replyToUserId = "",
+        CancellationToken cancellationToken = default
+    ) => _comments.SendReplyAsync(commentId, seriesId, videoId, text, replyToUserId, cancellationToken);
 
     /// <summary>点赞或取消点赞剧评。</summary>
     /// <param name="commentId">剧评评论 ID。</param>

@@ -527,7 +527,11 @@ internal sealed class CatalogService : PhoenixFeatureService
         }
 
         AppResponse<AppShortRankDataContainer> response = await _appTransport
-            .GetAsync<AppShortRankDataContainer>("/reading/bookapi/bookmall/cell/change/v1/", query, cancellationToken)
+            .GetAsync<AppShortRankDataContainer>(
+                "/reading/bookapi/bookmall/cell/change/v1/",
+                query,
+                cancellationToken
+            )
             .ConfigureAwait(false);
 
         AppShortRankDataContainer data = response.Data ?? new();
@@ -538,7 +542,10 @@ internal sealed class CatalogService : PhoenixFeatureService
         {
             foreach (AppShortRankActorDto actor in cell.ActorData ?? [])
             {
-                string userId = ValueNormalizer.First(actor.UserInfo?.BaseInfo?.UserId, actor.UserInfo?.UserId);
+                string userId = ValueNormalizer.First(
+                    actor.UserInfo?.BaseInfo?.UserId,
+                    actor.UserInfo?.UserId
+                );
                 string actorId = actor.UserInfo?.BaseInfo?.EffectiveActorId ?? string.Empty;
                 string name = actor.UserInfo?.BaseInfo?.UserName ?? string.Empty;
                 string avatar = actor.UserInfo?.BaseInfo?.UserAvatar ?? string.Empty;
@@ -553,19 +560,21 @@ internal sealed class CatalogService : PhoenixFeatureService
                     }
                 }
 
-                items.Add(new ActorLeaderboardItem
-                {
-                    Position = position++,
-                    UserId = userId,
-                    ActorId = actorId,
-                    Name = name,
-                    AvatarUrl = avatar,
-                    Popularity = actor.RecTextItem?.RecommendText ?? string.Empty,
-                    RepresentativeWork = actor.Intro ?? string.Empty,
-                    SubTitles = subTitles,
-                    RankChangeType = actor.RankChangeData?.ChangeType ?? 0,
-                    RankChangeValue = actor.RankChangeData?.ChangeNum ?? 0,
-                });
+                items.Add(
+                    new ActorLeaderboardItem
+                    {
+                        Position = position++,
+                        UserId = userId,
+                        ActorId = actorId,
+                        Name = name,
+                        AvatarUrl = avatar,
+                        Popularity = actor.RecTextItem?.RecommendText ?? string.Empty,
+                        RepresentativeWork = actor.Intro ?? string.Empty,
+                        SubTitles = subTitles,
+                        RankChangeType = actor.RankChangeData?.ChangeType ?? 0,
+                        RankChangeValue = actor.RankChangeData?.ChangeNum ?? 0,
+                    }
+                );
             }
         }
 
@@ -579,23 +588,32 @@ internal sealed class CatalogService : PhoenixFeatureService
     }
 
     internal Task<ShortDramaLeaderboardPage> GetShortDramaLeaderboardAsync(
-        ShortDramaLeaderboardCategory category = ShortDramaLeaderboardCategory.All,
-        ShortDramaLeaderboardBoard board = ShortDramaLeaderboardBoard.Default,
+        ShortDramaLeaderboardType type = ShortDramaLeaderboardType.Recommend,
+        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
+        string? genreTag = null,
         int offset = 0,
         string? sessionId = null,
         IEnumerable<string>? seenIds = null,
         CancellationToken cancellationToken = default
-    ) => GetShortDramaLeaderboardAsync(
-        MapLeaderboardCategory(category),
-        MapLeaderboardBoard(category, board),
-        offset,
-        sessionId,
-        seenIds,
-        cancellationToken
-    );
+    )
+    {
+        string boardId = MapLeaderboardBoardId(type);
+        string? subItem = !string.IsNullOrWhiteSpace(genreTag)
+            ? genreTag.Trim()
+            : MapLeaderboardSubItem(channel);
+
+        return GetShortDramaLeaderboardAsync(
+            boardId,
+            subItem,
+            offset,
+            sessionId,
+            seenIds,
+            cancellationToken
+        );
+    }
 
     internal async Task<ShortDramaLeaderboardPage> GetShortDramaLeaderboardAsync(
-        string content = "all",
+        string content = "ranklist_hot_sc",
         string? board = null,
         int offset = 0,
         string? sessionId = null,
@@ -603,12 +621,12 @@ internal sealed class CatalogService : PhoenixFeatureService
         CancellationToken cancellationToken = default
     )
     {
-        string selectedContent = string.IsNullOrWhiteSpace(content) ? "all" : content.Trim();
+        string selectedBoard = NormalizeBoardId(content);
         List<KeyValuePair<string, string>> query =
         [
             new("cell_id", "7470092475068071998"),
             new("tab_type", "26"),
-            new("selected_items", selectedContent),
+            new("selected_items", selectedBoard),
             new("offset", offset.ToString(CultureInfo.InvariantCulture)),
             new("limit", "0"),
             new("client_req_type", "2"),
@@ -616,14 +634,18 @@ internal sealed class CatalogService : PhoenixFeatureService
             new("unlimited_selector_change_type", offset > 0 ? "2" : "1"),
         ];
 
-        if (!string.IsNullOrWhiteSpace(board))
+        string? normalizedSub = NormalizeSubItemId(board);
+        if (!string.IsNullOrWhiteSpace(normalizedSub))
         {
-            query.Add(new("sub_selected_items", board.Trim()));
+            query.Add(new("sub_selected_items", normalizedSub));
         }
 
         if (seenIds is not null)
         {
-            string joinedSeen = string.Join(",", seenIds.Where(id => !string.IsNullOrWhiteSpace(id)));
+            string joinedSeen = string.Join(
+                ",",
+                seenIds.Where(id => !string.IsNullOrWhiteSpace(id))
+            );
             if (joinedSeen.Length > 0)
             {
                 query.Add(new("filter_ids", joinedSeen));
@@ -636,21 +658,19 @@ internal sealed class CatalogService : PhoenixFeatureService
         }
 
         AppResponse<AppShortRankDataContainer> response = await _appTransport
-            .GetAsync<AppShortRankDataContainer>("/reading/bookapi/bookmall/cell/change/v1/", query, cancellationToken)
+            .GetAsync<AppShortRankDataContainer>(
+                "/reading/bookapi/bookmall/cell/change/v1/",
+                query,
+                cancellationToken
+            )
             .ConfigureAwait(false);
 
         AppShortRankDataContainer data = response.Data ?? new();
         List<Drama> items = [];
         HashSet<string> localSeen = new(StringComparer.Ordinal);
-        string boardTitle = selectedContent;
 
         foreach (AppShortRankCellItemDto cell in data.CellView.CellData)
         {
-            if (!string.IsNullOrWhiteSpace(cell.CellName))
-            {
-                boardTitle = cell.CellName;
-            }
-
             foreach (DramaDto video in cell.VideoData)
             {
                 Drama drama = DramaMapper.FromDto(video, "短剧");
@@ -660,6 +680,8 @@ internal sealed class CatalogService : PhoenixFeatureService
                 }
             }
         }
+
+        string boardTitle = ResolveBoardTitle(data, selectedBoard, normalizedSub);
 
         return new ShortDramaLeaderboardPage
         {
@@ -718,8 +740,9 @@ internal sealed class CatalogService : PhoenixFeatureService
     }
 
     internal async IAsyncEnumerable<Drama> EnumerateShortDramaLeaderboardAsync(
-        ShortDramaLeaderboardCategory category = ShortDramaLeaderboardCategory.All,
-        ShortDramaLeaderboardBoard board = ShortDramaLeaderboardBoard.Default,
+        ShortDramaLeaderboardType type = ShortDramaLeaderboardType.Recommend,
+        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
+        string? genreTag = null,
         int maxPages = 10,
         [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
@@ -732,8 +755,9 @@ internal sealed class CatalogService : PhoenixFeatureService
         while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
         {
             ShortDramaLeaderboardPage page = await GetShortDramaLeaderboardAsync(
-                    category,
-                    board,
+                    type,
+                    channel,
+                    genreTag,
                     offset,
                     sessionId,
                     seenIds,
@@ -821,58 +845,122 @@ internal sealed class CatalogService : PhoenixFeatureService
         DateTimeOffset UpdatedAt
     );
 
-    private static string MapLeaderboardCategory(ShortDramaLeaderboardCategory category) =>
-        category switch
+    private static string MapLeaderboardBoardId(ShortDramaLeaderboardType type) =>
+        type switch
         {
-            ShortDramaLeaderboardCategory.Human => "human",
-            ShortDramaLeaderboardCategory.Comic => "comic_series_rank",
-            ShortDramaLeaderboardCategory.Ai => "ai_playlet",
-            ShortDramaLeaderboardCategory.SeriesAlbum => "series_album",
-            _ => "all",
+            ShortDramaLeaderboardType.HotPlay => "ranklist_hot_play_sc",
+            ShortDramaLeaderboardType.NewRelease => "ranklist_new_rank_sc",
+            ShortDramaLeaderboardType.HotSearch => "ranklist_hot_search_sc",
+            _ => "ranklist_hot_sc", // Recommend
         };
 
-    private static string? MapLeaderboardBoard(
-        ShortDramaLeaderboardCategory category,
-        ShortDramaLeaderboardBoard board
-    ) =>
-        (category, board) switch
+    private static string? MapLeaderboardSubItem(ShortDramaLeaderboardChannel channel) =>
+        channel switch
         {
-            (_, ShortDramaLeaderboardBoard.Default) => null,
-
-            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.Recommend) => "human_hot_sc",
-            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.HotPlay) => "human_hot_play",
-            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.NewRelease) => "human_new_rank",
-            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.HotSearch) => "human_hot_search",
-            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.MustWatch) => "human_must_watch",
-            (ShortDramaLeaderboardCategory.Human, ShortDramaLeaderboardBoard.Followed) => "human_followed",
-
-            (ShortDramaLeaderboardCategory.Comic, ShortDramaLeaderboardBoard.Recommend) => "comic_series_hot_rank",
-            (ShortDramaLeaderboardCategory.Comic, ShortDramaLeaderboardBoard.HotPlay) => "comic_series_hot_play",
-            (ShortDramaLeaderboardCategory.Comic, ShortDramaLeaderboardBoard.NewRelease) => "comic_series_new_rank",
-            (ShortDramaLeaderboardCategory.Comic, ShortDramaLeaderboardBoard.HotSearch) => "comic_series_hot_search",
-
-            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.Recommend) => "ai_playlet_hot_sc",
-            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.HotPlay) => "ai_playlet_hot_play",
-            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.NewRelease) => "ai_playlet_new_rank",
-            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.HotSearch) => "ai_playlet_hot_search",
-            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.MustWatch) => "ai_playlet_must_watch",
-            (ShortDramaLeaderboardCategory.Ai, ShortDramaLeaderboardBoard.Followed) => "ai_playlet_followed",
-
-            (ShortDramaLeaderboardCategory.SeriesAlbum, ShortDramaLeaderboardBoard.Recommend) => "series_album_hot_sc",
-            (ShortDramaLeaderboardCategory.SeriesAlbum, ShortDramaLeaderboardBoard.NewRelease) => "series_album_new_rank",
-
-            (_, ShortDramaLeaderboardBoard.Recommend) => "ranklist_hot_sc",
-            (_, ShortDramaLeaderboardBoard.HotPlay) => "ranklist_hot_play_sc",
-            (_, ShortDramaLeaderboardBoard.NewRelease) => "ranklist_new_rank_sc",
-            (_, ShortDramaLeaderboardBoard.HotSearch) => "ranklist_hot_search_sc",
-            (_, ShortDramaLeaderboardBoard.MustWatch) => "ranklist_must_watch",
-            (_, ShortDramaLeaderboardBoard.Followed) => "ranklist_followed",
-            (_, ShortDramaLeaderboardBoard.Prestige) => "ranklist_prestige",
-            (_, ShortDramaLeaderboardBoard.Subscribe) => "ranklist_subscribe",
-            (_, ShortDramaLeaderboardBoard.ChaseUpdate) => "ranklist_chase_update",
-
-            _ => null,
+            ShortDramaLeaderboardChannel.Female => "gender_female",
+            ShortDramaLeaderboardChannel.Male => "gender_male",
+            _ => null, // All => null (总榜)
         };
+
+    private static string NormalizeBoardId(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return "ranklist_hot_sc";
+        }
+        string trimmed = content.Trim();
+        return trimmed switch
+        {
+            "ranklist_hot_play_sc" or "hot_play" or "hot-play" => "ranklist_hot_play_sc",
+            "ranklist_new_rank_sc" or "new_rank" or "new" => "ranklist_new_rank_sc",
+            "ranklist_hot_search_sc" or "hot_search" => "ranklist_hot_search_sc",
+            "ranklist_celebrity" or "celebrity" or "actor" => "ranklist_celebrity",
+            _ when trimmed.StartsWith("ranklist_", StringComparison.Ordinal) => trimmed,
+            _ => "ranklist_hot_sc",
+        };
+    }
+
+    private static string? NormalizeSubItemId(string? subItem)
+    {
+        if (string.IsNullOrWhiteSpace(subItem))
+        {
+            return null;
+        }
+        string trimmed = subItem.Trim();
+        return trimmed switch
+        {
+            "female" or "gender_female" => "gender_female",
+            "male" or "gender_male" => "gender_male",
+            "all" or "default" => null,
+            _ => trimmed,
+        };
+    }
+
+    private static string ResolveBoardTitle(
+        AppShortRankDataContainer data,
+        string selectedBoard,
+        string? selectedSub
+    )
+    {
+        string mainTitle = string.Empty;
+        string subTitle = string.Empty;
+
+        IReadOnlyList<AppShortRankSelectorItemDto> items =
+            data.CellView.CellSelector?.OuterRow?.Items ?? [];
+
+        AppShortRankSelectorItemDto? matchedBoard =
+            items.FirstOrDefault(i => i.SelectorItemId == selectedBoard)
+            ?? items.FirstOrDefault(i => i.IsSelected);
+
+        if (matchedBoard is not null)
+        {
+            mainTitle = matchedBoard.ShowName;
+            IReadOnlyList<AppShortRankSelectorItemDto> subItems =
+                matchedBoard.SubCellSelector?.OuterRow?.Items ?? [];
+
+            AppShortRankSelectorItemDto? matchedSub = null;
+            if (!string.IsNullOrWhiteSpace(selectedSub))
+            {
+                matchedSub = subItems.FirstOrDefault(s => s.SelectorItemId == selectedSub);
+            }
+            matchedSub ??= subItems.FirstOrDefault(s =>
+                s.IsSelected && !string.IsNullOrWhiteSpace(s.SelectorItemId)
+            );
+
+            if (
+                matchedSub is not null
+                && !string.IsNullOrWhiteSpace(matchedSub.ShowName)
+                && matchedSub.ShowName != "总榜"
+            )
+            {
+                subTitle = matchedSub.ShowName;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(mainTitle))
+        {
+            mainTitle = selectedBoard switch
+            {
+                "ranklist_hot_play_sc" => "热播榜",
+                "ranklist_new_rank_sc" => "新剧榜",
+                "ranklist_hot_search_sc" => "热搜榜",
+                "ranklist_celebrity" => "演员榜",
+                _ => "推荐榜",
+            };
+        }
+
+        if (string.IsNullOrWhiteSpace(subTitle) && !string.IsNullOrWhiteSpace(selectedSub))
+        {
+            subTitle = selectedSub switch
+            {
+                "gender_female" => "女频",
+                "gender_male" => "男频",
+                _ => string.Empty,
+            };
+        }
+
+        return !string.IsNullOrWhiteSpace(subTitle) ? $"{mainTitle}·{subTitle}" : mainTitle;
+    }
 
     private static string MapTagSortOrder(TagDramaSortOrder sort) =>
         sort switch

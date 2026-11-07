@@ -98,53 +98,99 @@ public sealed class EnumCoverageTests
 
         // 1. 全部内容 + 推荐榜
         ShortDramaLeaderboardPage allRecommend = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
-            category: ShortDramaLeaderboardCategory.All,
-            board: ShortDramaLeaderboardBoard.Recommend,
+            type: ShortDramaLeaderboardType.Recommend,
+            channel: ShortDramaLeaderboardChannel.All,
             offset: 0,
             cancellationToken: timeout.Token
         );
         await Assert.That(allRecommend).IsNotNull();
         await Assert.That(allRecommend.Items).IsNotNull();
         await Assert.That(allRecommend.BoardTitle).IsNotNull();
+        await Assert.That(allRecommend.BoardTitle).IsNotEqualTo("小卡");
 
-        // 2. 真人剧 + 热播榜
-        ShortDramaLeaderboardPage humanHotPlay = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
-            category: ShortDramaLeaderboardCategory.Human,
-            board: ShortDramaLeaderboardBoard.HotPlay,
+        // 2. 女频 + 热播榜
+        ShortDramaLeaderboardPage femaleHotPlay = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
+            type: ShortDramaLeaderboardType.HotPlay,
+            channel: ShortDramaLeaderboardChannel.Female,
             offset: 0,
             cancellationToken: timeout.Token
         );
-        await Assert.That(humanHotPlay).IsNotNull();
-        await Assert.That(humanHotPlay.Items).IsNotNull();
+        await Assert.That(femaleHotPlay).IsNotNull();
+        await Assert.That(femaleHotPlay.Items).IsNotNull();
+        await Assert.That(femaleHotPlay.BoardTitle).Contains("热播");
 
-        // 3. 漫剧榜 + 默认榜
-        ShortDramaLeaderboardPage comicPage = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
-            category: ShortDramaLeaderboardCategory.Comic,
-            board: ShortDramaLeaderboardBoard.Default,
+        // 3. 男频 + 热播榜
+        ShortDramaLeaderboardPage maleHotPlay = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
+            type: ShortDramaLeaderboardType.HotPlay,
+            channel: ShortDramaLeaderboardChannel.Male,
             offset: 0,
             cancellationToken: timeout.Token
         );
-        await Assert.That(comicPage).IsNotNull();
-        await Assert.That(comicPage.Items).IsNotNull();
+        await Assert.That(maleHotPlay).IsNotNull();
+        await Assert.That(maleHotPlay.Items).IsNotNull();
+        await Assert.That(maleHotPlay.BoardTitle).Contains("热播");
 
-        // 4. AI 剧榜
-        ShortDramaLeaderboardPage aiPage = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
-            category: ShortDramaLeaderboardCategory.Ai,
-            board: ShortDramaLeaderboardBoard.Default,
+        // 4. 新剧榜
+        ShortDramaLeaderboardPage newReleasePage = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
+            type: ShortDramaLeaderboardType.NewRelease,
+            channel: ShortDramaLeaderboardChannel.All,
             offset: 0,
             cancellationToken: timeout.Token
         );
-        await Assert.That(aiPage).IsNotNull();
-        await Assert.That(aiPage.Items).IsNotNull();
+        await Assert.That(newReleasePage).IsNotNull();
+        await Assert.That(newReleasePage.Items).IsNotNull();
+        await Assert.That(newReleasePage.BoardTitle).Contains("新剧");
 
-        // 5. 系列剧榜
-        ShortDramaLeaderboardPage seriesAlbumPage = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
-            category: ShortDramaLeaderboardCategory.SeriesAlbum,
-            board: ShortDramaLeaderboardBoard.Recommend,
+        // 5. 热搜榜
+        ShortDramaLeaderboardPage hotSearchPage = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
+            type: ShortDramaLeaderboardType.HotSearch,
+            channel: ShortDramaLeaderboardChannel.All,
             offset: 0,
             cancellationToken: timeout.Token
         );
-        await Assert.That(seriesAlbumPage).IsNotNull();
-        await Assert.That(seriesAlbumPage.Items).IsNotNull();
+        await Assert.That(hotSearchPage).IsNotNull();
+        await Assert.That(hotSearchPage.Items).IsNotNull();
+        await Assert.That(hotSearchPage.BoardTitle).Contains("热搜");
+    }
+
+    [Test, NotInParallel("phoenix-read-api")]
+    public async Task TestLeaderboardDistinctResultsAcrossCategoriesAndBoards()
+    {
+        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
+
+        ShortDramaLeaderboardPage femaleHotPlay = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
+            type: ShortDramaLeaderboardType.HotPlay,
+            channel: ShortDramaLeaderboardChannel.Female,
+            offset: 0,
+            cancellationToken: timeout.Token
+        );
+        ShortDramaLeaderboardPage maleHotPlay = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
+            type: ShortDramaLeaderboardType.HotPlay,
+            channel: ShortDramaLeaderboardChannel.Male,
+            offset: 0,
+            cancellationToken: timeout.Token
+        );
+        ShortDramaLeaderboardPage recommend = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
+            type: ShortDramaLeaderboardType.Recommend,
+            channel: ShortDramaLeaderboardChannel.All,
+            offset: 0,
+            cancellationToken: timeout.Token
+        );
+
+        await Assert.That(femaleHotPlay.Items.Count).IsGreaterThan(0);
+        await Assert.That(maleHotPlay.Items.Count).IsGreaterThan(0);
+        await Assert.That(recommend.Items.Count).IsGreaterThan(0);
+
+        // 校验女频与男频榜单标题包含对应受众，且内容具备区分度
+        await Assert.That(femaleHotPlay.BoardTitle).Contains("女频");
+        await Assert.That(maleHotPlay.BoardTitle).Contains("男频");
+
+        string? femaleTop = femaleHotPlay.Items.FirstOrDefault()?.Id;
+        string? maleTop = maleHotPlay.Items.FirstOrDefault()?.Id;
+        string? recommendTop = recommend.Items.FirstOrDefault()?.Id;
+
+        // 男频 TOP 1 与女频 TOP 1 或推荐榜 TOP 1 不全相同
+        bool hasDistinction = femaleTop != maleTop || femaleTop != recommendTop;
+        await Assert.That(hasDistinction).IsTrue();
     }
 }

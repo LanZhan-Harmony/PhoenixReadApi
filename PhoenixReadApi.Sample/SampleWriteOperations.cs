@@ -107,6 +107,7 @@ internal static partial class SampleSteps
                 () =>
                     client.SendCommentReplyAsync(
                         createdCommentId,
+                        seriesId,
                         videoId,
                         replyText,
                         "",

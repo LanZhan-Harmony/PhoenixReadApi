@@ -35,6 +35,38 @@ internal sealed class AppShortRankCellViewDto
 {
     [JsonPropertyName("cell_data")]
     public IReadOnlyList<AppShortRankCellItemDto> CellData { get; init; } = [];
+
+    [JsonPropertyName("cell_selector")]
+    public AppShortRankCellSelectorDto? CellSelector { get; init; }
+}
+
+internal sealed class AppShortRankCellSelectorDto
+{
+    [JsonPropertyName("outer_row")]
+    public AppShortRankSelectorRowDto? OuterRow { get; init; }
+}
+
+internal sealed class AppShortRankSelectorRowDto
+{
+    [JsonPropertyName("items")]
+    public IReadOnlyList<AppShortRankSelectorItemDto> Items { get; init; } = [];
+}
+
+internal sealed class AppShortRankSelectorItemDto
+{
+    [JsonPropertyName("show_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ShowName { get; init; } = string.Empty;
+
+    [JsonPropertyName("selector_item_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string SelectorItemId { get; init; } = string.Empty;
+
+    [JsonPropertyName("is_selected")]
+    public bool IsSelected { get; init; }
+
+    [JsonPropertyName("sub_cell_selector")]
+    public AppShortRankCellSelectorDto? SubCellSelector { get; init; }
 }
 
 internal sealed class AppShortRankCellItemDto

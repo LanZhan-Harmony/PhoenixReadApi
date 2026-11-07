@@ -310,17 +310,11 @@ public sealed class CommentsAndDanmakuTests
     public async Task TestCommentReplyLifecycleAsync()
     {
         using PhoenixReadApiClient? authClient = SharedScenario.TryGetAuthenticatedClient();
-        if (authClient is null)
-        {
-            return;
-        }
+        await Assert.That(authClient).IsNotNull();
 
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         bool validSession = await authClient.ValidateSessionAsync(timeout.Token);
-        if (!validSession)
-        {
-            return;
-        }
+        await Assert.That(validSession).IsTrue();
 
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
         string marker = $"单元测试_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
@@ -339,6 +333,7 @@ public sealed class CommentsAndDanmakuTests
         // 2. 在自己刚刚发布的评论中发表回复并获取返回的 Reply ID
         PhoenixOperationResult reply = await authClient.SendCommentReplyAsync(
             comment.Id,
+            scenario.SeriesId,
             scenario.Episode.VideoId,
             $"回复_{marker}",
             "",
@@ -389,17 +384,11 @@ public sealed class CommentsAndDanmakuTests
     public async Task TestDramaReviewLifecycleAsync()
     {
         using PhoenixReadApiClient? authClient = SharedScenario.TryGetAuthenticatedClient();
-        if (authClient is null)
-        {
-            return;
-        }
+        await Assert.That(authClient).IsNotNull();
 
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         bool validSession = await authClient.ValidateSessionAsync(timeout.Token);
-        if (!validSession)
-        {
-            return;
-        }
+        await Assert.That(validSession).IsTrue();
 
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
         string reviewText =

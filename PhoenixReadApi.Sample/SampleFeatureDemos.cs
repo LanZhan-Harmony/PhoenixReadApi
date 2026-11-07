@@ -110,25 +110,47 @@ internal static partial class SampleSteps
         }
 
         // ==========================================
-        // 功能展示 3: 短剧排行榜 (真人剧·热播榜)
+        // 功能展示 3: 短剧排行榜 (多榜单与受众细分)
         // ==========================================
-        Console.WriteLine("\n--- [功能展示 3: 短剧排行榜 (真人剧·热播榜)] ---");
+        Console.WriteLine("\n--- [功能展示 3: 短剧排行榜 (热播榜·女频 vs 热播榜·男频)] ---");
         ShortDramaLeaderboardPage? leaderboard = await TryAsync(
-            "GetShortDramaLeaderboardAsync",
+            "GetShortDramaLeaderboardAsync(HotPlay, Female)",
             () =>
                 client.GetShortDramaLeaderboardAsync(
-                    category: ShortDramaLeaderboardCategory.Human,
-                    board: ShortDramaLeaderboardBoard.HotPlay,
+                    type: ShortDramaLeaderboardType.HotPlay,
+                    channel: ShortDramaLeaderboardChannel.Female,
                     offset: 0,
                     cancellationToken: cancellationToken
                 )
         );
-        PrintCount("  排行榜剧集数量", leaderboard?.Items.Count);
+        ShortDramaLeaderboardPage? leaderboard2 = await TryAsync(
+            "GetShortDramaLeaderboardAsync(HotPlay, Male)",
+            () =>
+                client.GetShortDramaLeaderboardAsync(
+                    type: ShortDramaLeaderboardType.HotPlay,
+                    channel: ShortDramaLeaderboardChannel.Male,
+                    offset: 0,
+                    cancellationToken: cancellationToken
+                )
+        );
+        PrintCount("  女频热播榜剧集数量", leaderboard?.Items.Count);
         if (leaderboard is not null)
         {
             Console.WriteLine($"  ★ 榜单名称: {leaderboard.BoardTitle}");
             int rank = 1;
             foreach (Drama drama in leaderboard.Items.Take(5))
+            {
+                Console.WriteLine(
+                    $"     TOP {rank++}: 《{drama.Title}》 - {drama.Remark} (评分: {drama.Score}, 热度: {drama.Heat})"
+                );
+            }
+        }
+        PrintCount("  男频热播榜剧集数量", leaderboard2?.Items.Count);
+        if (leaderboard2 is not null)
+        {
+            Console.WriteLine($"  ★ 榜单名称: {leaderboard2.BoardTitle}");
+            int rank = 1;
+            foreach (Drama drama in leaderboard2.Items.Take(5))
             {
                 Console.WriteLine(
                     $"     TOP {rank++}: 《{drama.Title}》 - {drama.Remark} (评分: {drama.Score}, 热度: {drama.Heat})"
@@ -227,55 +249,21 @@ internal static partial class SampleSteps
         }
 
         // ==========================================
-        // 功能展示 7: 跨模态搜索 (原著小说与明星创作者)
+        // 功能展示 7: 跨模态搜索 (短剧)
         // ==========================================
-        Console.WriteLine("\n--- [功能展示 7: 跨模态搜索 (小说与演职员)] ---");
-        SearchResult? novelSearch = await TryAsync(
-            "SearchAsync(Novel)",
-            () =>
-                client.SearchAsync(
-                    new SearchQuery
-                    {
-                        Keyword = "逆袭",
-                        Tab = SearchTab.CommonBook,
-                        Count = 3,
-                    },
-                    cancellationToken
-                )
-        );
-        PrintCount("  搜索原著小说结果数", novelSearch?.Novels.Count);
-        if (novelSearch?.Novels.Count > 0)
-        {
-            foreach (Novel novel in novelSearch.Novels.Take(3))
-            {
-                Console.WriteLine(
-                    $"     - 书籍: 《{novel.Title}》 作者: {novel.Author} (字数/连载: {novel.StatusText})"
-                );
-            }
-        }
-
         SearchResult? userSearch = await TryAsync(
-            "SearchAsync(User)",
+            "SearchAsync(ShortPlay)",
             () =>
                 client.SearchAsync(
                     new SearchQuery
                     {
-                        Keyword = "张",
-                        Tab = SearchTab.User,
+                        Keyword = "女帝",
+                        Tab = SearchTab.ShortPlay,
                         Count = 3,
                     },
                     cancellationToken
                 )
         );
-        PrintCount("  搜索明星/创作者结果数", userSearch?.Users.Count);
-        if (userSearch?.Users.Count > 0)
-        {
-            foreach (User user in userSearch.Users.Take(3))
-            {
-                Console.WriteLine(
-                    $"     - 用户: {user.Name} (ID: {user.Id}) - 简介: {user.Introduction}"
-                );
-            }
-        }
+        PrintCount("  搜索短剧结果数", userSearch?.Dramas.Count);
     }
 }

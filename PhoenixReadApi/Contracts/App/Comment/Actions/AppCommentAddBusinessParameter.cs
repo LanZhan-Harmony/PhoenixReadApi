@@ -8,7 +8,8 @@ internal sealed class AppCommentAddBusinessParameter
     public string BookId { get; init; } = string.Empty;
 
     [JsonPropertyName("video_id")]
-    public string VideoId { get; init; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? VideoId { get; init; }
 
     [JsonPropertyName("offset")]
     public long Offset { get; init; }
