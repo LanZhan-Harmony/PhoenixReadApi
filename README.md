@@ -200,16 +200,16 @@ ShortDramaFilterPage filterPage = await client.FilterShortDramasAsync(
 );
 
 // 按日期指定查询上新日历（查看指定日期的已上线与即将上线作品）
-DailyReleasePage dailyPage = await client.GetDailyReleasesAsync(targetDate: "20261104", offset: 0, cancellationToken: cts.Token);
+DailyReleasePage dailyPage = await client.GetDailyReleasesAsync(targetDate: new DateOnly(2026, 11, 4), offset: 0, cancellationToken: cts.Token);
 foreach (DailyReleaseItem item in dailyPage.Items)
 {
     Console.WriteLine($"日历作品: 《{item.Drama.Title}》 - {item.Note} (上线: {item.IsOnline})");
 }
 
-// 短剧排行榜（支持多榜单切换：真人剧榜、漫剧榜、热播榜等）
+// 短剧排行榜（支持热播榜、推荐榜、新剧榜、热搜榜，支持按总榜/女频/男频频道细分）
 ShortDramaLeaderboardPage rankBoard = await client.GetShortDramaLeaderboardAsync(
-    category: ShortDramaLeaderboardCategory.Human,
-    board: ShortDramaLeaderboardBoard.HotPlay,
+    type: ShortDramaLeaderboardType.HotPlay,
+    channel: ShortDramaLeaderboardChannel.Female,
     offset: 0,
     cancellationToken: cts.Token
 );

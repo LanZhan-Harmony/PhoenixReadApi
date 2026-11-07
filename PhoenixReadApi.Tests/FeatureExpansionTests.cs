@@ -89,12 +89,12 @@ public sealed class FeatureExpansionTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestShortDramaLeaderboardAsync_HumanHotPlay()
+    public async Task TestShortDramaLeaderboardAsync_HotPlayFemale()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         ShortDramaLeaderboardPage page = await SharedScenario.Client.GetShortDramaLeaderboardAsync(
-            category: ShortDramaLeaderboardCategory.Human,
-            board: ShortDramaLeaderboardBoard.HotPlay,
+            type: ShortDramaLeaderboardType.HotPlay,
+            channel: ShortDramaLeaderboardChannel.Female,
             offset: 0,
             cancellationToken: timeout.Token
         );

@@ -217,7 +217,7 @@ internal sealed class PhoenixReadAppTransport
             {
                 bool transient = (int)response.StatusCode >= 500;
                 throw new PhoenixReadApiHttpException(
-                    $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                    ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
                     path,
                     (int)response.StatusCode,
                     requestUri,
@@ -283,7 +283,7 @@ internal sealed class PhoenixReadAppTransport
         if (!response.IsSuccessStatusCode)
         {
             throw new PhoenixReadApiHttpException(
-                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
                 path,
                 (int)response.StatusCode,
                 requestUri,
@@ -347,7 +347,7 @@ internal sealed class PhoenixReadAppTransport
         if (!response.IsSuccessStatusCode)
         {
             throw new PhoenixReadApiHttpException(
-                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
                 path,
                 (int)response.StatusCode,
                 requestUri,
@@ -411,7 +411,7 @@ internal sealed class PhoenixReadAppTransport
         if (!response.IsSuccessStatusCode)
         {
             throw new PhoenixReadApiHttpException(
-                $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
                 path,
                 (int)response.StatusCode,
                 requestUri,
@@ -548,7 +548,7 @@ internal sealed class PhoenixReadAppTransport
             {
                 bool transient = (int)response.StatusCode >= 500;
                 throw new PhoenixReadApiHttpException(
-                    $"红果 App 接口 HTTP {(int)response.StatusCode}。",
+                    ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
                     path,
                     (int)response.StatusCode,
                     requestUri,
@@ -645,4 +645,30 @@ internal sealed class PhoenixReadAppTransport
 
     private static string Truncate(string value, int length) =>
         value.Length <= length ? value : value[..length];
+
+    private static string ExtractSafeHttpErrorMessage(byte[] bytes, int statusCode)
+    {
+        if (bytes.Length > 0)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(bytes);
+                if (doc.RootElement.TryGetProperty("message", out JsonElement msgProp) ||
+                    doc.RootElement.TryGetProperty("msg", out msgProp) ||
+                    doc.RootElement.TryGetProperty("status_msg", out msgProp))
+                {
+                    string? msg = msgProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(msg) && msg.Length <= 100)
+                    {
+                        return $"红果 App 接口 HTTP {statusCode} ({msg.Trim()})。";
+                    }
+                }
+            }
+            catch
+            {
+                // ignore non-json error responses
+            }
+        }
+        return $"红果 App 接口 HTTP {statusCode}。";
+    }
 }

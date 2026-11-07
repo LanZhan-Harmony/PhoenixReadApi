@@ -52,24 +52,27 @@ public sealed partial class PhoenixReadApiClient
     ) => _catalog.GetActorLeaderboardAsync(offset, sessionId, cancellationToken);
 
     /// <summary>获取红果短剧排行榜分页数据。</summary>
-    /// <param name="category">榜单内容分类枚举（全部、真人剧榜、漫剧榜、AI剧、系列剧等），默认为 <see cref="ShortDramaLeaderboardCategory.All"/>。</param>
-    /// <param name="board">细分榜单类型枚举（推荐榜、热播榜、新剧榜、热搜榜等），默认为 <see cref="ShortDramaLeaderboardBoard.Default"/>。</param>
+    /// <param name="type">排行榜类型（推荐榜、热播榜、新剧榜、热搜榜），默认为 <see cref="ShortDramaLeaderboardType.Recommend"/>。</param>
+    /// <param name="channel">频道受众（总榜、女频、男频），默认为 <see cref="ShortDramaLeaderboardChannel.All"/>。</param>
+    /// <param name="genreTag">可选的题材标签 ID（例如 "cate_1051" 表示打脸虐渣，"cate_739" 表示逆袭）；非空时优先作为细分筛选条件。</param>
     /// <param name="offset">分页偏移量，初次调用传入 0。</param>
     /// <param name="sessionId">上一页返回的会话 ID；初次请求可为 null。</param>
     /// <param name="seenIds">已展示过的剧集 ID 集合，用于服务端跳过去重。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>短剧排行榜分页数据。</returns>
     public Task<ShortDramaLeaderboardPage> GetShortDramaLeaderboardAsync(
-        ShortDramaLeaderboardCategory category = ShortDramaLeaderboardCategory.All,
-        ShortDramaLeaderboardBoard board = ShortDramaLeaderboardBoard.Default,
+        ShortDramaLeaderboardType type = ShortDramaLeaderboardType.Recommend,
+        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
+        string? genreTag = null,
         int offset = 0,
         string? sessionId = null,
         IEnumerable<string>? seenIds = null,
         CancellationToken cancellationToken = default
     ) =>
         _catalog.GetShortDramaLeaderboardAsync(
-            category,
-            board,
+            type,
+            channel,
+            genreTag,
             offset,
             sessionId,
             seenIds,
@@ -91,18 +94,20 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _catalog.EnumerateTagDramasAsync(tagItemId, sort, pageSize, maxPages, cancellationToken);
 
-    /// <summary>流式遍历短剧排行榜（真人剧、漫剧、热播、新剧等），并在跨页时自动去重。</summary>
-    /// <param name="category">榜单内容类型：默认为 <see cref="ShortDramaLeaderboardCategory.All"/>（全部）。</param>
-    /// <param name="board">细分榜单类型：默认为 <see cref="ShortDramaLeaderboardBoard.Default"/>（推荐榜/默认榜）。</param>
+    /// <summary>流式遍历短剧排行榜，并在跨页时自动去重。</summary>
+    /// <param name="type">排行榜类型：默认为 <see cref="ShortDramaLeaderboardType.Recommend"/>（推荐榜）。</param>
+    /// <param name="channel">频道受众：默认为 <see cref="ShortDramaLeaderboardChannel.All"/>（总榜）。</param>
+    /// <param name="genreTag">可选细分标签。</param>
     /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
     /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
     /// <returns>去重后的排行榜短剧异步流。</returns>
     public IAsyncEnumerable<Drama> EnumerateShortDramaLeaderboardAsync(
-        ShortDramaLeaderboardCategory category = ShortDramaLeaderboardCategory.All,
-        ShortDramaLeaderboardBoard board = ShortDramaLeaderboardBoard.Default,
+        ShortDramaLeaderboardType type = ShortDramaLeaderboardType.Recommend,
+        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
+        string? genreTag = null,
         int maxPages = 10,
         CancellationToken cancellationToken = default
-    ) => _catalog.EnumerateShortDramaLeaderboardAsync(category, board, maxPages, cancellationToken);
+    ) => _catalog.EnumerateShortDramaLeaderboardAsync(type, channel, genreTag, maxPages, cancellationToken);
 
     /// <summary>流式遍历演员排行榜。</summary>
     /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>

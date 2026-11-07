@@ -29,11 +29,12 @@ internal sealed class AppCommentAddPayload
     public int Aid { get; init; } = 8662;
 
     [JsonPropertyName("reply_to_comment_id")]
-    public string ReplyToCommentId { get; init; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReplyToCommentId { get; init; }
 
     [JsonPropertyName("reply_to_user_id")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public string ReplyToUserId { get; init; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReplyToUserId { get; init; }
 
     [JsonPropertyName("ignore_urge_rule")]
     public bool IgnoreUrgeRule { get; init; }
