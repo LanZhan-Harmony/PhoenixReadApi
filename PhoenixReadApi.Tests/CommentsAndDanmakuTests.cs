@@ -301,7 +301,7 @@ public sealed class CommentsAndDanmakuTests
         await Assert
             .That(async () =>
             {
-                await SharedScenario.Client.SendCommentReplyAsync("123", "");
+                await SharedScenario.Client.SendEpisodeCommentReplyAsync("123", "456", "789", "");
             })
             .Throws<ArgumentException>();
     }
@@ -331,7 +331,7 @@ public sealed class CommentsAndDanmakuTests
         await Assert.That(string.IsNullOrWhiteSpace(comment.Id)).IsFalse();
 
         // 2. 在自己刚刚发布的评论中发表回复并获取返回的 Reply ID
-        PhoenixOperationResult reply = await authClient.SendCommentReplyAsync(
+        PhoenixOperationResult reply = await authClient.SendEpisodeCommentReplyAsync(
             comment.Id,
             scenario.SeriesId,
             scenario.Episode.VideoId,

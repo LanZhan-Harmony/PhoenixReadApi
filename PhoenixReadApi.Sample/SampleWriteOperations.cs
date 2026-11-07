@@ -105,7 +105,7 @@ internal static partial class SampleSteps
             PhoenixOperationResult? replyResult = await TryAsync(
                 "SendCommentReplyAsync(on self comment)",
                 () =>
-                    client.SendCommentReplyAsync(
+                    client.SendEpisodeCommentReplyAsync(
                         createdCommentId,
                         seriesId,
                         videoId,
