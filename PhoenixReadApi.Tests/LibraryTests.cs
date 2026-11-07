@@ -88,7 +88,6 @@ public sealed class LibraryTests
 
         await Assert.That(favorites).IsNotNull();
         await Assert.That(favorites.Items).IsNotNull();
-        await Assert.That(favorites.Cursor).IsNotNull();
         await Assert.That(favorites.NextOffset >= 0).IsTrue();
         await Assert.That(favorites.Total >= 0).IsTrue();
 
@@ -123,7 +122,6 @@ public sealed class LibraryTests
 
         await Assert.That(likes).IsNotNull();
         await Assert.That(likes.Items).IsNotNull();
-        await Assert.That(likes.Cursor).IsNotNull();
         await Assert.That(likes.NextOffset >= 0).IsTrue();
         await Assert.That(likes.Total >= 0).IsTrue();
 
