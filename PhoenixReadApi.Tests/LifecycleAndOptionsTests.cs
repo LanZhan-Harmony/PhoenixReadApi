@@ -58,4 +58,21 @@ public sealed class LifecycleAndOptionsTests
             });
         }).Throws<ArgumentException>();
     }
+
+    [Test]
+    public async Task TestProviderException_CarriesRetryAfter()
+    {
+        PhoenixReadApiProviderException ex = new(
+            "红果 App 接口暂不可用（100: {\"min_ban_time\": 3, \"max_ban_time\": 5, \"ban_rate\": 0}）。",
+            "/novel/commentapi/comment/list/v1/",
+            providerCode: "100",
+            isTransient: true,
+            retryAfter: TimeSpan.FromSeconds(3)
+        );
+
+        await Assert.That(ex.ProviderCode).IsEqualTo("100");
+        await Assert.That(ex.IsTransient).IsTrue();
+        await Assert.That(ex.RetryAfter).IsNotNull();
+        await Assert.That(ex.RetryAfter!.Value.TotalSeconds).IsEqualTo(3);
+    }
 }

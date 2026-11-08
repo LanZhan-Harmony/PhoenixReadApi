@@ -16,7 +16,8 @@ public class PhoenixReadApiException(
     int? statusCode,
     string? providerCode,
     bool isTransient,
-    Exception? innerException = null
+    Exception? innerException = null,
+    TimeSpan? retryAfter = null
 ) : Exception(message, innerException)
 {
     /// <summary>使用兼容参数创建 API 异常。</summary>
@@ -34,8 +35,10 @@ public class PhoenixReadApiException(
             statusCode,
             providerCode: null,
             isTransient: false,
-            innerException
-        ) { }
+            innerException,
+            retryAfter: null
+        )
+    { }
 
     /// <summary>失败的逻辑操作名称。</summary>
     public string Operation { get; } = string.IsNullOrWhiteSpace(operation) ? "unknown" : operation;
@@ -54,6 +57,9 @@ public class PhoenixReadApiException(
 
     /// <summary>获取该操作是否通常可以安全重试。</summary>
     public bool IsTransient { get; } = isTransient;
+
+    /// <summary>服务端指示的建议重试冷却时长；若服务端未指定则为 null。</summary>
+    public TimeSpan? RetryAfter { get; } = retryAfter;
 
     /// <summary>状态码可用时，以框架枚举返回该状态码。</summary>
     public HttpStatusCode? HttpStatusCode => StatusCode is { } value ? (HttpStatusCode)value : null;

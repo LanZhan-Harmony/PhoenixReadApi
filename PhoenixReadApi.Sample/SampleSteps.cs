@@ -112,7 +112,9 @@ internal static partial class SampleSteps
         );
         if (hotSearch is not null)
         {
-            Console.WriteLine($"  热搜看板：猜你想搜 {hotSearch.Guesses.Count} 条，看板榜单 {hotSearch.Boards.Count} 个");
+            Console.WriteLine(
+                $"  热搜看板：猜你想搜 {hotSearch.Guesses.Count} 条，看板榜单 {hotSearch.Boards.Count} 个"
+            );
             foreach (HotSearchBoard board in hotSearch.Boards.Take(2))
             {
                 Console.WriteLine($"    ★ {board.Title}:");
@@ -284,18 +286,19 @@ internal static partial class SampleSteps
             ? null
             : await TryAsync(
                 isEpisodeComment ? "GetEpisodeCommentRepliesAsync" : "GetDramaReviewRepliesAsync",
-                () => isEpisodeComment
-                    ? client.GetEpisodeCommentRepliesAsync(
-                        context.SampleComment.Id,
-                        context.SeriesId,
-                        context.VideoId,
-                        cancellationToken: cancellationToken
-                    )
-                    : client.GetDramaReviewRepliesAsync(
-                        context.SampleComment.Id,
-                        context.SeriesId,
-                        cancellationToken: cancellationToken
-                    )
+                () =>
+                    isEpisodeComment
+                        ? client.GetEpisodeCommentRepliesAsync(
+                            context.SampleComment.Id,
+                            context.SeriesId,
+                            context.VideoId,
+                            cancellationToken: cancellationToken
+                        )
+                        : client.GetDramaReviewRepliesAsync(
+                            context.SampleComment.Id,
+                            context.SeriesId,
+                            cancellationToken: cancellationToken
+                        )
             );
         PrintCount("  评论回复", context.Replies?.Items.Count);
 

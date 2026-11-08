@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Contracts.App.Comment;
@@ -50,6 +50,9 @@ internal sealed class AppComment
 
     [JsonPropertyName("stat")]
     public AppCommentStat Stat { get; init; } = new();
+
+    [JsonPropertyName("image_list")]
+    public IReadOnlyList<AppCommentImageDto> ImageList { get; init; } = [];
 }
 
 internal sealed class AppCommentCommon
@@ -71,6 +74,9 @@ internal sealed class AppCommentCommon
 
     [JsonPropertyName("user_info")]
     public AppCommentUserInfo UserInfo { get; init; } = new();
+
+    [JsonPropertyName("image_list")]
+    public IReadOnlyList<AppCommentImageDto> ImageList { get; init; } = [];
 }
 
 internal sealed class AppCommentContent
@@ -78,6 +84,12 @@ internal sealed class AppCommentContent
     [JsonPropertyName("text")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Text { get; init; } = string.Empty;
+
+    [JsonPropertyName("image_data_list")]
+    public AppCommentImageDataListDto ImageDataList { get; init; } = new();
+
+    [JsonPropertyName("image_list")]
+    public IReadOnlyList<AppCommentImageDto> ImageList { get; init; } = [];
 }
 
 internal sealed class AppCommentUserInfo
@@ -138,6 +150,9 @@ internal sealed class AppCommentExpand
     [JsonPropertyName("book_id")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string BookId { get; init; } = string.Empty;
+
+    [JsonPropertyName("image_list")]
+    public IReadOnlyList<AppCommentImageDto> ImageList { get; init; } = [];
 }
 
 internal sealed class AppCommentStat

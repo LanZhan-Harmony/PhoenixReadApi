@@ -19,6 +19,7 @@ internal sealed class PhoenixReadAppTransport
     private readonly PhoenixReadSessionStore _sessionStore;
     private readonly PhoenixReadDeviceManager _deviceManager;
     private readonly PhoenixReadPassportTransport _passportTransport;
+    private long _deviceCooldownUntilUnixMilliseconds;
 
     internal PhoenixReadAppTransport(PhoenixReadHttpTransport http, PhoenixReadApiOptions options)
     {
@@ -170,6 +171,8 @@ internal sealed class PhoenixReadAppTransport
                 .EnsureRegisteredAsync(forceNew: false, cancellationToken)
                 .ConfigureAwait(false);
         }
+
+        await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
 
         int rotations = 0;
         while (true)
@@ -467,6 +470,8 @@ internal sealed class PhoenixReadAppTransport
                 .ConfigureAwait(false);
         }
 
+        await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
+
         int rotations = 0;
         while (true)
         {
@@ -611,7 +616,7 @@ internal sealed class PhoenixReadAppTransport
         return new UriBuilder(baseUri) { Query = sb.ToString() }.Uri;
     }
 
-    private static void EnsureSuccess(
+    private void EnsureSuccess(
         string? code,
         string? message,
         AppBaseResponse? baseResponse,
@@ -635,12 +640,78 @@ internal sealed class PhoenixReadAppTransport
         string detail = string.IsNullOrWhiteSpace(serverMessage)
             ? Truncate(providerCode, 20)
             : $"{Truncate(providerCode, 20)}: {Truncate(serverMessage, 100)}";
+
+        TimeSpan? retryAfter = TryParseBanCooldown(providerCode, serverMessage);
+        if (retryAfter is { } banCooldown)
+        {
+            long until = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (long)banCooldown.TotalMilliseconds;
+            Interlocked.Exchange(ref _deviceCooldownUntilUnixMilliseconds, until);
+        }
+
         throw new PhoenixReadApiProviderException(
             $"红果 App 接口暂不可用（{detail}）。",
             path,
             providerCode,
-            isTransient: true
+            isTransient: true,
+            retryAfter: retryAfter
         );
+    }
+
+    private static TimeSpan? TryParseBanCooldown(string? code, string message)
+    {
+        if (code != "100" || string.IsNullOrWhiteSpace(message))
+        {
+            return null;
+        }
+
+        int minBanIdx = message.IndexOf("\"min_ban_time\"", StringComparison.OrdinalIgnoreCase);
+        if (minBanIdx < 0)
+        {
+            return null;
+        }
+
+        int colonIdx = message.IndexOf(':', minBanIdx);
+        if (colonIdx < 0)
+        {
+            return null;
+        }
+
+        int start = colonIdx + 1;
+        while (start < message.Length && char.IsWhiteSpace(message[start]))
+        {
+            start++;
+        }
+
+        int end = start;
+        while (end < message.Length && char.IsDigit(message[end]))
+        {
+            end++;
+        }
+
+        if (end > start && int.TryParse(message.AsSpan(start, end - start), CultureInfo.InvariantCulture, out int seconds) && seconds > 0)
+        {
+            return TimeSpan.FromSeconds(Math.Min(seconds, 30));
+        }
+
+        return null;
+    }
+
+    private async Task AwaitDeviceCooldownAsync(CancellationToken cancellationToken)
+    {
+        long until = Interlocked.Read(ref _deviceCooldownUntilUnixMilliseconds);
+        if (until <= 0)
+        {
+            return;
+        }
+
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        long diff = until - now;
+        if (diff is > 0 and <= 15_000)
+        {
+            int jitterMs = Random.Shared.Next(100, 300);
+            await Task.Delay(TimeSpan.FromMilliseconds(diff + jitterMs), cancellationToken)
+                .ConfigureAwait(false);
+        }
     }
 
     private static string Truncate(string value, int length) =>

@@ -6,7 +6,8 @@ public class PhoenixReadApiProviderException(
     string? endpoint = null,
     string? providerCode = null,
     bool isTransient = true,
-    Exception? innerException = null
+    Exception? innerException = null,
+    TimeSpan? retryAfter = null
 )
     : PhoenixReadApiException(
         message,
@@ -16,7 +17,8 @@ public class PhoenixReadApiProviderException(
         null,
         providerCode,
         isTransient,
-        innerException
+        innerException,
+        retryAfter
     );
 
 /// <summary>当服务拒绝当前设备或身份验证信息时抛出此异常。</summary>

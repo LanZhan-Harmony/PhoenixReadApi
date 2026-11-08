@@ -425,7 +425,7 @@ if (reviews.Items.FirstOrDefault() is { } topComment && topComment.ReplyCount > 
         count: 10,
         cancellationToken: cts.Token
     );
-    Console.WriteLine($"评论《{topComment.Text}》共有 {replies.Items.Count} 条回复");
+    Console.WriteLine($"评论《{topComment.Text}》共有 {replies.Items.Count} 条回复，附图数：{topComment.Images.Count}");
 }
 
 // 互动操作（需在登录状态下调用）

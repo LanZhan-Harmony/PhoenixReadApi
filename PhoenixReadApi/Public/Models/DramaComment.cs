@@ -23,4 +23,7 @@ public sealed class DramaComment
 
     /// <summary>回复数。</summary>
     public long ReplyCount { get; init; }
+
+    /// <summary>评论附带的图片列表；若无附图则为空列表。</summary>
+    public IReadOnlyList<CommentImage> Images { get; init; } = [];
 }

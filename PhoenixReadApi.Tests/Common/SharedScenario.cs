@@ -1,4 +1,4 @@
-namespace PhoenixReadApi.Tests.Common;
+﻿namespace PhoenixReadApi.Tests.Common;
 
 /// <summary>
 /// 测试套件共享的客户端上下文、场景数据缓存和全属性校验辅助方法。
