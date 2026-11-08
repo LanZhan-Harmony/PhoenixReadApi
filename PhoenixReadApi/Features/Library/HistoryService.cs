@@ -7,7 +7,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Library;
 
-/// <summary>阅读历史、短剧播放进度及其更新操作。</summary>
+/// <summary>阅读历史及播放进度上报服务。</summary>
 internal sealed class HistoryService : LibraryServiceBase
 {
     internal HistoryService(PhoenixReadClientRuntime runtime)
@@ -51,49 +51,6 @@ internal sealed class HistoryService : LibraryServiceBase
             NextOffset = data.NextOffset,
             HasMore = data.HasMore,
         };
-    }
-
-    internal async Task<ReadProgressPage> GetReadProgressAsync(CancellationToken cancellationToken)
-    {
-        AppReadProgressResponse response = await _appTransport
-            .GetReadProgressAsync("/reading/bookapi/read_progress/list/v", [], cancellationToken)
-            .ConfigureAwait(false);
-        return MapProgress(response);
-    }
-
-    internal async Task<ReadProgressPage> GetReadProgressForAsync(
-        IReadOnlyList<string> seriesOrVideoIds,
-        CancellationToken cancellationToken
-    )
-    {
-        if (seriesOrVideoIds.Count is 0 or > 200)
-        {
-            throw new ArgumentException(
-                "至少提供一个、最多提供 200 个 ID。",
-                nameof(seriesOrVideoIds)
-            );
-        }
-
-        string[] ids =
-        [
-            .. seriesOrVideoIds
-                .Select(static id => id.Trim())
-                .Where(static id => ValueNormalizer.IsNumericId(id))
-                .Distinct(StringComparer.Ordinal),
-        ];
-        if (ids.Length == 0)
-        {
-            throw new ArgumentException("播放进度查询 ID 无效。", nameof(seriesOrVideoIds));
-        }
-
-        AppReadProgressResponse response = await _appTransport
-            .GetReadProgressAsync(
-                "/reading/bookapi/read_progress/list/v",
-                [new("book_ids", string.Join(",", ids))],
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        return MapProgress(response);
     }
 
     internal async Task<PhoenixOperationResult> ReportProgressAsync(
@@ -187,46 +144,4 @@ internal sealed class HistoryService : LibraryServiceBase
         };
     }
 
-    private static ReadProgressPage MapProgress(
-        IReadOnlyList<AppReadProgressItem>? items,
-        IReadOnlyList<AppReadProgressItem>? localItems
-    )
-    {
-        items ??= [];
-        localItems ??= [];
-        return new ReadProgressPage
-        {
-            Items = [.. items.Select(MapProgress)],
-            LocalItems = [.. localItems.Select(MapProgress)],
-        };
-    }
-
-    private static ReadProgressPage MapProgress(AppReadProgressResponse response)
-    {
-        IReadOnlyList<AppReadProgressItem> items = response.VideoData;
-        IReadOnlyList<AppReadProgressItem> localItems = response.LocalBookData;
-        if (items.Count == 0 && localItems.Count == 0 && response.Data is not null)
-        {
-            items = response.Data.Items;
-            localItems = response.Data.LocalItems;
-            if (items.Count == 0 && localItems.Count == 0 && response.Data.DataItems.Count > 0)
-            {
-                items = response.Data.DataItems;
-            }
-        }
-        return MapProgress(items, localItems);
-    }
-
-    private static ReadProgress MapProgress(AppReadProgressItem item) =>
-        new()
-        {
-            SeriesId = item.SeriesId,
-            VideoId = item.VideoId,
-            EpisodeNumber = item.EpisodeNumber,
-            EpisodeCount = item.EpisodeCount,
-            LastWatchTimeUnixMilliseconds = item.LastWatchTime,
-            CurrentPositionMs = item.CurrentPlayTime,
-            DurationMs = item.CurrentTotalTime,
-            CumulativeDurationMs = item.CumulativeDuration,
-        };
 }

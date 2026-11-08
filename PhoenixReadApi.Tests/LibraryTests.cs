@@ -30,52 +30,6 @@ public sealed class LibraryTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetReadProgressAsync()
-    {
-        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-
-        ReadProgressPage progress = await SharedScenario.Client.GetReadProgressAsync(timeout.Token);
-
-        await Assert.That(progress).IsNotNull();
-        await Assert.That(progress.Items).IsNotNull();
-        await Assert.That(progress.LocalItems).IsNotNull();
-
-        foreach (ReadProgress item in progress.Items)
-        {
-            await SharedScenario.AssertValidReadProgress(item);
-        }
-    }
-
-    [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetReadProgressForAsync()
-    {
-        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-        TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
-
-        ReadProgressPage progress = await SharedScenario.Client.GetReadProgressForAsync(
-            [scenario.SeriesId],
-            timeout.Token
-        );
-
-        await Assert.That(progress).IsNotNull();
-        await Assert.That(progress.Items).IsNotNull();
-        await Assert.That(progress.LocalItems).IsNotNull();
-
-        foreach (ReadProgress item in progress.Items)
-        {
-            await SharedScenario.AssertValidReadProgress(item);
-        }
-
-        // 测试空参数校验
-        await Assert
-            .That(async () =>
-            {
-                await SharedScenario.Client.GetReadProgressForAsync([]);
-            })
-            .Throws<ArgumentException>();
-    }
-
-    [Test, NotInParallel("phoenix-read-api")]
     public async Task TestGetFavoritesAsync_And_GetFavoriteIdsAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
@@ -337,7 +291,14 @@ public sealed class LibraryTests
         await Assert.That(reportResult).IsNotNull();
         await Assert.That(reportResult.Succeeded).IsTrue();
 
-        // 2. 删除历史记录
+        // 2. 校验历史记录已更新
+        ReadHistoryPage history = await authClient.GetHistoryAsync(
+            cancellationToken: timeout.Token
+        );
+        await Assert.That(history).IsNotNull();
+        await Assert.That(history.Items).IsNotNull();
+
+        // 3. 删除历史记录
         PhoenixOperationResult delHistory = await authClient.DeleteHistoryAsync(
             scenario.SeriesId,
             scenario.Episode.VideoId,

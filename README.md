@@ -441,18 +441,15 @@ await client.SetCommentLikeAsync(topComment.Id, seriesId, videoId, active: true,
 // 查询个人观看/阅读历史
 ReadHistoryPage history = await client.GetHistoryAsync(cancellationToken: cts.Token);
 
-// 上报当前分集的播放进度
+// 上报当前分集的播放进度（也会同步写入观看历史）
 await client.ReportProgressAsync(new ProgressUpdate
 {
     SeriesId = seriesId,
     VideoId = videoId,
     EpisodeNumber = 1,
-    ProgressSeconds = 45,
-    LastReadTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+    CurrentPositionMs = 45_000,
+    DurationMs = 120_000
 }, cts.Token);
-
-// 批量查询指定剧集或分集的上次播放进度
-ReadProgressPage progressPage = await client.GetReadProgressForAsync([seriesId], cts.Token);
 
 // 收藏短剧
 await client.SetFavoriteAsync(seriesId, videoId, active: true, cts.Token);

@@ -63,43 +63,6 @@ public sealed class ReadHistoryPage
     public bool HasMore { get; init; }
 }
 
-/// <summary>一条短剧播放进度。</summary>
-public sealed class ReadProgress
-{
-    /// <summary>剧集 ID。</summary>
-    public string SeriesId { get; init; } = string.Empty;
-
-    /// <summary>视频 ID。</summary>
-    public string VideoId { get; init; } = string.Empty;
-
-    /// <summary>当前集数。</summary>
-    public int EpisodeNumber { get; init; }
-
-    /// <summary>总集数。</summary>
-    public int EpisodeCount { get; init; }
-
-    /// <summary>最近观看时间（Unix 毫秒）。</summary>
-    public long LastWatchTimeUnixMilliseconds { get; init; }
-
-    /// <summary>当前播放位置（毫秒）。</summary>
-    public long CurrentPositionMs { get; init; }
-
-    /// <summary>当前视频总时长（毫秒）。</summary>
-    public long DurationMs { get; init; }
-
-    /// <summary>累计播放时长（毫秒）。</summary>
-    public long CumulativeDurationMs { get; init; }
-}
-
-/// <summary>播放进度查询结果。</summary>
-public sealed class ReadProgressPage
-{
-    /// <summary>服务端返回的播放进度。</summary>
-    public IReadOnlyList<ReadProgress> Items { get; init; } = [];
-
-    /// <summary>本地书籍进度；短剧通常为空。</summary>
-    public IReadOnlyList<ReadProgress> LocalItems { get; init; } = [];
-}
 
 
 /// <summary>一条预约记录。</summary>

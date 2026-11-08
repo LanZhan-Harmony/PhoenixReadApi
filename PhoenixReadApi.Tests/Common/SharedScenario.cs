@@ -259,19 +259,6 @@ public static class SharedScenario
         await Assert.That(entry.UpdatedAtUnixMilliseconds >= 0).IsTrue();
     }
 
-    public static async Task AssertValidReadProgress(ReadProgress? progress)
-    {
-        await Assert.That(progress).IsNotNull();
-        await Assert.That(IsNumericId(progress!.SeriesId)).IsTrue();
-        await Assert.That(progress.VideoId).IsNotNull();
-        await Assert.That(progress.EpisodeNumber >= 0).IsTrue();
-        await Assert.That(progress.EpisodeCount >= 0).IsTrue();
-        await Assert.That(progress.LastWatchTimeUnixMilliseconds >= 0).IsTrue();
-        await Assert.That(progress.CurrentPositionMs >= 0).IsTrue();
-        await Assert.That(progress.DurationMs >= 0).IsTrue();
-        await Assert.That(progress.CumulativeDurationMs >= 0).IsTrue();
-    }
-
     public static async Task AssertValidUserActivity(UserActivity? activity)
     {
         await Assert.That(activity).IsNotNull();

@@ -85,8 +85,6 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppPlayerBatchDetailPayload))]
 [JsonSerializable(typeof(AppPlayerSeriesEntry))]
 [JsonSerializable(typeof(AppReadHistoryUpdatePayload))]
-[JsonSerializable(typeof(AppReadProgressItem))]
-[JsonSerializable(typeof(AppReadProgressResponse))]
 [JsonSerializable(typeof(AppReplyAddData))]
 [JsonSerializable(typeof(AppReplyAddReplyInfo))]
 [JsonSerializable(typeof(AppReplyBusinessParameter))]

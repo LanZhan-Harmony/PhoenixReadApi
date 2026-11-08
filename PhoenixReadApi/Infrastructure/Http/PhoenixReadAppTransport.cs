@@ -75,19 +75,6 @@ internal sealed class PhoenixReadAppTransport
             cancellationToken
         );
 
-    /// <summary>读取顶层 video_data/local_book_data 的播放进度接口。</summary>
-    internal Task<AppReadProgressResponse> GetReadProgressAsync(
-        string path,
-        IEnumerable<KeyValuePair<string, string>> query,
-        CancellationToken cancellationToken
-    ) =>
-        RetryPolicy.ExecuteAsync(
-            (_, token) => SendReadProgressOnceAsync(path, query, token),
-            _options.RetryCount,
-            RetryPolicy.IsTransient,
-            cancellationToken
-        );
-
     /// <summary>读取顶层 search_tabs 的短剧搜索 Tab 接口。</summary>
     internal Task<AppSearchTabResponse> GetSearchTabAsync(
         string path,
@@ -252,70 +239,6 @@ internal sealed class PhoenixReadAppTransport
             EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
             return result;
         }
-    }
-
-    private async Task<AppReadProgressResponse> SendReadProgressOnceAsync(
-        string path,
-        IEnumerable<KeyValuePair<string, string>> query,
-        CancellationToken cancellationToken
-    )
-    {
-        await _deviceManager
-            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
-            .ConfigureAwait(false);
-
-        Uri requestUri = BuildAppRequestUri(path, query);
-        using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
-        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
-        request.Headers.TryAddWithoutValidation("Accept", "application/json");
-        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
-        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-        _sessionStore.ApplySession(request);
-        PhoenixReadRequestSigner.SignPlayer(
-            request,
-            [],
-            _deviceManager.DeviceId,
-            DateTimeOffset.UtcNow
-        );
-
-        using HttpResponseMessage response = await _http
-            .SendAsync(request, cancellationToken)
-            .ConfigureAwait(false);
-        _sessionStore.CaptureSession(response);
-        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new PhoenixReadApiHttpException(
-                ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
-                path,
-                (int)response.StatusCode,
-                requestUri,
-                (int)response.StatusCode >= 500
-            );
-        }
-        if (bytes.Length == 0)
-        {
-            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
-        }
-
-        AppReadProgressResponse result;
-        try
-        {
-            result =
-                JsonAotSerializer.Deserialize<AppReadProgressResponse>(bytes)
-                ?? throw new JsonException("The App response was null.");
-        }
-        catch (JsonException exception)
-        {
-            throw new PhoenixReadApiDeserializationException(
-                "红果 App 接口返回格式异常。",
-                path,
-                exception
-            );
-        }
-
-        EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
-        return result;
     }
 
     private async Task<AppSearchTabResponse> SendSearchTabOnceAsync(
@@ -664,13 +587,19 @@ internal sealed class PhoenixReadAppTransport
             return null;
         }
 
-        int minBanIdx = message.IndexOf("\"min_ban_time\"", StringComparison.OrdinalIgnoreCase);
-        if (minBanIdx < 0)
+        // 优先读取 max_ban_time 确保冷却期完全过去，避免在 min_ban_time 之后依然处于封禁窗口中；没有时回退到 min_ban_time
+        int banIdx = message.IndexOf("\"max_ban_time\"", StringComparison.OrdinalIgnoreCase);
+        if (banIdx < 0)
+        {
+            banIdx = message.IndexOf("\"min_ban_time\"", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (banIdx < 0)
         {
             return null;
         }
 
-        int colonIdx = message.IndexOf(':', minBanIdx);
+        int colonIdx = message.IndexOf(':', banIdx);
         if (colonIdx < 0)
         {
             return null;

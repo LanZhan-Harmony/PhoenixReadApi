@@ -60,6 +60,11 @@ internal sealed class DanmakuService : PhoenixFeatureService
 
         for (int request = 0; request < MaxDanmakuRequests && currentMs < requestedEndMs; request++)
         {
+            if (request > 0)
+            {
+                await Task.Delay(120, cancellationToken).ConfigureAwait(false);
+            }
+
             AppDanmakuData data = await RequestPageWithRetryAsync(
                     seriesId,
                     videoId,
