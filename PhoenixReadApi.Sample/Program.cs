@@ -13,7 +13,7 @@ using PhoenixReadApiClient client = new(
     {
         MaxPagesPerCategory = 1,
         RequestTimeout = TimeSpan.FromSeconds(25),
-        RetryCount = 1,
+        RetryCount = 2,
         CompleteSearchSeasons = false,
         AuthenticationStateFilePath = sessionPath,
     }

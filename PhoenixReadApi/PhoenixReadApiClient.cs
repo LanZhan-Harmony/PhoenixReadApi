@@ -68,7 +68,8 @@ public sealed partial class PhoenixReadApiClient : IDisposable
             httpClient ?? throw new ArgumentNullException(nameof(httpClient)),
             options,
             ownsHttpClient: false
-        ) { }
+        )
+    { }
 
     private PhoenixReadApiClient(
         HttpClient httpClient,

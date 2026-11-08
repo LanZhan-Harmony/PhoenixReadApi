@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using PhoenixReadApi.Internal.Contracts.App;
@@ -44,6 +44,11 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppCommentAddData))]
 [JsonSerializable(typeof(AppCommentAddPayload))]
 [JsonSerializable(typeof(AppCommentDeletePayload))]
+[JsonSerializable(typeof(AppCommentImageDto))]
+[JsonSerializable(typeof(IReadOnlyList<AppCommentImageDto>))]
+[JsonSerializable(typeof(AppCommentImageDataDto))]
+[JsonSerializable(typeof(AppCommentImageDataListDto))]
+[JsonSerializable(typeof(IReadOnlyList<AppCommentImageDataDto>))]
 [JsonSerializable(typeof(AppCommentListPayload))]
 [JsonSerializable(typeof(AppCommentPayload))]
 [JsonSerializable(typeof(AppCurrentUserInfoData))]

@@ -193,7 +193,10 @@ internal static partial class SampleSteps
     {
         if (page is not null)
         {
-            Console.WriteLine($"{label}：{page.Items.Count}/{page.Total}，HasMore={page.HasMore}");
+            int imageCommentCount = page.Items.Count(static c => c.Images.Count > 0);
+            Console.WriteLine(
+                $"{label}：{page.Items.Count}/{page.Total}，HasMore={page.HasMore}，含附图评论数={imageCommentCount}"
+            );
         }
     }
 

@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Contracts.App.Comment;
@@ -30,4 +30,7 @@ internal sealed class AppReply
     [JsonPropertyName("digg_count")]
     [JsonConverter(typeof(FlexibleLongConverter))]
     public long LikeCount { get; init; }
+
+    [JsonPropertyName("image_list")]
+    public IReadOnlyList<AppCommentImageDto> ImageList { get; init; } = [];
 }

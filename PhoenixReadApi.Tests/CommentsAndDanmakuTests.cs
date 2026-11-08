@@ -1,3 +1,5 @@
+using PhoenixReadApi.Internal.Contracts.App.Comment;
+using PhoenixReadApi.Internal.Serialization;
 using PhoenixReadApi.Tests.Common;
 
 namespace PhoenixReadApi.Tests;
@@ -412,5 +414,104 @@ public sealed class CommentsAndDanmakuTests
         );
         await Assert.That(delReview).IsNotNull();
         await Assert.That(delReview.Succeeded).IsTrue();
+    }
+
+    [Test, NotInParallel("phoenix-read-api")]
+    public async Task TestCommentWithImagesAndSortOrder()
+    {
+        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
+        SearchResult search = await SharedScenario.Client.SearchAsync("我的系统不对劲，女帝心动我开挂", timeout.Token);
+        var drama = search.Dramas.FirstOrDefault(d => d.Title.Contains("我的系统不对劲")) ?? search.Dramas.First();
+        DramaDetails details = await SharedScenario.Client.GetDramaDetailsAsync(drama.Id, timeout.Token);
+        string videoId = details.Episodes[0].VideoId;
+
+        // 1. 测试按时间最新排序 (CommentSortOrder.Latest)
+        CommentPage latestPage = await SharedScenario.Client.GetEpisodeCommentsAsync(
+            drama.Id,
+            videoId,
+            count: 30,
+            sort: CommentSortOrder.Latest,
+            cancellationToken: timeout.Token
+        );
+
+        await Assert.That(latestPage).IsNotNull();
+        await Assert.That(latestPage.Items.Count).IsGreaterThan(1);
+
+        // 验证按日期排序：时间戳必须是非递增的 (降序)
+        for (int i = 0; i < latestPage.Items.Count - 1; i++)
+        {
+            await Assert.That(latestPage.Items[i].CreatedAtUnixSeconds >= latestPage.Items[i + 1].CreatedAtUnixSeconds).IsTrue();
+        }
+
+        // 2. 验证指定带图评论 7693917255795131198 能够成功解析附图
+        DramaComment? targetComment = latestPage.Items.FirstOrDefault(c => c.Id == "7693917255795131198");
+        if (targetComment is null)
+        {
+            // 如果在最新一页未包含，则从最热（count: 90）获取
+            CommentPage hotPage = await SharedScenario.Client.GetEpisodeCommentsAsync(
+                drama.Id,
+                videoId,
+                count: 90,
+                sort: CommentSortOrder.Hot,
+                cancellationToken: timeout.Token
+            );
+            targetComment = hotPage.Items.FirstOrDefault(c => c.Id == "7693917255795131198");
+        }
+
+        await Assert.That(targetComment).IsNotNull();
+        await Assert.That(targetComment!.Images.Count).IsGreaterThan(0);
+
+        CommentImage image = targetComment.Images[0];
+        await Assert.That(string.IsNullOrWhiteSpace(image.Url)).IsFalse();
+        await Assert.That(image.Width).IsEqualTo(300);
+        await Assert.That(image.Height).IsEqualTo(225);
+    }
+
+    [Test]
+    public async Task TestCommentImageDataDeserialization()
+    {
+        // 1. 测试空对象 {}
+        string emptyJson = "{}";
+        AppCommentImageDataListDto? emptyDto = JsonAotSerializer.Deserialize<AppCommentImageDataListDto>(emptyJson);
+        await Assert.That(emptyDto).IsNotNull();
+        await Assert.That(emptyDto!.ImageData.Count).IsEqualTo(0);
+
+        // 2. 测试空数组 []
+        string arrayJson = "[]";
+        AppCommentImageDataListDto? arrayDto = JsonAotSerializer.Deserialize<AppCommentImageDataListDto>(arrayJson);
+        await Assert.That(arrayDto).IsNotNull();
+        await Assert.That(arrayDto!.ImageData.Count).IsEqualTo(0);
+
+        // 3. 测试包含 image_data 数组的对象
+        string validJson = """
+            {
+                "image_data": [
+                    {
+                        "id": "img123",
+                        "web_url": "https://p3.example.com/pic1.jpg",
+                        "expand_web_url": "https://p3.example.com/expand1.jpg",
+                        "web_uri": "tos-cn-i-xxx/pic1",
+                        "width": 300,
+                        "height": 225,
+                        "format": "jpeg",
+                        "image_type": 1
+                    }
+                ]
+            }
+            """;
+        AppCommentImageDataListDto? validDto = JsonAotSerializer.Deserialize<AppCommentImageDataListDto>(validJson);
+        await Assert.That(validDto).IsNotNull();
+        await Assert.That(validDto!.ImageData.Count).IsEqualTo(1);
+        AppCommentImageDataDto img = validDto.ImageData[0];
+        await Assert.That(img.Id).IsEqualTo("img123");
+        await Assert.That(img.WebUrl).IsEqualTo("https://p3.example.com/pic1.jpg");
+        await Assert.That(img.ExpandWebUrl).IsEqualTo("https://p3.example.com/expand1.jpg");
+        await Assert.That(img.Width).IsEqualTo(300);
+        await Assert.That(img.Height).IsEqualTo(225);
+
+        // 4. 测试序列化输出
+        string serialized = JsonAotSerializer.Serialize(validDto);
+        await Assert.That(serialized.Contains("img123")).IsTrue();
+        await Assert.That(serialized.Contains("https://p3.example.com/pic1.jpg")).IsTrue();
     }
 }

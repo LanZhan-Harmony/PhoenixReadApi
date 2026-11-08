@@ -29,8 +29,14 @@ internal static class RetryPolicy
                 last = exception;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250 * (attempt + 1)), cancellationToken)
-                .ConfigureAwait(false);
+            TimeSpan delay = TimeSpan.FromMilliseconds(250 * (attempt + 1));
+            if (last is PhoenixReadApiException { RetryAfter: { } retryAfter } && retryAfter > TimeSpan.Zero)
+            {
+                int jitterMs = Random.Shared.Next(300, 700);
+                delay = retryAfter + TimeSpan.FromMilliseconds(jitterMs);
+            }
+
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         }
 
         throw last ?? new PhoenixReadApiTransportException("Phoenix request failed.");

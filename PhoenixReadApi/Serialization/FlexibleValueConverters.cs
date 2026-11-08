@@ -1,6 +1,7 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
@@ -320,27 +321,48 @@ internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<
             return [root.GetRawText()];
         }
 
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            if (root.TryGetProperty("url", out JsonElement singleUrl) && singleUrl.ValueKind == JsonValueKind.String)
+            {
+                string single = singleUrl.GetString() ?? string.Empty;
+                return single.Length > 0 ? [single] : [];
+            }
+
+            return [];
+        }
+
         if (root.ValueKind != JsonValueKind.Array)
         {
             return [];
         }
 
-        return
-        [
-            .. root.EnumerateArray()
-                .Where(static item =>
-                    item.ValueKind
-                        is JsonValueKind.String
-                            or JsonValueKind.Number
-                            or JsonValueKind.True
-                            or JsonValueKind.False
-                )
-                .Select(static item =>
-                    item.ValueKind == JsonValueKind.String
-                        ? item.GetString() ?? string.Empty
-                        : item.GetRawText()
-                ),
-        ];
+        List<string> result = [];
+        foreach (JsonElement item in root.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                string text = item.GetString() ?? string.Empty;
+                if (text.Length > 0)
+                {
+                    result.Add(text);
+                }
+            }
+            else if (item.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False)
+            {
+                result.Add(item.GetRawText());
+            }
+            else if (item.ValueKind == JsonValueKind.Object && item.TryGetProperty("url", out JsonElement urlElem) && urlElem.ValueKind == JsonValueKind.String)
+            {
+                string text = urlElem.GetString() ?? string.Empty;
+                if (text.Length > 0)
+                {
+                    result.Add(text);
+                }
+            }
+        }
+
+        return result;
     }
 
     public override void Write(
@@ -558,5 +580,119 @@ internal sealed class CategorySchemaConverter : JsonConverter<IReadOnlyList<stri
 
         string text = root.ToString().Trim();
         return text.Length == 0 ? [] : [text];
+    }
+}
+/// <summary>转换红果评论接口可能返回空对象 {}、空列表 [] 或图片数组的 image_data_list。</summary>
+internal sealed class FlexibleCommentImageDataListConverter : JsonConverter<AppCommentImageDataListDto>
+{
+    public override AppCommentImageDataListDto Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return new AppCommentImageDataListDto();
+        }
+
+        if (reader.TokenType == JsonTokenType.StartArray)
+        {
+            using JsonDocument arrayDoc = JsonDocument.ParseValue(ref reader);
+            return new AppCommentImageDataListDto();
+        }
+
+        using JsonDocument document = JsonDocument.ParseValue(ref reader);
+        if (
+            document.RootElement.TryGetProperty("image_data", out JsonElement array)
+            && array.ValueKind == JsonValueKind.Array
+        )
+        {
+            List<AppCommentImageDataDto> items = [];
+            foreach (JsonElement item in array.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                string webUrl = item.TryGetProperty("web_url", out JsonElement u)
+                    && u.ValueKind == JsonValueKind.String
+                    ? u.GetString() ?? string.Empty
+                    : string.Empty;
+                string expandUrl = item.TryGetProperty("expand_web_url", out JsonElement eu)
+                    && eu.ValueKind == JsonValueKind.String
+                    ? eu.GetString() ?? string.Empty
+                    : string.Empty;
+                string webUri = item.TryGetProperty("web_uri", out JsonElement wu)
+                    && wu.ValueKind == JsonValueKind.String
+                    ? wu.GetString() ?? string.Empty
+                    : string.Empty;
+                string id = item.TryGetProperty("id", out JsonElement idElem)
+                    && idElem.ValueKind == JsonValueKind.String
+                    ? idElem.GetString() ?? string.Empty
+                    : string.Empty;
+                int width = item.TryGetProperty("width", out JsonElement w)
+                    && w.TryGetInt32(out int wv)
+                    ? wv
+                    : 0;
+                int height = item.TryGetProperty("height", out JsonElement h)
+                    && h.TryGetInt32(out int hv)
+                    ? hv
+                    : 0;
+                int imageType = item.TryGetProperty("image_type", out JsonElement it)
+                    && it.TryGetInt32(out int itv)
+                    ? itv
+                    : 0;
+                string format = item.TryGetProperty("format", out JsonElement fmt)
+                    && fmt.ValueKind == JsonValueKind.String
+                    ? fmt.GetString() ?? string.Empty
+                    : string.Empty;
+
+                items.Add(
+                    new AppCommentImageDataDto
+                    {
+                        Id = id,
+                        WebUrl = webUrl,
+                        ExpandWebUrl = expandUrl,
+                        WebUri = webUri,
+                        Width = width,
+                        Height = height,
+                        ImageType = imageType,
+                        Format = format,
+                    }
+                );
+            }
+
+            return new AppCommentImageDataListDto { ImageData = items };
+        }
+
+        return new AppCommentImageDataListDto();
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        AppCommentImageDataListDto value,
+        JsonSerializerOptions options
+    )
+    {
+        writer.WriteStartObject();
+        writer.WritePropertyName("image_data");
+        writer.WriteStartArray();
+        foreach (AppCommentImageDataDto item in value.ImageData)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("id", item.Id);
+            writer.WriteString("web_url", item.WebUrl);
+            writer.WriteString("expand_web_url", item.ExpandWebUrl);
+            writer.WriteString("web_uri", item.WebUri);
+            writer.WriteNumber("width", item.Width);
+            writer.WriteNumber("height", item.Height);
+            writer.WriteString("format", item.Format);
+            writer.WriteNumber("image_type", item.ImageType);
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+        writer.WriteEndObject();
     }
 }

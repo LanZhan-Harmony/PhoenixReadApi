@@ -23,6 +23,9 @@ public sealed class CommentReply
 
     /// <summary>获赞数。</summary>
     public long LikeCount { get; init; }
+
+    /// <summary>回复附带的图片列表；若无附图则为空列表。</summary>
+    public IReadOnlyList<CommentImage> Images { get; init; } = [];
 }
 
 /// <summary>评论回复分页结果。</summary>

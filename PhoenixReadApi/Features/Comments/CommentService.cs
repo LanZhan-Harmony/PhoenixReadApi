@@ -1,4 +1,4 @@
-using PhoenixReadApi.Internal.Contracts.App;
+﻿using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Http;
@@ -465,7 +465,8 @@ internal sealed class CommentService : PhoenixFeatureService
 
             string id = (comment.Id ?? string.Empty).Trim();
             string text = SanitizeText(comment.Common.Content?.Text ?? string.Empty);
-            if (id.Length == 0 || id.Length > 120 || text.Length == 0 || !seen.Add(id))
+            IReadOnlyList<CommentImage> images = MapCommentImages(comment);
+            if (id.Length == 0 || id.Length > 120 || (text.Length == 0 && images.Count == 0) || !seen.Add(id))
             {
                 continue;
             }
@@ -494,8 +495,14 @@ internal sealed class CommentService : PhoenixFeatureService
                     OffsetMs = isEpisode ? Math.Max(0, expand.OffsetTime) : 0,
                     LikeCount = Math.Max(0, stat.LikeCount),
                     ReplyCount = Math.Max(0, stat.ReplyCount),
+                    Images = images,
                 }
             );
+        }
+
+        if (sort == CommentSortOrder.Latest && items.Count > 1)
+        {
+            items.Sort(static (a, b) => b.CreatedAtUnixSeconds.CompareTo(a.CreatedAtUnixSeconds));
         }
 
         AppCommentListInfo listInfo = data.ListInfo ?? new();
@@ -600,6 +607,7 @@ internal sealed class CommentService : PhoenixFeatureService
                 : record.Reply?.CreatedAt ?? 0;
         long likeCount =
             record.Stat?.DiggCount > 0 ? record.Stat.DiggCount : record.Reply?.LikeCount ?? 0;
+        IReadOnlyList<CommentImage> images = MapReplyImages(record.Reply, record.Common);
 
         return new CommentReply
         {
@@ -615,7 +623,170 @@ internal sealed class CommentService : PhoenixFeatureService
             },
             CreatedAtUnixSeconds = Math.Max(0, createdAt),
             LikeCount = Math.Max(0, likeCount),
+            Images = images,
         };
+    }
+
+    private static IReadOnlyList<CommentImage> MapCommentImages(AppComment comment)
+    {
+        var contentImages = comment.Common?.Content?.ImageDataList?.ImageData;
+        if (contentImages is { Count: > 0 })
+        {
+            return MapImageData(contentImages);
+        }
+
+        IReadOnlyList<AppCommentImageDto> source =
+            comment.ImageList is { Count: > 0 } ? comment.ImageList :
+            comment.Common?.ImageList is { Count: > 0 } ? comment.Common.ImageList :
+            comment.Common?.Content?.ImageList is { Count: > 0 } ? comment.Common.Content.ImageList :
+            comment.Expand?.ImageList ?? [];
+
+        return MapImages(source);
+    }
+
+    private static IReadOnlyList<CommentImage> MapReplyImages(AppReply? reply, AppReplyCommon? common)
+    {
+        var replyImages = reply?.Content?.ImageDataList?.ImageData;
+        if (replyImages is { Count: > 0 })
+        {
+            return MapImageData(replyImages);
+        }
+
+        var commonImages = common?.Content?.ImageDataList?.ImageData;
+        if (commonImages is { Count: > 0 })
+        {
+            return MapImageData(commonImages);
+        }
+
+        IReadOnlyList<AppCommentImageDto> source =
+            reply?.ImageList is { Count: > 0 } ? reply.ImageList :
+            reply?.Content?.ImageList is { Count: > 0 } ? reply.Content.ImageList :
+            common?.Content?.ImageList ?? [];
+
+        return MapImages(source);
+    }
+
+    private static IReadOnlyList<CommentImage> MapImageData(IReadOnlyList<AppCommentImageDataDto> source)
+    {
+        List<CommentImage> images = new(source.Count);
+        foreach (AppCommentImageDataDto raw in source)
+        {
+            if (raw is null)
+            {
+                continue;
+            }
+
+            string primaryUrl = ValueNormalizer.First(raw.WebUrl, raw.ExpandWebUrl, raw.WebUri).Trim();
+            if (primaryUrl.Length == 0)
+            {
+                continue;
+            }
+
+            List<string> candidateUrls = [];
+            if (!string.IsNullOrWhiteSpace(raw.ExpandWebUrl))
+            {
+                candidateUrls.Add(raw.ExpandWebUrl.Trim());
+            }
+            if (!string.IsNullOrWhiteSpace(raw.WebUri))
+            {
+                candidateUrls.Add(raw.WebUri.Trim());
+            }
+
+            IReadOnlyList<string> backupUrls = candidateUrls
+                .Where(u => !string.Equals(u, primaryUrl, StringComparison.Ordinal))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            images.Add(
+                new CommentImage
+                {
+                    Url = primaryUrl,
+                    BackupUrls = backupUrls,
+                    Width = Math.Max(0, raw.Width),
+                    Height = Math.Max(0, raw.Height),
+                }
+            );
+        }
+
+        return images;
+    }
+
+    private static IReadOnlyList<CommentImage> MapImages(IReadOnlyList<AppCommentImageDto> source)
+    {
+        if (source is null || source.Count == 0)
+        {
+            return [];
+        }
+
+        List<CommentImage> images = [];
+        foreach (AppCommentImageDto raw in source)
+        {
+            if (raw is null)
+            {
+                continue;
+            }
+
+            List<string> candidateUrls = [];
+            if (raw.UrlList is { Count: > 0 })
+            {
+                foreach (string candidate in raw.UrlList)
+                {
+                    if (!string.IsNullOrWhiteSpace(candidate) && !candidateUrls.Contains(candidate, StringComparer.Ordinal))
+                    {
+                        candidateUrls.Add(candidate.Trim());
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(raw.Url) && !candidateUrls.Contains(raw.Url.Trim(), StringComparer.Ordinal))
+            {
+                candidateUrls.Add(raw.Url.Trim());
+            }
+
+            if (raw.DownloadUrl is { Count: > 0 })
+            {
+                foreach (string downloadUrl in raw.DownloadUrl)
+                {
+                    if (!string.IsNullOrWhiteSpace(downloadUrl) && !candidateUrls.Contains(downloadUrl.Trim(), StringComparer.Ordinal))
+                    {
+                        candidateUrls.Add(downloadUrl.Trim());
+                    }
+                }
+            }
+
+            if (raw.DownloadUrlList is { Count: > 0 })
+            {
+                foreach (string downloadUrl in raw.DownloadUrlList)
+                {
+                    if (!string.IsNullOrWhiteSpace(downloadUrl) && !candidateUrls.Contains(downloadUrl.Trim(), StringComparer.Ordinal))
+                    {
+                        candidateUrls.Add(downloadUrl.Trim());
+                    }
+                }
+            }
+
+            string primaryUrl = candidateUrls.Count > 0 ? candidateUrls[0] : string.Empty;
+            if (primaryUrl.Length == 0)
+            {
+                continue;
+            }
+
+            IReadOnlyList<string> backupUrls = candidateUrls.Count > 1
+                ? [.. candidateUrls.Skip(1)]
+                : [];
+
+            images.Add(
+                new CommentImage
+                {
+                    Url = primaryUrl,
+                    BackupUrls = backupUrls,
+                    Width = Math.Max(0, raw.Width),
+                    Height = Math.Max(0, raw.Height),
+                }
+            );
+        }
+
+        return images;
     }
 
     private static int ScoreFromRating(double rating) =>
