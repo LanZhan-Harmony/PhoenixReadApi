@@ -27,23 +27,6 @@ public sealed partial class PhoenixReadApiClient
             cancellationToken
         );
 
-    /// <summary>获取当前客户端的所有短剧播放进度。</summary>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端保存的播放进度。</returns>
-    public Task<ReadProgressPage> GetReadProgressAsync(
-        CancellationToken cancellationToken = default
-    ) => _history.GetReadProgressAsync(cancellationToken);
-
-    /// <summary>按剧集或视频 ID 查询播放进度。</summary>
-    /// <param name="seriesOrVideoIds">剧集 ID 或视频 ID，至少一个，最多 200 个。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>与输入 ID 匹配的播放进度。</returns>
-    /// <remarks>调用方可以把搜索或详情返回的 ID 原样传入，不需要添加前缀。</remarks>
-    public Task<ReadProgressPage> GetReadProgressForAsync(
-        IReadOnlyList<string> seriesOrVideoIds,
-        CancellationToken cancellationToken = default
-    ) => _history.GetReadProgressForAsync(seriesOrVideoIds, cancellationToken);
-
     /// <summary>上报当前分集的播放进度。</summary>
     /// <param name="update">视频、剧集和播放位置；UseSoftDelete 为 true 时会删除历史。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>

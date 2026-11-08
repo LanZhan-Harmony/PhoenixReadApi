@@ -376,27 +376,6 @@ internal static partial class SampleSteps
         );
         PrintCount("  历史", context.History?.Items.Count);
 
-        ReadProgressPage? progress = await TryAsync(
-            "GetReadProgressAsync",
-            () => client.GetReadProgressAsync(cancellationToken)
-        );
-        PrintCount("  播放进度", progress?.Items.Count);
-
-        IReadOnlyList<string> progressIds =
-        [
-            .. new[] { context.SeriesId, context.VideoId }
-                .Where(static id => id.Length > 0)
-                .Distinct(StringComparer.Ordinal),
-        ];
-        ReadProgressPage? progressFor =
-            progressIds.Count == 0
-                ? null
-                : await TryAsync(
-                    "GetReadProgressForAsync",
-                    () => client.GetReadProgressForAsync(progressIds, cancellationToken)
-                );
-        PrintCount("  指定播放进度", progressFor?.Items.Count);
-
         context.Favorites = await TryAsync(
             "GetFavoritesAsync",
             () => client.GetFavoritesAsync(cancellationToken: cancellationToken)
