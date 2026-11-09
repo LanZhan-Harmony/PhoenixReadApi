@@ -70,6 +70,7 @@ internal sealed partial class DetailsService : PhoenixFeatureService
 
     private async Task<DramaDetails> LoadAsync(string seriesId)
     {
+        Task<string> scoreTask = TryFetchScoreAsync(seriesId, CancellationToken.None);
         Exception? appError;
         try
         {
@@ -81,7 +82,8 @@ internal sealed partial class DetailsService : PhoenixFeatureService
                     CancellationToken.None
                 )
                 .ConfigureAwait(false);
-            return ParseAppDetails(result.Data, seriesId);
+            string score = await scoreTask.ConfigureAwait(false);
+            return ParseAppDetails(result.Data, seriesId, score);
         }
         catch (Exception exception) when (IsRecoverable(exception))
         {
@@ -95,7 +97,8 @@ internal sealed partial class DetailsService : PhoenixFeatureService
 
         try
         {
-            return await FetchWebDetailsAsync(seriesId, CancellationToken.None)
+            string score = await scoreTask.ConfigureAwait(false);
+            return await FetchWebDetailsAsync(seriesId, CancellationToken.None, score)
                 .ConfigureAwait(false);
         }
         catch (Exception webException) when (IsRecoverable(webException))
@@ -108,7 +111,11 @@ internal sealed partial class DetailsService : PhoenixFeatureService
         }
     }
 
-    private static DramaDetails ParseAppDetails(AppDetailsData? data, string seriesId)
+    private static DramaDetails ParseAppDetails(
+        AppDetailsData? data,
+        string seriesId,
+        string extraScore = ""
+    )
     {
         DramaDto detail = data?.VideoData ?? new();
         if (ValueNormalizer.First(detail.SeriesId, detail.SeriesIdNumber) != seriesId)
@@ -116,7 +123,7 @@ internal sealed partial class DetailsService : PhoenixFeatureService
             throw new PhoenixReadApiResponseException("App 未返回所请求的剧集。", "detail");
         }
 
-        Drama drama = DramaMapper.FromDto(detail, "短剧");
+        Drama drama = DramaMapper.FromDto(detail, "短剧", scoreOverride: extraScore);
         List<Episode> episodes = [];
         HashSet<string> usedIds = new(StringComparer.Ordinal);
         HashSet<int> usedEpisodes = [];
@@ -167,7 +174,8 @@ internal sealed partial class DetailsService : PhoenixFeatureService
 
     private async Task<DramaDetails> FetchWebDetailsAsync(
         string seriesId,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string extraScore = ""
     )
     {
         Uri uri = new(_options.WebBaseUri, "detail?series_id=" + Uri.EscapeDataString(seriesId));
@@ -209,7 +217,12 @@ internal sealed partial class DetailsService : PhoenixFeatureService
 
         return new DramaDetails
         {
-            Drama = new Drama { Id = seriesId, Title = title },
+            Drama = new Drama
+            {
+                Id = seriesId,
+                Title = title,
+                Score = extraScore,
+            },
             Episodes = episodes,
         };
     }
@@ -278,6 +291,12 @@ internal sealed partial class DetailsService : PhoenixFeatureService
             return [];
         }
 
+        Dictionary<string, string> batchScores = await TryFetchBatchScoresAsync(
+                ids,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
         Dictionary<string, DramaDetails> found = new(StringComparer.Ordinal);
         const int batchSize = 10;
         for (int i = 0; i < ids.Count; i += batchSize)
@@ -303,7 +322,8 @@ internal sealed partial class DetailsService : PhoenixFeatureService
             foreach ((string sid, AppPlayerSeriesEntry entry) in entries)
             {
                 DramaDto videoData = entry.VideoData;
-                Drama drama = DramaMapper.FromDto(videoData, "短剧");
+                string score = batchScores.GetValueOrDefault(sid, string.Empty);
+                Drama drama = DramaMapper.FromDto(videoData, "短剧", scoreOverride: score);
                 if (string.IsNullOrWhiteSpace(drama.Id))
                 {
                     continue;
@@ -340,29 +360,86 @@ internal sealed partial class DetailsService : PhoenixFeatureService
         return result;
     }
 
+    private async Task<string> TryFetchScoreAsync(
+        string seriesId,
+        CancellationToken cancellationToken
+    )
+    {
+        Dictionary<string, string> scores = await TryFetchBatchScoresAsync(
+                [seriesId],
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return scores.GetValueOrDefault(seriesId, string.Empty);
+    }
+
+    private async Task<Dictionary<string, string>> TryFetchBatchScoresAsync(
+        IReadOnlyList<string> seriesIds,
+        CancellationToken cancellationToken
+    )
+    {
+        Dictionary<string, string> result = new(StringComparer.Ordinal);
+        List<string> ids =
+        [
+            .. seriesIds
+                .Select(NormalizeSeriesId)
+                .Where(static id => id.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .Take(50),
+        ];
+
+        if (ids.Count == 0)
+        {
+            return result;
+        }
+
+        try
+        {
+            string joinedIds = string.Join(",", ids);
+            List<KeyValuePair<string, string>> query =
+            [
+                new("book_id", joinedIds),
+                new("book_ids", joinedIds),
+            ];
+            foreach (string id in ids)
+            {
+                query.Add(new("book_id", id));
+            }
+
+            AppResponse<IReadOnlyList<AppMultiDetailItem>> response = await _appTransport
+                .GetAsync<IReadOnlyList<AppMultiDetailItem>>(
+                    "/reading/bookapi/multi-detail/v1/",
+                    query,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (response.Data is not null)
+            {
+                foreach (AppMultiDetailItem item in response.Data)
+                {
+                    string id = item.BookId.Trim();
+                    string score = ValueNormalizer.First(item.FinalScoreV2, item.Score);
+                    if (id.Length > 0 && score.Length > 0)
+                    {
+                        result[id] = score;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // 非核心元数据补齐失败不阻断主流程
+        }
+
+        return result;
+    }
+
     internal async Task<IReadOnlyList<Drama>> GetBatchDramaDetailsAsync(
         IEnumerable<string> seriesIds,
         CancellationToken cancellationToken
     )
     {
-        try
-        {
-            IReadOnlyList<DramaDetails> withEpisodes = await GetBatchDramaDetailsWithEpisodesAsync(
-                    seriesIds,
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-
-            if (withEpisodes.Count > 0)
-            {
-                return [.. withEpisodes.Select(static d => d.Drama)];
-            }
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            // 降级使用图书 multi-detail 接口
-        }
-
         ArgumentNullException.ThrowIfNull(seriesIds);
         List<string> ids =
         [
