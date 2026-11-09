@@ -8,7 +8,12 @@ namespace PhoenixReadApi.Internal.Features.Shared;
 /// <summary>将红果接口返回的剧集记录映射为稳定的公共模型。</summary>
 internal static class DramaMapper
 {
-    internal static Drama FromDto(DramaDto value, string category, DateTimeOffset? now = null)
+    internal static Drama FromDto(
+        DramaDto value,
+        string category,
+        DateTimeOffset? now = null,
+        string? scoreOverride = null
+    )
     {
         DramaDto data = value;
         string sourceId = ValueNormalizer.First(
@@ -70,7 +75,12 @@ internal static class DramaMapper
             data.ExpandThumbUrl,
             data.VideoDetail?.CoverUrl
         );
-        string score = ValueNormalizer.First(data.FinalScoreV2, data.FinalScore, data.Score);
+        string score = ValueNormalizer.First(
+            data.FinalScoreV2,
+            data.FinalScore,
+            data.Score,
+            scoreOverride
+        );
         string status = ValueNormalizer.First(data.SeriesStatus, data.Status);
 
         long playCount = 0;

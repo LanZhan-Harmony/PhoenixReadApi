@@ -17,6 +17,7 @@ public sealed class DetailsAndPlaybackTests
             scenario.SeriesId,
             timeout.Token
         );
+        await Assert.That(details.Drama.Score).IsNotEmpty();
 
         await Assert.That(details).IsNotNull();
         await Assert.That(details.Drama.Id).IsEqualTo(scenario.SeriesId);

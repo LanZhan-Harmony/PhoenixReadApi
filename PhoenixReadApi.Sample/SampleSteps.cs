@@ -222,7 +222,7 @@ internal static partial class SampleSteps
         );
         context.VideoId = context.FirstEpisode?.VideoId ?? string.Empty;
         Console.WriteLine(
-            $"剧集：{context.SeriesId}，分集：{context.Details?.Episodes.Count ?? 0}，首集：{context.VideoId}"
+            $"剧集：{context.SeriesId}，分集：{context.Details?.Episodes.Count ?? 0}，首集：{context.VideoId}，评分：{context.Details?.Drama.Score}"
         );
 
         context.Medias = await TryWhenIdsAsync(
