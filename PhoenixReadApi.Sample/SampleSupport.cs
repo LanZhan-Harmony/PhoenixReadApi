@@ -32,7 +32,7 @@ internal sealed class SampleContext
 
     public static string GetSampleDirectory()
     {
-        string candidate = Path.Combine(Environment.CurrentDirectory, "PhoenixReadApi.Sample");
+        string candidate = Path.Combine(AppContext.BaseDirectory, "..", "..", "..");
         return Directory.Exists(candidate) ? candidate : AppContext.BaseDirectory;
     }
 
