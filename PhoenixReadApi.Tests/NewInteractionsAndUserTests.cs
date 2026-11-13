@@ -147,4 +147,45 @@ public sealed class NewInteractionsAndUserTests
             await SharedScenario.AssertValidDrama(drama);
         }
     }
+
+    [Test, NotInParallel("phoenix-read-api")]
+    public async Task TestUserFollowersAndFollowingsAsync()
+    {
+        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
+        string actorUserId = "3974078057440443"; // 黄彦恺
+
+        // 测试获取粉丝列表
+        UserRelationPage followersPage = await SharedScenario.Client.GetUserFollowersAsync(
+            actorUserId,
+            count: 10,
+            cancellationToken: timeout.Token
+        );
+
+        await Assert.That(followersPage).IsNotNull();
+        await Assert.That(followersPage.Items).IsNotNull();
+        if (!followersPage.IsPrivacyProtected)
+        {
+            await Assert.That(followersPage.Items.Count > 0).IsTrue();
+            UserRelationItem firstFollower = followersPage.Items[0];
+            await Assert.That(string.IsNullOrWhiteSpace(firstFollower.User.Id)).IsFalse();
+            await Assert.That(string.IsNullOrWhiteSpace(firstFollower.User.Name)).IsFalse();
+        }
+
+        // 测试获取关注列表
+        UserRelationPage followingsPage = await SharedScenario.Client.GetUserFollowingsAsync(
+            actorUserId,
+            count: 10,
+            cancellationToken: timeout.Token
+        );
+
+        await Assert.That(followingsPage).IsNotNull();
+        await Assert.That(followingsPage.Items).IsNotNull();
+        if (!followingsPage.IsPrivacyProtected)
+        {
+            await Assert.That(followingsPage.Items.Count > 0).IsTrue();
+            UserRelationItem firstFollowing = followingsPage.Items[0];
+            await Assert.That(string.IsNullOrWhiteSpace(firstFollowing.User.Id)).IsFalse();
+            await Assert.That(string.IsNullOrWhiteSpace(firstFollowing.User.Name)).IsFalse();
+        }
+    }
 }

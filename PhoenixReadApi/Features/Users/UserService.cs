@@ -84,6 +84,109 @@ internal sealed class UserService : PhoenixFeatureService
         };
     }
 
+    internal Task<UserRelationPage> GetFollowersAsync(
+        string userId,
+        string cursor,
+        int count,
+        CancellationToken cancellationToken
+    ) => LoadRelationListAsync(userId, 1508, cursor, count, cancellationToken);
+
+    internal Task<UserRelationPage> GetFollowingsAsync(
+        string userId,
+        string cursor,
+        int count,
+        CancellationToken cancellationToken
+    ) => LoadRelationListAsync(userId, 1507, cursor, count, cancellationToken);
+
+    private async Task<UserRelationPage> LoadRelationListAsync(
+        string userId,
+        int commentSource,
+        string cursor,
+        int count,
+        CancellationToken cancellationToken
+    )
+    {
+        userId = NormalizeUserId(userId);
+        ValidateCount(count);
+        cursor = NormalizeCursor(cursor);
+
+        AppUserRelationListPayload payload = new()
+        {
+            Count = count,
+            CommentSource = commentSource,
+            TargetUserId = userId,
+            Cursor = cursor.Length > 0 ? cursor : null,
+        };
+
+        AppResponse<AppUserRelationListData> response = await _appTransport
+            .PostAsync<AppUserRelationListPayload, AppUserRelationListData>(
+                "/novel/commentapi/relation/list/" + userId + "/v1",
+                payload,
+                commentRequest: true,
+                cancellationToken: cancellationToken,
+                commentSource: commentSource,
+                serverChannel: null
+            )
+            .ConfigureAwait(false);
+
+        AppUserRelationListData? data = response.Data;
+        List<UserRelationItem> items = [];
+        HashSet<string> seen = new(StringComparer.Ordinal);
+
+        foreach (AppUserRelationUgcUser? ugc in data?.Users ?? [])
+        {
+            if (ugc is null)
+            {
+                continue;
+            }
+
+            string id = ValueNormalizer.First(ugc.UserId, ugc.BaseInfo?.UserId).Trim();
+            if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
+            {
+                continue;
+            }
+
+            AppUgcUserBaseInfo baseInfo = ugc.BaseInfo ?? new();
+            AppUgcUserRelation relation = ugc.UserRelation ?? new();
+            AppUgcUserTag tag = ugc.UserTag ?? new();
+
+            IReadOnlyList<string> roles = (tag.SubTitleList ?? [])
+                .Where(static s => s is not null && !string.IsNullOrWhiteSpace(s.Text))
+                .Select(static s => s.Text.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            bool isCreator = (tag.CreatorTypesFull?.Count ?? 0) > 0 || roles.Count > 0;
+
+            items.Add(
+                new UserRelationItem
+                {
+                    User = new User
+                    {
+                        Id = id,
+                        Name = ValueNormalizer.First(baseInfo.UserName, id),
+                        Introduction = baseInfo.Description ?? string.Empty,
+                        AvatarUrl = baseInfo.UserAvatar,
+                    },
+                    Gender = baseInfo.Gender,
+                    IsVerified = tag.IsBlueVip,
+                    IsCreator = isCreator,
+                    CreatorRoles = roles,
+                    CanFollow = relation.CanFollow,
+                    IsFollowing = relation.RelationType is 2 or 4,
+                }
+            );
+        }
+
+        return new UserRelationPage
+        {
+            Items = items,
+            Cursor = data?.ListInfo?.Cursor ?? string.Empty,
+            HasMore = data?.ListInfo?.HasMore ?? false,
+            IsPrivacyProtected = data?.IsPrivacyOn ?? false,
+        };
+    }
+
     internal async Task<UserActivityPage> GetActivitiesAsync(
         string userId,
         int count,
