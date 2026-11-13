@@ -1,5 +1,6 @@
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
+using PhoenixReadApi.Internal.Contracts.App.Users;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
@@ -38,30 +39,48 @@ internal sealed class UserService : PhoenixFeatureService
         );
     }
 
-    internal async Task<UserDramaPage> GetRelatedDramasAsync(
+    internal async Task<UserWorkPage> GetWorksAsync(
         string userId,
-        int count,
-        string cursor,
+        UserWorksQuery query,
         CancellationToken cancellationToken
     )
     {
         userId = NormalizeUserId(userId);
-        ValidateCount(count);
-        cursor = NormalizeCursor(cursor);
-        AppUserProfileData? data = await LoadProfileTabAsync(
-                userId,
-                8,
-                count,
-                cursor,
-                cancellationToken
+        ArgumentNullException.ThrowIfNull(query);
+        ValidateCount(query.Count);
+        string cursor = NormalizeCursor(query.Cursor);
+        string sort = query.Sort == UserWorkSort.Hot ? "hot" : "time_desc";
+        int? subTab = query.SubTab == UserWorkSubTab.All ? null : (int)query.SubTab;
+
+        AppUserProfilePayload payload = new()
+        {
+            Count = query.Count,
+            Cursor = cursor,
+            TabType = 16,
+            SubTabType = subTab,
+            Sort = sort,
+            TargetUserId = userId,
+        };
+
+        AppResponse<AppUserProfileData> response = await _appTransport
+            .PostAsync<AppUserProfilePayload, AppUserProfileData>(
+                "/novel/commentapi/user/profile/" + userId + "/v1",
+                payload,
+                commentRequest: true,
+                cancellationToken,
+                commentSource: 1506,
+                serverChannel: null
             )
             .ConfigureAwait(false);
-        return new UserDramaPage
+
+        AppUserProfileData? data = response.Data;
+        IReadOnlyList<Drama> items = MapWorks(data);
+        return new UserWorkPage
         {
-            Items = MapRelatedDramas(data),
+            Items = items,
             Cursor = data?.ListInfo?.Cursor ?? string.Empty,
             HasMore = data?.ListInfo?.HasMore ?? false,
-            Total = TabTotal(data, 8),
+            Total = TabTotal(data, 16),
         };
     }
 
@@ -141,13 +160,15 @@ internal sealed class UserService : PhoenixFeatureService
 
     private async Task<UserProfile> LoadAsync(User user, CancellationToken cancellationToken)
     {
+        Task<AppResponse<AppUserProfileGetResponse>?> ugcTask = LoadUgcProfileAsync(user.Id, cancellationToken);
+
         AppUserProfilePayload metadataPayload = new()
         {
             Count = 0,
             TabType = 0,
             TargetUserId = user.Id,
         };
-        AppResponse<AppUserProfileData> metadataResponse = await _appTransport
+        Task<AppResponse<AppUserProfileData>> metadataTask = _appTransport
             .PostAsync<AppUserProfilePayload, AppUserProfileData>(
                 "/novel/commentapi/user/profile/" + user.Id + "/v1",
                 metadataPayload,
@@ -155,8 +176,13 @@ internal sealed class UserService : PhoenixFeatureService
                 cancellationToken,
                 commentSource: 1506,
                 serverChannel: null
-            )
-            .ConfigureAwait(false);
+            );
+
+        await Task.WhenAll(ugcTask, metadataTask).ConfigureAwait(false);
+
+        AppResponse<AppUserProfileGetResponse>? ugcResponse = await ugcTask.ConfigureAwait(false);
+        AppResponse<AppUserProfileData> metadataResponse = await metadataTask.ConfigureAwait(false);
+
         AppUserProfileData metadata =
             metadataResponse.Data
             ?? throw new PhoenixReadApiResponseException(
@@ -164,15 +190,21 @@ internal sealed class UserService : PhoenixFeatureService
                 "user-profile"
             );
 
+        AppUgcUser? ugc = ugcResponse?.Data?.UgcUser;
+
         HashSet<int> tabTypes =
         [
             .. (metadata.Tabs ?? [])
                 .Where(static tab => tab is not null)
                 .Select(static tab => tab.Type),
         ];
-        Task<AppUserProfileData?> relatedTask = tabTypes.Contains(8)
-            ? LoadProfileTabAsync(user.Id, 8, PageSize, string.Empty, cancellationToken)
+
+        // If tabs has 16 (Works - 短剧作品), load Tab 16; else if 8 (Related), load Tab 8
+        int worksTabType = tabTypes.Contains(16) ? 16 : (tabTypes.Contains(8) ? 8 : 0);
+        Task<AppUserProfileData?> worksTask = worksTabType != 0
+            ? LoadProfileTabAsync(user.Id, worksTabType, PageSize, string.Empty, cancellationToken)
             : Task.FromResult<AppUserProfileData?>(null);
+
         Task<AppUserProfileData?> activitiesTask = tabTypes.Contains(5)
             ? LoadProfileTabAsync(user.Id, 5, PageSize, string.Empty, cancellationToken)
             : Task.FromResult<AppUserProfileData?>(null);
@@ -183,10 +215,10 @@ internal sealed class UserService : PhoenixFeatureService
             ? LoadLikesAsync(user.Id, PageSize, 0, cancellationToken)
             : Task.FromResult<AppUserActionData?>(null);
 
-        await Task.WhenAll(relatedTask, activitiesTask, collectionsTask, likesTask)
+        await Task.WhenAll(worksTask, activitiesTask, collectionsTask, likesTask)
             .ConfigureAwait(false);
 
-        AppUserProfileData? related = await relatedTask.ConfigureAwait(false);
+        AppUserProfileData? worksData = await worksTask.ConfigureAwait(false);
         AppUserProfileData? activities = await activitiesTask.ConfigureAwait(false);
         AppUserShelfData? collections = await collectionsTask.ConfigureAwait(false);
         AppUserActionData? likes = await likesTask.ConfigureAwait(false);
@@ -194,21 +226,67 @@ internal sealed class UserService : PhoenixFeatureService
         AppCommentUserInfo? userInfo = metadata.UserInfo;
         string resolvedName = ValueNormalizer.First(
             user.Name,
+            ugc?.BaseInfo?.UserName,
             userInfo?.Name,
             userInfo?.BaseInfo?.Name
         );
         string resolvedAvatar = ValueNormalizer.First(
             user.AvatarUrl,
+            ugc?.BaseInfo?.UserAvatar,
             userInfo?.AvatarUrl,
             userInfo?.BaseInfo?.AvatarUrl
         );
         string resolvedIntro = ValueNormalizer.First(
             user.Introduction,
+            ugc?.BaseInfo?.Description,
             userInfo?.Description,
             userInfo?.Introduction,
             userInfo?.BaseInfo?.Description,
             userInfo?.BaseInfo?.Introduction
         );
+
+        IReadOnlyList<string> actorRoles = ugc?.UserTag?.SubTitleList?
+            .Select(static s => s.Text)
+            .Where(static s => !string.IsNullOrWhiteSpace(s))
+            .ToList() ?? [];
+
+        IReadOnlyList<string> badges = ugc?.UserTag?.UserTitleInfo?
+            .Select(static t => t.ZhTitle)
+            .Where(static s => !string.IsNullOrWhiteSpace(s))
+            .ToList() ?? [];
+
+        IReadOnlyList<UserHonor> honors = ugc?.UserTag?.HonorTagBriefInfo?.HonorTagDetailList?
+            .Select(static h => new UserHonor
+            {
+                Name = h.Name,
+                IconUrl = h.ImgUrl,
+                SmallIconUrl = h.SmallImgUrl,
+            })
+            .ToList() ?? [];
+
+        bool isBlueVip = ugc?.UserTag?.IsBlueVip ?? false;
+        bool isActor = isBlueVip
+            || actorRoles.Any(static r => r.Contains("演员", StringComparison.OrdinalIgnoreCase))
+            || tabTypes.Contains(16);
+
+        IReadOnlyList<Drama> works = MapWorks(worksData);
+        long worksTotal = TabTotal(metadata, 16);
+        if (worksTotal == 0)
+        {
+            worksTotal = TabTotal(metadata, 8);
+        }
+
+        string bgCover = ValueNormalizer.First(ugc?.BgCover, ugcResponse?.Data?.BgCover);
+
+        IReadOnlyList<UserProfileTab> availableTabs = (metadata.Tabs ?? [])
+            .Where(static t => t is not null)
+            .Select(static t => new UserProfileTab
+            {
+                Type = t.Type,
+                Name = t.Name,
+                Total = t.Total,
+            })
+            .ToList();
 
         return new UserProfile
         {
@@ -218,6 +296,26 @@ internal sealed class UserService : PhoenixFeatureService
                 Name = resolvedName,
                 Introduction = resolvedIntro,
                 AvatarUrl = resolvedAvatar,
+            },
+            HongguoId = ugc?.BaseInfo?.BizUserId ?? string.Empty,
+            IsVerified = isBlueVip,
+            IsCreator = isActor,
+            CreatorRoles = actorRoles,
+            Badges = badges,
+            Honors = honors,
+            FansCount = Math.Max(0, ugc?.UserRelation?.FansNum ?? 0),
+            FollowCount = Math.Max(0, ugc?.UserRelation?.FollowUserNum ?? 0),
+            LikedCount = Math.Max(0, ugc?.UserRelation?.RecvDiggedCount ?? 0),
+            CanFollow = ugc?.UserRelation?.CanFollow ?? true,
+            IsFollowing = ugc?.UserRelation?.RelationType is 2 or 4,
+            BackgroundCoverUrl = bgCover,
+            Works = works,
+            WorksPage = new UserWorkPage
+            {
+                Items = works,
+                Cursor = worksData?.ListInfo?.Cursor ?? string.Empty,
+                HasMore = worksData?.ListInfo?.HasMore ?? false,
+                Total = worksTotal,
             },
             Collections = MapCollections(collections),
             CollectionsPage = new UserPageInfo
@@ -235,9 +333,33 @@ internal sealed class UserService : PhoenixFeatureService
             },
             Activities = MapActivities(activities),
             ActivitiesPage = ProfilePageInfo(activities, metadata, 5),
-            RelatedDramas = MapRelatedDramas(related),
-            RelatedDramasPage = ProfilePageInfo(related, metadata, 8),
+            AvailableTabs = availableTabs,
         };
+    }
+
+    private async Task<AppResponse<AppUserProfileGetResponse>?> LoadUgcProfileAsync(
+        string userId,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            return await _appTransport
+                .GetAsync<AppUserProfileGetResponse>(
+                    "/reading/user/profile/get/v1/",
+                    [
+                        new("user_id", userId),
+                        new("target_user_id", userId),
+                    ],
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            // 非致命降级：主账号资料接口若未返回，不阻断主页其余内容呈现
+            return null;
+        }
     }
 
     private async Task<AppUserProfileData?> LoadProfileTabAsync(
@@ -318,7 +440,7 @@ internal sealed class UserService : PhoenixFeatureService
         return response.Data;
     }
 
-    private static IReadOnlyList<Drama> MapRelatedDramas(AppUserProfileData? data)
+    private static IReadOnlyList<Drama> MapWorks(AppUserProfileData? data)
     {
         if (data is null)
         {
@@ -341,14 +463,29 @@ internal sealed class UserService : PhoenixFeatureService
             }
 
             AppUserVideoCommon common = record.Video.Common;
+            IReadOnlyList<string> tags = record.Video.Expand?.SubTitleList?
+                .Select(static s => s.Text)
+                .Where(static s => !string.IsNullOrWhiteSpace(s))
+                .ToList() ?? [];
+
+            long hot = record.Video.Stat?.Hot ?? 0;
+            long viewCount = record.Video.Stat?.ViewCount ?? 0;
+            long followCount = record.Video.Stat?.FollowedCount ?? 0;
+
             result.Add(
-                DramaMapper.FromRelatedDrama(
-                    id,
-                    common.Title,
-                    common.Introduction,
-                    common.CoverUrl,
-                    record.Video.Expand.EpisodeCount
-                )
+                new Drama
+                {
+                    Id = id,
+                    Title = ValueNormalizer.First(common.Title, id),
+                    Description = common.Introduction,
+                    CoverUrl = common.CoverUrl,
+                    EpisodeCount = Math.Max(0, record.Video.Expand?.EpisodeCount ?? 0),
+                    Tags = tags,
+                    Heat = hot > 0 ? ValueNormalizer.FormatCount(hot) + "热度" : string.Empty,
+                    Views = viewCount > 0 ? ValueNormalizer.FormatCount(viewCount) : string.Empty,
+                    PlayCount = Math.Max(0, viewCount),
+                    FollowCount = Math.Max(0, followCount),
+                }
             );
         }
 
@@ -481,15 +618,42 @@ internal sealed class UserService : PhoenixFeatureService
         {
             Cursor = data?.ListInfo?.Cursor ?? string.Empty,
             HasMore = data?.ListInfo?.HasMore ?? false,
-            Total = TabTotal(data, tabType, TabTotal(metadata, tabType)),
+            Total = TabTotal(metadata, tabType),
         };
 
-    private static long TabTotal(AppUserProfileData? data, int tabType, long fallback = 0) =>
-        (data?.Tabs ?? [])
-            .Where(static tab => tab is not null)
-            .FirstOrDefault(tab => tab.Type == tabType)
-            ?.Total
-        ?? fallback;
+    private static long TabTotal(AppUserProfileData? data, int tabType)
+    {
+        if (data?.Tabs is null)
+        {
+            return 0;
+        }
+
+        foreach (AppUserProfileTab? tab in data.Tabs)
+        {
+            if (tab is not null && tab.Type == tabType)
+            {
+                return Math.Max(0, tab.Total);
+            }
+        }
+
+        return 0;
+    }
+
+    private static string NormalizeUserId(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new ArgumentException("账号 ID 不能为空。", nameof(userId));
+        }
+
+        string trimmed = userId.Trim();
+        if (!ValueNormalizer.IsNumericId(trimmed))
+        {
+            throw new ArgumentException("账号 ID 必须是由数字构成的字符串。", nameof(userId));
+        }
+
+        return trimmed;
+    }
 
     private static void ValidateCount(int count)
     {
@@ -497,38 +661,37 @@ internal sealed class UserService : PhoenixFeatureService
         {
             throw new ArgumentOutOfRangeException(
                 nameof(count),
-                $"账号主页分页数量必须在 1 到 {MaxPageSize} 之间。"
+                count,
+                "分页数量必须在 1 到 " + MaxPageSize + " 之间。"
             );
         }
     }
 
     private static void ValidateOffset(int offset)
     {
-        if (offset is < 0 or > 1_000_000)
+        if (offset < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(offset));
+            throw new ArgumentOutOfRangeException(
+                nameof(offset),
+                offset,
+                "分页偏移量不能为负数。"
+            );
         }
     }
 
-    private static string NormalizeCursor(string value)
+    private static string NormalizeCursor(string cursor)
     {
-        value = (value ?? string.Empty).Trim();
-        if (value.Length > 8192 || value.Any(static c => c is '\r' or '\n' or '\0'))
+        if (string.IsNullOrWhiteSpace(cursor))
         {
-            throw new ArgumentException("账号主页游标无效。", nameof(value));
+            return string.Empty;
         }
 
-        return value;
-    }
-
-    private static string NormalizeUserId(string value)
-    {
-        value = (value ?? string.Empty).Trim();
-        if (!ValueNormalizer.IsNumericId(value))
+        string trimmed = cursor.Trim();
+        if (trimmed.Length > 2048)
         {
-            throw new ArgumentException("账号 ID 无效。", nameof(value));
+            throw new ArgumentException("分页游标长度超过允许上限。", nameof(cursor));
         }
 
-        return value;
+        return trimmed;
     }
 }

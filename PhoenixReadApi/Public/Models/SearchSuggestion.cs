@@ -9,4 +9,3 @@ public sealed class SearchSuggestion
     /// <summary>建议类型。</summary>
     public SearchSuggestionType Type { get; init; } = SearchSuggestionType.Unknown;
 }
-

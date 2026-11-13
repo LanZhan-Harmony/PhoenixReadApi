@@ -108,6 +108,19 @@ internal sealed class PhoenixReadAppTransport
         CancellationToken cancellationToken
     ) => _passportTransport.PostFormAsync<TResponse>(path, values, cancellationToken);
 
+    /// <summary>发送 multipart/form-data 文件上传请求。</summary>
+    internal Task<AppResponse<TResponse>> PostMultipartAsync<TResponse>(
+        string path,
+        MultipartFormDataContent content,
+        CancellationToken cancellationToken
+    ) =>
+        RetryPolicy.ExecuteAsync(
+            (_, token) => SendMultipartOnceAsync<TResponse>(path, content, token),
+            1,
+            RetryPolicy.IsTransient,
+            cancellationToken
+        );
+
     internal Task<WebPassportResponse<TResponse>> GetWebPassportJsonAsync<TResponse>(
         string path,
         IEnumerable<KeyValuePair<string, string>> query,
@@ -362,6 +375,71 @@ internal sealed class PhoenixReadAppTransport
                 exception
             );
         }
+    }
+
+    private async Task<AppResponse<TResponse>> SendMultipartOnceAsync<TResponse>(
+        string path,
+        MultipartFormDataContent content,
+        CancellationToken cancellationToken
+    )
+    {
+        await _deviceManager
+            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
+
+        Uri requestUri = BuildAppRequestUri(path);
+        using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
+        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+        _sessionStore.ApplySession(request);
+
+        request.Content = content;
+        PhoenixReadRequestSigner.SignPlayer(request, [], _deviceManager.DeviceId, DateTimeOffset.UtcNow);
+
+        using HttpResponseMessage response = await _http
+            .SendAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        _sessionStore.CaptureSession(response);
+
+        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new PhoenixReadApiHttpException(
+                ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
+                path,
+                (int)response.StatusCode,
+                requestUri,
+                (int)response.StatusCode >= 500
+            );
+        }
+
+        if (bytes.Length == 0)
+        {
+            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+        }
+
+        AppResponse<TResponse> result;
+        try
+        {
+            result =
+                JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
+                ?? throw new JsonException("The App response was null.");
+        }
+        catch (JsonException exception)
+        {
+            throw new PhoenixReadApiDeserializationException(
+                "红果 App 接口返回格式异常。",
+                path,
+                exception
+            );
+        }
+
+        EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
+        return result;
     }
 
     private async Task<AppResponse<TResponse>> SendOnceAsync<TResponse>(

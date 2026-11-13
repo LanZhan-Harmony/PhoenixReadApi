@@ -69,6 +69,26 @@ internal static partial class ValueNormalizer
         };
     }
 
+    internal static string FormatCount(long count)
+    {
+        if (count < 0)
+        {
+            return "0";
+        }
+
+        if (count >= 100_000_000)
+        {
+            return (count / 100_000_000.0).ToString("0.#", CultureInfo.InvariantCulture) + "亿";
+        }
+
+        if (count >= 10_000)
+        {
+            return (count / 10_000.0).ToString("0.#", CultureInfo.InvariantCulture) + "万";
+        }
+
+        return count.ToString(CultureInfo.InvariantCulture);
+    }
+
     [GeneratedRegex("^[0-9]{1,32}$")]
     private static partial Regex NumericIdRegex();
 

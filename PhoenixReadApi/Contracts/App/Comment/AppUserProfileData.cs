@@ -96,6 +96,16 @@ internal sealed class AppUserVideoExpand
     [JsonPropertyName("episode_cnt")]
     [JsonConverter(typeof(FlexibleIntConverter))]
     public int EpisodeCount { get; init; }
+
+    [JsonPropertyName("sub_title_list")]
+    public IReadOnlyList<AppUserSubTitleItem> SubTitleList { get; init; } = [];
+}
+
+internal sealed class AppUserSubTitleItem
+{
+    [JsonPropertyName("text")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Text { get; init; } = string.Empty;
 }
 
 internal sealed class AppUserVideoStat
@@ -107,4 +117,12 @@ internal sealed class AppUserVideoStat
     [JsonPropertyName("play_cnt")]
     [JsonConverter(typeof(FlexibleLongConverter))]
     public long ViewCount { get; init; }
+
+    [JsonPropertyName("hot")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long Hot { get; init; }
+
+    [JsonPropertyName("followed_cnt")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long FollowedCount { get; init; }
 }

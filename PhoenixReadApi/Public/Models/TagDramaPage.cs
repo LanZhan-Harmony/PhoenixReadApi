@@ -1,7 +1,7 @@
 namespace PhoenixReadApi;
 
 /// <summary>按题材标签分页获取的短剧列表页面。</summary>
-public sealed record TagDramaPage
+public sealed class TagDramaPage
 {
     /// <summary>当前页短剧列表。</summary>
     public IReadOnlyList<Drama> Items { get; init; } = [];

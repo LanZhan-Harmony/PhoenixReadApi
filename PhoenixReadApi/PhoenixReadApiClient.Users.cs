@@ -10,7 +10,7 @@ public sealed partial class PhoenixReadApiClient
     /// </returns>
     /// <remarks>
     /// 该方法适合一次加载主页摘要。需要继续读取时，使用返回对象中的分页状态调用对应的
-    /// GetUserActivitiesAsync、GetUserRelatedDramasAsync、GetUserCollectionsAsync 或 GetUserLikesAsync。
+    /// GetUserWorksAsync、GetUserActivitiesAsync、GetUserCollectionsAsync 或 GetUserLikesAsync。
     /// </remarks>
     public Task<UserProfile> GetUserProfileAsync(
         string userId,
@@ -27,19 +27,16 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _users.GetAsync(credit, cancellationToken);
 
-    /// <summary>获取账号关联剧集的一页。</summary>
+    /// <summary>获取用户或演职人员主页作品列表的一页（支持全部、剧作、预约、合集、剧评等子分类及最新/最热排序）。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
-    /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
+    /// <param name="query">作品查询参数（包含子分类、排序、数量和游标）；若为 null 则使用默认查询。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>关联剧集及 Cursor、HasMore 和 Total 分页信息。</returns>
-    /// <remarks>当 HasMore 为 true 时，将 Cursor 原样传给下一次调用。</remarks>
-    public Task<UserDramaPage> GetUserRelatedDramasAsync(
+    /// <returns>作品短剧列表及 Cursor、HasMore 和 Total 分页信息。</returns>
+    public Task<UserWorkPage> GetUserWorksAsync(
         string userId,
-        int count = 18,
-        string cursor = "",
+        UserWorksQuery? query = null,
         CancellationToken cancellationToken = default
-    ) => _users.GetRelatedDramasAsync(userId, count, cursor, cancellationToken);
+    ) => _users.GetWorksAsync(userId, query ?? new UserWorksQuery(), cancellationToken);
 
     /// <summary>获取账号动态的一页。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
