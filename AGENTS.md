@@ -37,7 +37,19 @@ PhoenixReadApi/
 ├── Public/                  # 稳定的用户可见类型
 │   ├── Enums/
 │   ├── Exceptions/
-│   └── Models/
+│   └── Models/              # 按业务领域分类的公共实体模型
+│       ├── Authentication/
+│       ├── Catalog/
+│       ├── Comments/
+│       ├── Danmaku/
+│       ├── Details/
+│       ├── Interactions/
+│       ├── Library/
+│       ├── Notifications/
+│       ├── Playback/
+│       ├── Search/
+│       ├── Shared/
+│       └── Users/
 ├── Features/                # 按业务能力组织的内部服务
 │   ├── Catalog/
 │   ├── Details/

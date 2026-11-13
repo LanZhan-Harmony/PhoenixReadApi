@@ -378,6 +378,20 @@ internal static partial class SampleSteps
             id => client.GetUserLikesAsync(id, cancellationToken: cancellationToken)
         );
         PrintCount("  用户点赞", userLikes?.Items.Count);
+
+        UserRelationPage? followers = await TryWhenIdAsync(
+            "GetUserFollowersAsync",
+            context.ProfileUserId,
+            id => client.GetUserFollowersAsync(id, count: 10, cancellationToken: cancellationToken)
+        );
+        PrintCount("  用户粉丝", followers?.Items.Count);
+
+        UserRelationPage? followings = await TryWhenIdAsync(
+            "GetUserFollowingsAsync",
+            context.ProfileUserId,
+            id => client.GetUserFollowingsAsync(id, count: 10, cancellationToken: cancellationToken)
+        );
+        PrintCount("  用户关注", followings?.Items.Count);
     }
 
     public static async Task RunUserRelatedAsync(SampleContext context)

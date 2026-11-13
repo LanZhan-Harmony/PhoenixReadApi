@@ -589,6 +589,22 @@ UserWorkPage worksPage = await client.GetUserWorksAsync(
     cts.Token
 );
 Console.WriteLine($"作品总数: {worksPage.Total}, 当前页条数: {worksPage.Items.Count}");
+
+// 获取粉丝列表（支持隐私保护感知）
+UserRelationPage followers = await client.GetUserFollowersAsync("3974078057440443", count: 20, cancellationToken: cts.Token);
+Console.WriteLine($"隐私保护: {followers.IsPrivacyProtected}, 粉丝条数: {followers.Items.Count}");
+foreach (UserRelationItem item in followers.Items)
+{
+    Console.WriteLine($"  - 粉丝: {item.User.Name} (蓝V: {item.IsVerified}, 主创: {item.IsCreator})");
+}
+
+// 获取关注人员列表
+UserRelationPage followings = await client.GetUserFollowingsAsync("3974078057440443", count: 20, cancellationToken: cts.Token);
+Console.WriteLine($"隐私保护: {followings.IsPrivacyProtected}, 关注人数: {followings.Items.Count}");
+foreach (UserRelationItem item in followings.Items)
+{
+    Console.WriteLine($"  - 关注: {item.User.Name} (关系类型: {(item.IsFollowing ? "已关注" : "未关注")})");
+}
 ```
 
 ---
