@@ -30,6 +30,11 @@
   - [5. 弹幕抓取与评论互动](#5-弹幕抓取与评论互动)
   - [6. 书架、阅读历史与播放进度](#6-书架阅读历史与播放进度)
   - [7. 账号登录与会话持久化](#7-账号登录与会话持久化)
+  - [8. 演职人员与用户主页、作品多 Tab 检索](#8-演职人员与用户主页作品多-tab-检索)
+  - [9. 剧集追更与通知中心](#9-剧集追更与通知中心)
+  - [10. 表情包与评论图片上传](#10-表情包与评论图片上传)
+  - [11. 负反馈与不感兴趣推荐过滤](#11-负反馈与不感兴趣推荐过滤)
+  - [12. 跨页去重流式遍历](#12-跨页去重流式遍历)
 - [配置选项与依赖注入](#配置选项与依赖注入)
   - [PhoenixReadApiOptions 配置表](#phoenixreadapioptions-配置表)
   - [与 IHttpClientFactory 集成](#与-ihttpclientfactory-集成)
@@ -51,15 +56,23 @@
 - 💬 **弹幕与社区互动**
   - 分集弹幕按毫秒时间窗口抓取、自动合并与去重；
   - 剧评与分集评论浏览（支持最热/最新排序）、多级嵌套回复树分页获取；
-  - 支持发表评论、回复、评论点赞与删除等互动操作。
-- 📚 **书架与进度同步**
+  - 支持发表评论、回复、评论点赞与删除等互动操作；
+  - 评论表情包查询（热门与收藏表情包）、表情包收藏与取消、评论图片文件 Multipart 上传。
+- 📚 **书架、追更与通知中心**
   - 短剧观看与阅读历史记录查询与删除；
   - 分集播放进度毫秒级上报与批量剧集进度查询；
-  - 追剧收藏夹管理、新剧预约与追更日历。
-- 👤 **创作者与用户主页**
+  - 追剧收藏夹管理、新剧预约与追更日历；
+  - 剧集更新追更提醒订阅与取消、追更短剧列表分页、短剧更新通知检查与通知中心未读消息管理。
+- 👤 **创作者与演职人员主页**
   - 演职员署名解析（演员、导演、编剧、出品方及角色名）；
-  - 创作者/用户主页、动态发布记录、关联作品、公开收藏与点赞列表。
+  - 演职人员/用户主页完整档案（角色标签、蓝V认证、红果号、关注数、粉丝数、获赞数、主页背景图与成就勋章）；
+  - 作品多 Tab 分页查询（全部、剧作、预约、合集、剧评）及按最新/最热排序；
+  - 动态发布记录、公开收藏与点赞列表。
+- 🛡️ **负反馈与推荐过滤**
+  - 长按负反馈选项面板配置拉取（“我不想看”、“内容问题”等）；
+  - 提交不感兴趣反馈（按短剧、演员、分类等原因屏蔽过滤）。
 - 🔐 **认证与多端会话**
+  - 支持的国家/地区国际区号列表查询（中国大陆、香港、澳门、台湾及海外主要国家）；
   - 手机号短信验证码登录与网页扫码登录（二维码会话轮询）；
   - 登录会话与匿名设备快照（Device ID / Install ID）原子写入持久化，跨进程无缝续期。
 
@@ -302,7 +315,7 @@ foreach (DramaCredit credit in details.Drama.Credits)
 
     // 支持直接根据署名对象或用户 ID 查询演职员主页
     UserProfile profile = await client.GetUserProfileAsync(credit, cts.Token);
-    Console.WriteLine($"  关联作品数: {profile.RelatedDramas.Count}");
+    Console.WriteLine($"  主页作品数: {profile.Works.Count}");
 }
 
 // 多季合集与智能聚合（自动获取多季合集中的所有季及分集）
@@ -496,6 +509,9 @@ while (!cts.Token.IsCancellationRequested)
 #### 方式二：手机短信验证码登录
 
 ```csharp
+// 0. 可选：获取支持的国家或地区国际区号列表
+IReadOnlyList<LoginRegion> regions = client.GetLoginRegions();
+
 // 1. 发送短信验证码
 VerificationCodeResult verifyResult = await client.SendVerificationCodeAsync("13800000000", cts.Token);
 Console.WriteLine($"验证码已发送至 {verifyResult.MaskedPhone}，重发等待: {verifyResult.RetryIntervalSeconds}s");
@@ -540,7 +556,129 @@ await client.ResetDeviceAsync(cts.Token);
 
 ---
 
-### 8. 跨页去重流式遍历
+### 8. 演职人员与用户主页、作品多 Tab 检索
+
+红果短剧为演职人员和创作者提供了专业的主页展示，包括角色标签、蓝V认证、红果号、粉丝/关注/获赞统计、荣誉勋章以及专属作品聚合：
+
+```csharp
+// 查询指定演员/用户主页完整信息（例如知名短剧演员）
+UserProfile profile = await client.GetUserProfileAsync("3974078057440443", cts.Token);
+
+Console.WriteLine($"昵称: {profile.User.Name}");
+Console.WriteLine($"主创角色: {string.Join(" | ", profile.CreatorRoles)}"); // 如 "男演员 | 导演"
+Console.WriteLine($"红果号: {profile.HongguoId}");
+Console.WriteLine($"蓝V认证: {profile.IsVerified}");
+Console.WriteLine($"粉丝数: {profile.FansCount}, 获赞数: {profile.LikedCount}");
+Console.WriteLine($"主页背景图: {profile.BackgroundCoverUrl}");
+
+// 演职人员专属作品列表（首屏已自动拉取）
+foreach (Drama work in profile.Works)
+{
+    Console.WriteLine($"  - 作品: 《{work.Title}》 集数: {work.EpisodeCount}, 热度: {work.Heat}");
+}
+
+// 独立作品分页查询：支持按最新/最热排序，以及子分类（全部、剧作、预约、合集、剧评）
+UserWorkPage worksPage = await client.GetUserWorksAsync(
+    "3974078057440443",
+    new UserWorksQuery
+    {
+        SubTab = UserWorkSubTab.All,
+        Sort = UserWorkSort.Hot,
+        Count = 20
+    },
+    cts.Token
+);
+Console.WriteLine($"作品总数: {worksPage.Total}, 当前页条数: {worksPage.Items.Count}");
+```
+
+---
+
+### 9. 剧集追更与通知中心
+
+```csharp
+// 开启某部短剧的追更提醒
+await client.SetFollowUpdateAsync(dramaId: "7699833115866303550", follow: true, cts.Token);
+
+// 检查是否已开启追更
+bool isFollowing = await client.IsFollowingUpdateAsync("7699833115866303550", cts.Token);
+
+// 分页拉取当前追更短剧列表（包含已更新总集数、观看进度与更新频例文案）
+FollowUpdatePage followPage = await client.GetFollowUpdatesAsync(cursor: "", count: 20, cts.Token);
+foreach (FollowUpdateItem item in followPage.Items)
+{
+    Console.WriteLine($"追更剧: 《{item.Title}》, 总集数: {item.TotalEpisodeCount}, 状态: {item.UpdateFrequency}");
+}
+
+// 检查追更短剧的新更新通知
+IReadOnlyList<NoticeItem> newNotices = await client.CheckNoticesAsync(cts.Token);
+
+// 查询通知中心全量通知与未读统计
+NoticePage notices = await client.GetNoticesAsync(cts.Token);
+Console.WriteLine($"未读通知数: {notices.UnreadCount}");
+
+// 标记已读与清空通知
+await client.MarkNoticesReadAsync(notices.Items.Select(n => n.Id).ToList(), cts.Token);
+await client.ClearNoticesAsync(cts.Token);
+```
+
+---
+
+### 10. 表情包与评论图片上传
+
+```csharp
+// 获取评论表情包列表（isCollected: false 为热门表情包，true 为用户已收藏表情包）
+EmoticonPage emoticons = await client.GetEmoticonsAsync(isCollected: false, offset: 0, count: 20, cts.Token);
+foreach (CommentImage emo in emoticons.Items)
+{
+    Console.WriteLine($"表情 ID: {emo.Id}, 图片: {emo.Url} ({emo.Width}x{emo.Height})");
+}
+
+// 收藏表情包
+await client.CollectEmoticonAsync(
+    imageId: emoticons.Items[0].Id,
+    isAdd: true,
+    imageUrl: emoticons.Items[0].Url,
+    imageWidth: emoticons.Items[0].Width,
+    imageHeight: emoticons.Items[0].Height,
+    cancellationToken: cts.Token
+);
+
+// 评论配图上传（使用标准 Multipart 协议直接上传本地图片流）
+using var fileStream = File.OpenRead("photo.jpg");
+UploadedImage uploaded = await client.UploadPictureAsync(fileStream, "photo.jpg", "image/jpeg", cts.Token);
+Console.WriteLine($"图片上传成功，ImageId: {uploaded.ImageId}, WebUri: {uploaded.WebUri}");
+```
+
+---
+
+### 11. 负反馈与不感兴趣推荐过滤
+
+```csharp
+// 获取客户端负反馈长按选项卡（卡片类型 2 为短剧负反馈）
+DislikePanel panel = await client.GetDislikePanelAsync(cardType: 2, cts.Token);
+foreach (DislikeGroup group in panel.Groups)
+{
+    Console.WriteLine($"分组: {group.Title}");
+    foreach (DislikeOption opt in group.Options)
+    {
+        Console.WriteLine($"  - [{opt.Id}] {opt.Text} (Head: {opt.Head})");
+    }
+}
+
+// 提交不感兴趣反馈（按演员、分类或剧集屏蔽）
+DislikeOption chosenOption = panel.Groups[0].Options[0];
+bool success = await client.SubmitDislikeAsync(
+    dramaId: "7699833115866303550",
+    videoId: "7699833115866303551",
+    recommendInfo: "",
+    option: chosenOption,
+    cancellationToken: cts.Token
+);
+```
+
+---
+
+### 12. 跨页去重流式遍历
 
 对于推荐流、题材分类库或排行榜，客户端提供了基于 `IAsyncEnumerable<T>` 的流式遍历接口。底层自动维护已访问 ID 集合以实现跨页去重，并支持随时取消：
 

@@ -25,6 +25,10 @@ internal sealed class AppUserProfilePayload
     [JsonPropertyName("tab_type")]
     public int TabType { get; init; } = 8;
 
+    [JsonPropertyName("sub_tab_type")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? SubTabType { get; init; }
+
     [JsonPropertyName("target_user_id")]
     public string TargetUserId { get; init; } = string.Empty;
 }

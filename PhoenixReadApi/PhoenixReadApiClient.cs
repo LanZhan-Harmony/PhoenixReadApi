@@ -3,7 +3,9 @@ using PhoenixReadApi.Internal.Features.Catalog;
 using PhoenixReadApi.Internal.Features.Comments;
 using PhoenixReadApi.Internal.Features.Danmaku;
 using PhoenixReadApi.Internal.Features.Details;
+using PhoenixReadApi.Internal.Features.Interactions;
 using PhoenixReadApi.Internal.Features.Library;
+using PhoenixReadApi.Internal.Features.Notifications;
 using PhoenixReadApi.Internal.Features.Playback;
 using PhoenixReadApi.Internal.Features.Search;
 using PhoenixReadApi.Internal.Features.Users;
@@ -41,6 +43,9 @@ public sealed partial class PhoenixReadApiClient : IDisposable
     private readonly ShortFilterService _shortFilter;
     private readonly DailyReleaseService _dailyRelease;
     private readonly NovelCategoryService _novelCategory;
+    private readonly NotificationService _notifications;
+    private readonly EmoticonService _emoticons;
+    private readonly DislikeService _interactions;
 
     /// <summary>创建并拥有一个 API 客户端。</summary>
     /// <param name="options">
@@ -96,6 +101,9 @@ public sealed partial class PhoenixReadApiClient : IDisposable
         _shortFilter = new ShortFilterService(_runtime);
         _dailyRelease = new DailyReleaseService(_runtime);
         _novelCategory = new NovelCategoryService(_runtime);
+        _notifications = new NotificationService(_runtime);
+        _emoticons = new EmoticonService(_runtime);
+        _interactions = new DislikeService(_runtime);
     }
 
     /// <summary>释放 API 客户端使用的资源。</summary>

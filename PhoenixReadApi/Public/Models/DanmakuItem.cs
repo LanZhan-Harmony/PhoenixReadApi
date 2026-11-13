@@ -12,4 +12,3 @@ public sealed class DanmakuItem
     /// <summary>评论时间戳（毫秒）。</summary>
     public long TimeMs { get; init; }
 }
-

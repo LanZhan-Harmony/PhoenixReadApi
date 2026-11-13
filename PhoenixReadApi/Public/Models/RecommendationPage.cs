@@ -15,4 +15,3 @@ public sealed class RecommendationPage
     /// <summary>是否还有下一页。</summary>
     public bool HasMore { get; init; }
 }
-

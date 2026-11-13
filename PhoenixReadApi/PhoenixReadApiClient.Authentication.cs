@@ -2,6 +2,17 @@ namespace PhoenixReadApi;
 
 public sealed partial class PhoenixReadApiClient
 {
+    /// <summary>获取登录支持的国家或地区区号列表。</summary>
+    /// <returns>包含地区名称、国际区号及 ISO 代码的地区列表。</returns>
+    public IReadOnlyList<LoginRegion> GetLoginRegions() => _authentication.GetLoginRegions();
+
+    /// <summary>异步获取登录支持的国家或地区区号列表。</summary>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>包含地区名称、国际区号及 ISO 代码的地区列表。</returns>
+    public Task<IReadOnlyList<LoginRegion>> GetLoginRegionsAsync(
+        CancellationToken cancellationToken = default
+    ) => _authentication.GetLoginRegionsAsync(cancellationToken);
+
     /// <summary>发送短信验证码。</summary>
     /// <param name="phoneNumber">接收验证码的中国大陆手机号（11 位数字）。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>

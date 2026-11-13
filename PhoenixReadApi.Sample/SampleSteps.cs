@@ -90,6 +90,21 @@ internal static partial class SampleSteps
         );
         PrintCount("  剧库", context.Catalog?.Count);
 
+        IReadOnlyList<LoginRegion> loginRegions = client.GetLoginRegions();
+        Console.WriteLine($"  登录支持区域: {loginRegions.Count} 个 (示例: {loginRegions[0].Name} +{loginRegions[0].Code})");
+
+        DislikePanel? dislikePanel = await TryAsync(
+            "GetDislikePanelAsync",
+            () => client.GetDislikePanelAsync(2, cancellationToken)
+        );
+        PrintCount("  负反馈面板分组", dislikePanel?.Groups.Count);
+
+        EmoticonPage? emoticons = await TryAsync(
+            "GetEmoticonsAsync",
+            () => client.GetEmoticonsAsync(isCollected: false, offset: 0, count: 5, cancellationToken: cancellationToken)
+        );
+        PrintCount("  热门表情包", emoticons?.Items.Count);
+
         IReadOnlyList<SearchSuggestion>? suggestions = await TryAsync(
             "GetSuggestionsAsync",
             () => client.GetSuggestionsAsync(context.Keyword, 5, cancellationToken)
@@ -343,12 +358,12 @@ internal static partial class SampleSteps
             PrintCount("  用户动态下一页", nextActivities?.Items.Count);
         }
 
-        UserDramaPage? userRelated = await TryWhenIdAsync(
-            "GetUserRelatedDramasAsync",
+        UserWorkPage? userWorks = await TryWhenIdAsync(
+            "GetUserWorksAsync",
             context.ProfileUserId,
-            id => client.GetUserRelatedDramasAsync(id, cancellationToken: cancellationToken)
+            id => client.GetUserWorksAsync(id, new UserWorksQuery { Count = 10 }, cancellationToken)
         );
-        PrintCount("  用户关联剧集", userRelated?.Items.Count);
+        PrintCount("  用户作品", userWorks?.Items.Count);
 
         UserDramaPage? userCollections = await TryWhenIdAsync(
             "GetUserCollectionsAsync",
@@ -411,6 +426,30 @@ internal static partial class SampleSteps
             () => client.GetUpcomingReservationsAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  可预约新剧", upcomingReservations?.Items.Count);
+
+        FollowUpdatePage? followUpdates = await TryAsync(
+            "GetFollowUpdatesAsync",
+            () => client.GetFollowUpdatesAsync(cursor: "", count: 5, cancellationToken: cancellationToken)
+        );
+        PrintCount("  追更短剧", followUpdates?.Items.Count);
+
+        NoticePage? notices = await TryAsync(
+            "GetNoticesAsync",
+            () => client.GetNoticesAsync(cancellationToken: cancellationToken)
+        );
+        Console.WriteLine($"  通知中心: {notices?.Items.Count ?? 0} 条，未读 {notices?.UnreadCount ?? 0} 条");
+
+        string sampleActorId = "3974078057440443"; // 黄彦恺
+        UserProfile? actorProfile = await TryAsync(
+            "GetUserProfileAsync",
+            () => client.GetUserProfileAsync(sampleActorId, cancellationToken)
+        );
+        if (actorProfile is not null)
+        {
+            Console.WriteLine($"  演职人员主页: {actorProfile.User.Name} ({string.Join(" | ", actorProfile.CreatorRoles)})");
+            Console.WriteLine($"    红果号: {actorProfile.HongguoId}, 蓝V: {actorProfile.IsVerified}, 粉丝: {actorProfile.FansCount}, 获赞: {actorProfile.LikedCount}");
+            Console.WriteLine($"    首屏作品数: {actorProfile.Works.Count}");
+        }
     }
 
     public static async Task RunShareAsync(SampleContext context)

@@ -31,8 +31,8 @@ public sealed class UserTests
         await Assert.That(profile.Activities).IsNotNull();
         await SharedScenario.AssertValidUserPageInfo(profile.ActivitiesPage);
 
-        await Assert.That(profile.RelatedDramas).IsNotNull();
-        await SharedScenario.AssertValidUserPageInfo(profile.RelatedDramasPage);
+        await Assert.That(profile.Works).IsNotNull();
+        await Assert.That(profile.WorksPage).IsNotNull();
 
         foreach (Drama drama in profile.Collections)
         {
@@ -49,7 +49,7 @@ public sealed class UserTests
             await SharedScenario.AssertValidUserActivity(activity);
         }
 
-        foreach (Drama drama in profile.RelatedDramas)
+        foreach (Drama drama in profile.Works)
         {
             await SharedScenario.AssertValidDrama(drama);
         }
@@ -72,40 +72,25 @@ public sealed class UserTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetUserRelatedDramasAsync()
+    public async Task TestGetUserWorksAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        UserDramaPage related = await SharedScenario.Client.GetUserRelatedDramasAsync(
+        UserWorkPage worksPage = await SharedScenario.Client.GetUserWorksAsync(
             scenario.UserId,
-            count: 10,
-            cancellationToken: timeout.Token
+            new UserWorksQuery { Count = 10 },
+            timeout.Token
         );
 
-        await Assert.That(related).IsNotNull();
-        await Assert.That(related.Items).IsNotNull();
-        await Assert.That(related.Cursor).IsNotNull();
-        await Assert.That(related.NextOffset >= 0).IsTrue();
-        await Assert.That(related.Total >= 0).IsTrue();
+        await Assert.That(worksPage).IsNotNull();
+        await Assert.That(worksPage.Items).IsNotNull();
+        await Assert.That(worksPage.Cursor).IsNotNull();
+        await Assert.That(worksPage.Total >= 0).IsTrue();
 
-        foreach (Drama drama in related.Items)
+        foreach (Drama drama in worksPage.Items)
         {
             await SharedScenario.AssertValidDrama(drama);
-        }
-
-        if (related is { HasMore: true, Cursor.Length: > 0 })
-        {
-            UserDramaPage nextPage = await SharedScenario.Client.GetUserRelatedDramasAsync(
-                scenario.UserId,
-                count: 10,
-                cursor: related.Cursor,
-                cancellationToken: timeout.Token
-            );
-
-            await Assert.That(nextPage).IsNotNull();
-            await Assert.That(nextPage.Items).IsNotNull();
-            await Assert.That(nextPage.Cursor).IsNotNull();
         }
     }
 

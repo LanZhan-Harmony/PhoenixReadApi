@@ -205,7 +205,7 @@ internal static partial class SampleSteps
         if (profile is not null)
         {
             Console.WriteLine(
-                $"  用户：{profile.User.Id}/{profile.User.Name} | collections={profile.Collections.Count} likes={profile.Likes.Count} activities={profile.Activities.Count} related={profile.RelatedDramas.Count}"
+                $"  用户：{profile.User.Id}/{profile.User.Name} | collections={profile.Collections.Count} likes={profile.Likes.Count} activities={profile.Activities.Count} works={profile.Works.Count}"
             );
         }
     }

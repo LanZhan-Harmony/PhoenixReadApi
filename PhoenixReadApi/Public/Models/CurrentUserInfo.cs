@@ -1,7 +1,7 @@
 namespace PhoenixReadApi;
 
 /// <summary>当前已登录账号的资料与配置信息。</summary>
-public sealed record CurrentUserInfo
+public sealed class CurrentUserInfo
 {
     /// <summary>账号数字 ID。</summary>
     public string Id { get; init; } = string.Empty;
