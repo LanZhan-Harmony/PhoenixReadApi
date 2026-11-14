@@ -16,21 +16,21 @@ internal sealed class LikesService : LibraryServiceBase
         : base(runtime) { }
 
     internal async Task<PhoenixOperationResult> SetDramaEpisodeLikeAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         bool active,
         CancellationToken cancellationToken
     )
     {
-        seriesId = NormalizeSeriesId(seriesId);
+        dramaId = NormalizeSeriesId(dramaId);
         videoId = NormalizeVideoId(videoId);
-        _ = long.TryParse(seriesId, CultureInfo.InvariantCulture, out long bookId);
+        _ = long.TryParse(dramaId, CultureInfo.InvariantCulture, out long bookId);
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppArticleActionPayload, AppOperationResponse>(
                 "/novel/articleapi/do_action/v1/",
                 new AppArticleActionPayload
                 {
-                    ObjectId = seriesId,
+                    ObjectId = dramaId,
                     ObjectType = 6,
                     ActionType = active ? 3 : 4,
                     ActionCategory = 1,

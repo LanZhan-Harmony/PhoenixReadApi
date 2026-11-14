@@ -23,7 +23,7 @@ internal sealed class SampleContext
     public DanmakuPage? Danmaku { get; set; }
     public CommentPage? Reviews { get; set; }
     public CommentPage? EpisodeComments { get; set; }
-    public DramaComment? SampleComment { get; set; }
+    public Comment? SampleComment { get; set; }
     public CommentReplyPage? Replies { get; set; }
     public DramaPage? Favorites { get; set; }
     public DramaPage? Likes { get; set; }

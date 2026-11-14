@@ -11,7 +11,7 @@ internal static partial class SampleSteps
         string seriesId = context.SeriesId;
         string videoId = context.VideoId;
         Episode? episode = context.FirstEpisode;
-        DramaComment? comment = context.SampleComment;
+        Comment? comment = context.SampleComment;
         string userId = context.CreditUserId;
 
         HashSet<string> favoriteSeriesIds =
@@ -26,8 +26,8 @@ internal static partial class SampleSteps
                 .Where(static id => id.Length > 0)
                 .ToHashSet(StringComparer.Ordinal)
             ?? [];
-        ReadHistoryEntry? existingHistory = context.History?.Items.FirstOrDefault(item =>
-            item.SeriesId == seriesId && item.VideoId == videoId
+        ReadHistoryItem? existingHistory = context.History?.Items.FirstOrDefault(item =>
+            item.DramaId == seriesId && item.VideoId == videoId
         );
         HashSet<string> existingReviewIds =
             context.Reviews?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal)
@@ -52,7 +52,7 @@ internal static partial class SampleSteps
                     client.ReportProgressAsync(
                         new ProgressUpdate
                         {
-                            SeriesId = seriesId,
+                            DramaId = seriesId,
                             VideoId = videoId,
                             EpisodeNumber = episode?.Number ?? 0,
                             CurrentPositionMs = 1_000,
@@ -225,7 +225,7 @@ internal static partial class SampleSteps
             }
 
             string reservationSeriesId =
-                context.UpcomingReservations?.Items.FirstOrDefault()?.SeriesId ?? seriesId;
+                context.UpcomingReservations?.Items.FirstOrDefault()?.DramaId ?? seriesId;
             if (reservationSeriesId.Length > 0)
             {
                 await TryAsync(

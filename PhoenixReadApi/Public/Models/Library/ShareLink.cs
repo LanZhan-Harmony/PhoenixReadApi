@@ -10,7 +10,7 @@ public sealed class ShareLink
     public string ShortUrl { get; init; } = string.Empty;
 
     /// <summary>剧集 ID。</summary>
-    public string SeriesId { get; init; } = string.Empty;
+    public string DramaId { get; init; } = string.Empty;
 
     /// <summary>视频 ID。</summary>
     public string VideoId { get; init; } = string.Empty;

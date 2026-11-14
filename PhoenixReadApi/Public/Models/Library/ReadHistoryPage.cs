@@ -4,7 +4,7 @@ namespace PhoenixReadApi;
 public sealed class ReadHistoryPage
 {
     /// <summary>当前页记录。</summary>
-    public IReadOnlyList<ReadHistoryEntry> Items { get; init; } = [];
+    public IReadOnlyList<ReadHistoryItem> Items { get; init; } = [];
 
     /// <summary>服务端报告的总数。</summary>
     public long Total { get; init; }

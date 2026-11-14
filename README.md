@@ -201,7 +201,7 @@ DiscoverPage discover = await client.GetDiscoverPageAsync(
 Console.WriteLine($"推荐频道短剧数: {discover.Dramas.Count}, 下一页游标: {discover.Cursor}");
 
 // 短剧动态多维筛选面板与组合矩阵筛选
-IReadOnlyList<ShortDramaFilterRow> filterRows = await client.GetShortDramaFilterPanelAsync(ShortDramaGenre.ShortPlay, cts.Token);
+IReadOnlyList<ShortDramaFilterGroup> filterRows = await client.GetShortDramaFilterPanelAsync(ShortDramaGenre.ShortPlay, cts.Token);
 ShortDramaFilterPage filterPage = await client.FilterShortDramasAsync(
     new ShortDramaFilterQuery
     {
@@ -327,7 +327,7 @@ foreach (DramaSeason season in seasonsAlbum.Seasons)
 }
 
 // 单剧专属关联推荐（播放器/选集面板“更多好剧”推荐）
-DramaRelatedRecommendations related = await client.GetSeriesRecommendationsAsync("74123456789", cts.Token);
+DramaRecommendations related = await client.GetDramaRecommendationsAsync("74123456789", cts.Token);
 foreach (Drama drama in related.Items)
 {
     Console.WriteLine($"  - 相关好剧: 《{drama.Title}》 评分: {drama.Score}");
@@ -543,7 +543,7 @@ using var client = new PhoenixReadApiClient(options);
 bool isSessionValid = await client.ValidateSessionAsync(cts.Token);
 if (isSessionValid)
 {
-    CurrentUserInfo user = await client.GetCurrentUserInfoAsync(cts.Token);
+    AuthenticatedUser user = await client.GetCurrentUserInfoAsync(cts.Token);
     Console.WriteLine($"已自动恢复登录身份: {user.Name} (VIP: {user.IsVip})");
 }
 
@@ -622,7 +622,7 @@ bool isFollowing = await client.IsFollowingUpdateAsync("7699833115866303550", ct
 FollowUpdatePage followPage = await client.GetFollowUpdatesAsync(cursor: "", count: 20, cts.Token);
 foreach (FollowUpdateItem item in followPage.Items)
 {
-    Console.WriteLine($"追更剧: 《{item.Title}》, 总集数: {item.TotalEpisodeCount}, 状态: {item.UpdateFrequency}");
+    Console.WriteLine($"追更剧: 《{item.Title}》, 总集数: {item.EpisodeCount}, 状态: {item.UpdateFrequency}");
 }
 
 // 检查追更短剧的新更新通知

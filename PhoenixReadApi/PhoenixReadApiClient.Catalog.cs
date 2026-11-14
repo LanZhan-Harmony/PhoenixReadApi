@@ -132,8 +132,8 @@ public sealed partial class PhoenixReadApiClient
     /// <summary>获取短剧多维筛选面板选项列表（题材、角色、状态、排序等）。</summary>
     /// <param name="genre">短剧分类大类（真人剧、漫剧、AI剧），默认为 <see cref="ShortDramaGenre.ShortPlay"/>。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>筛选维度行及其可选选项列表。</returns>
-    public Task<IReadOnlyList<ShortDramaFilterRow>> GetShortDramaFilterPanelAsync(
+    /// <returns>筛选维度分组及其可选选项列表。</returns>
+    public Task<IReadOnlyList<ShortDramaFilterGroup>> GetShortDramaFilterPanelAsync(
         ShortDramaGenre genre = ShortDramaGenre.ShortPlay,
         CancellationToken cancellationToken = default
     ) => _shortFilter.GetFilterPanelAsync(genre, cancellationToken);

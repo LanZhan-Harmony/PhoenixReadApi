@@ -13,17 +13,17 @@ internal sealed class DiscoveryService : LibraryServiceBase
         : base(runtime) { }
 
     internal async Task<ShareLink> CreateShareLinkAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         CancellationToken cancellationToken
     )
     {
-        seriesId = NormalizeSeriesId(seriesId);
+        dramaId = NormalizeSeriesId(dramaId);
         videoId = NormalizeVideoId(videoId);
         string fallbackUrl =
             videoId.Length > 0
-                ? $"https://fanqienovel.com/drama/{seriesId}?video_id={videoId}"
-                : $"https://fanqienovel.com/drama/{seriesId}";
+                ? $"https://fanqienovel.com/drama/{dramaId}?video_id={videoId}"
+                : $"https://fanqienovel.com/drama/{dramaId}";
         AppResponse<AppShareData>? response = null;
         try
         {
@@ -31,10 +31,10 @@ internal sealed class DiscoveryService : LibraryServiceBase
                 .GetAsync<AppShareData>(
                     "/reading/user/share/short_url/unlimited_selector_change_type/",
                     [
-                        new("book_id", seriesId),
+                        new("book_id", dramaId),
                         new("video_id", videoId),
                         new("content_id", videoId),
-                        new("src_material_id", seriesId),
+                        new("src_material_id", dramaId),
                         new("source_channel", "short_video"),
                         new("share_type", "video"),
                         new("client_req_type", "3"),
@@ -56,7 +56,7 @@ internal sealed class DiscoveryService : LibraryServiceBase
         string shortUrl = ValueNormalizer.First(data.ShortUrl, data.Url, fallbackUrl);
         return new ShareLink
         {
-            SeriesId = seriesId,
+            DramaId = dramaId,
             VideoId = videoId,
             Url = url,
             ShortUrl = shortUrl,
@@ -72,13 +72,13 @@ internal sealed class DiscoveryService : LibraryServiceBase
         }
 
         Dictionary<string, string> query = ParseQuery(uri.Query);
-        string seriesId = FirstQuery(query, "series_id", "book_id", "group_id");
+        string dramaId = FirstQuery(query, "series_id", "book_id", "group_id");
         string videoId = FirstQuery(query, "video_id", "vid", "item_id");
         return new ShareLink
         {
             Url = uri.ToString(),
             ShortUrl = uri.ToString(),
-            SeriesId = ValueNormalizer.IsNumericId(seriesId) ? seriesId : string.Empty,
+            DramaId = ValueNormalizer.IsNumericId(dramaId) ? dramaId : string.Empty,
             VideoId = ValueNormalizer.IsNumericId(videoId) ? videoId : string.Empty,
         };
     }

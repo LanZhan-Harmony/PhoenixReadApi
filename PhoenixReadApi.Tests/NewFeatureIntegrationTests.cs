@@ -47,7 +47,7 @@ public sealed class NewFeatureIntegrationTests
 
         try
         {
-            DramaRelatedRecommendations rec = await SharedScenario.Client.GetSeriesRecommendationsAsync(
+            DramaRecommendations rec = await SharedScenario.Client.GetDramaRecommendationsAsync(
                 scenario.SeriesId,
                 timeout.Token
             );
@@ -68,7 +68,7 @@ public sealed class NewFeatureIntegrationTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
 
         // 1. 获取筛选面板
-        IReadOnlyList<ShortDramaFilterRow> rows = await SharedScenario.Client.GetShortDramaFilterPanelAsync(
+        IReadOnlyList<ShortDramaFilterGroup> rows = await SharedScenario.Client.GetShortDramaFilterPanelAsync(
             ShortDramaGenre.ShortPlay,
             timeout.Token
         );
@@ -77,11 +77,11 @@ public sealed class NewFeatureIntegrationTests
         await Assert.That(rows.Count > 0).IsTrue();
 
         // 2. 根据面板中的第一个维度进行筛选查询
-        ShortDramaFilterRow firstRow = rows[0];
+        ShortDramaFilterGroup firstRow = rows[0];
         Dictionary<string, IReadOnlyList<string>> selections = [];
-        if (firstRow.Options.Count > 0)
+        if (firstRow.Items.Count > 0)
         {
-            selections[firstRow.Key] = [firstRow.Options[0].Value];
+            selections[firstRow.Key] = [firstRow.Items[0].Value];
         }
 
         ShortDramaFilterPage page = await SharedScenario.Client.FilterShortDramasAsync(
@@ -145,7 +145,7 @@ public sealed class NewFeatureIntegrationTests
             );
 
             await Assert.That(page).IsNotNull();
-            await Assert.That(page.Books).IsNotNull();
+            await Assert.That(page.Items).IsNotNull();
         }
         catch (PhoenixReadApiResponseException)
         {

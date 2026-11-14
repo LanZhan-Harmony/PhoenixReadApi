@@ -15,7 +15,7 @@ internal static partial class SampleSteps
 
         if (isSessionValid)
         {
-            CurrentUserInfo? currentUser = await TryAsync(
+            AuthenticatedUser? currentUser = await TryAsync(
                 "GetCurrentUserInfoAsync",
                 () => client.GetCurrentUserInfoAsync(cancellationToken)
             );
@@ -461,7 +461,7 @@ internal static partial class SampleSteps
         if (actorProfile is not null)
         {
             Console.WriteLine($"  演职人员主页: {actorProfile.User.Name} ({string.Join(" | ", actorProfile.CreatorRoles)})");
-            Console.WriteLine($"    红果号: {actorProfile.HongguoId}, 蓝V: {actorProfile.IsVerified}, 粉丝: {actorProfile.FansCount}, 获赞: {actorProfile.LikedCount}");
+            Console.WriteLine($"    红果号: {actorProfile.HongguoId}, 蓝V: {actorProfile.IsVerified}, 粉丝: {actorProfile.FansCount}, 获赞: {actorProfile.LikeCount}");
             Console.WriteLine($"    首屏作品数: {actorProfile.Works.Count}");
         }
     }
@@ -493,7 +493,7 @@ internal static partial class SampleSteps
         );
         if (parsedShare is not null)
         {
-            Console.WriteLine($"  分享解析：{parsedShare.SeriesId}/{parsedShare.VideoId}");
+            Console.WriteLine($"  分享解析：{parsedShare.DramaId}/{parsedShare.VideoId}");
         }
     }
 }

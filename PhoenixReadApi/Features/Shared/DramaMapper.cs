@@ -122,11 +122,11 @@ internal static class DramaMapper
             IsMultiSeason = data.IsMultiSeason || !string.IsNullOrWhiteSpace(data.EffectiveAlbumId),
             SeasonIndex = data.SeasonIndex > 0 ? data.SeasonIndex : 1,
             AlbumId = data.EffectiveAlbumId,
-            NovelBookId = novelId,
+            NovelId = novelId,
             NovelTitle = novelTitle,
             PlayCount = playCount,
             FollowCount = data.FollowedCount,
-            DiggCount = data.DiggCount,
+            LikeCount = data.DiggCount,
         };
     }
 

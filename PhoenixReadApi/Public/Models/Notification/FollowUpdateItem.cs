@@ -13,7 +13,7 @@ public sealed class FollowUpdateItem
     public string CoverUrl { get; init; } = string.Empty;
 
     /// <summary>当前已更新总集数。</summary>
-    public int TotalEpisodeCount { get; init; }
+    public int EpisodeCount { get; init; }
 
     /// <summary>最近观看过的分集序号（从 1 开始，0 表示未观看）。</summary>
     public int LatestWatchedEpisodeIndex { get; init; }

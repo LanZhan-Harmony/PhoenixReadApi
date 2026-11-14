@@ -74,7 +74,7 @@ internal static partial class SampleSteps
         // 功能展示 2: 短剧多维动态筛选面板与多维矩阵筛选
         // ==========================================
         Console.WriteLine("\n--- [功能展示 2: 短剧多维动态筛选面板 (ShortFilterPanel)] ---");
-        IReadOnlyList<ShortDramaFilterRow>? filterRows = await TryAsync(
+        IReadOnlyList<ShortDramaFilterGroup>? filterRows = await TryAsync(
             "GetShortDramaFilterPanelAsync",
             () => client.GetShortDramaFilterPanelAsync(ShortDramaGenre.ShortPlay, cancellationToken)
         );
@@ -82,13 +82,13 @@ internal static partial class SampleSteps
         if (filterRows is { Count: > 0 })
         {
             Dictionary<string, IReadOnlyList<string>> selections = [];
-            foreach (ShortDramaFilterRow row in filterRows.Take(3))
+            foreach (ShortDramaFilterGroup row in filterRows.Take(3))
             {
-                string optPreview = string.Join(", ", row.Options.Take(4).Select(o => o.Name));
+                string optPreview = string.Join(", ", row.Items.Take(4).Select(o => o.Name));
                 Console.WriteLine($"    [{row.Name} ({row.Key})]: {optPreview}...");
-                if (row.Options.Count > 0 && selections.Count == 0)
+                if (row.Items.Count > 0 && selections.Count == 0)
                 {
-                    selections[row.Key] = [row.Options[0].Value];
+                    selections[row.Key] = [row.Items[0].Value];
                 }
             }
 
@@ -227,14 +227,14 @@ internal static partial class SampleSteps
                 foreach (DramaSeason season in album.Seasons)
                 {
                     Console.WriteLine(
-                        $"     - 第 {season.Index} 季: 《{season.Title}》 (ID: {season.SeriesId}, {season.EpisodeCount}集)"
+                        $"     - 第 {season.Index} 季: 《{season.Title}》 (ID: {season.DramaId}, {season.EpisodeCount}集)"
                     );
                 }
             }
 
-            DramaRelatedRecommendations? related = await TryAsync(
-                "GetSeriesRecommendationsAsync",
-                () => client.GetSeriesRecommendationsAsync(sampleDrama.Id, cancellationToken)
+            DramaRecommendations? related = await TryAsync(
+                "GetDramaRecommendationsAsync",
+                () => client.GetDramaRecommendationsAsync(sampleDrama.Id, cancellationToken)
             );
             PrintCount("  单剧专属关联推荐短剧数", related?.Items.Count);
             if (related?.Items.Count > 0)

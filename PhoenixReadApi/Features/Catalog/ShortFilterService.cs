@@ -12,7 +12,7 @@ internal sealed class ShortFilterService : PhoenixFeatureService
     internal ShortFilterService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
-    internal async Task<IReadOnlyList<ShortDramaFilterRow>> GetFilterPanelAsync(
+    internal async Task<IReadOnlyList<ShortDramaFilterGroup>> GetFilterPanelAsync(
         ShortDramaGenre genre,
         CancellationToken cancellationToken
     )
@@ -43,7 +43,7 @@ internal sealed class ShortFilterService : PhoenixFeatureService
             );
         }
 
-        List<ShortDramaFilterRow> rows = [];
+        List<ShortDramaFilterGroup> rows = [];
         foreach (AppShortFilterRowDto rowDto in data.SelectorRows)
         {
             if (string.IsNullOrWhiteSpace(rowDto.Type))
@@ -51,13 +51,13 @@ internal sealed class ShortFilterService : PhoenixFeatureService
                 continue;
             }
 
-            List<ShortDramaFilterOption> options = [];
+            List<ShortDramaFilterItem> items = [];
             foreach (AppShortFilterItemDto item in rowDto.Items)
             {
                 if (!string.IsNullOrWhiteSpace(item.SelectorItemId))
                 {
-                    options.Add(
-                        new ShortDramaFilterOption
+                    items.Add(
+                        new ShortDramaFilterItem
                         {
                             Name = item.ShowName,
                             Value = item.SelectorItemId,
@@ -67,11 +67,11 @@ internal sealed class ShortFilterService : PhoenixFeatureService
             }
 
             rows.Add(
-                new ShortDramaFilterRow
+                new ShortDramaFilterGroup
                 {
                     Key = rowDto.Type,
                     Name = rowDto.RowName,
-                    Options = options,
+                    Items = items,
                 }
             );
         }

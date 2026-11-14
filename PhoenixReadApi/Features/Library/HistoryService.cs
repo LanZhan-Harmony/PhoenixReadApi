@@ -60,12 +60,12 @@ internal sealed class HistoryService : LibraryServiceBase
     {
         ArgumentNullException.ThrowIfNull(update);
         string videoId = NormalizeVideoId(update.VideoId);
-        string seriesId = NormalizeSeriesId(update.SeriesId);
+        string dramaId = NormalizeSeriesId(update.DramaId);
         long timestamp =
             update.UpdatedAtUnixMilliseconds > 0
                 ? update.UpdatedAtUnixMilliseconds
                 : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        long bookId = long.Parse(seriesId, CultureInfo.InvariantCulture);
+        long bookId = long.Parse(dramaId, CultureInfo.InvariantCulture);
         long videoNumericId = long.Parse(videoId, CultureInfo.InvariantCulture);
         int videoIndex = update.EpisodeNumber > 0 ? update.EpisodeNumber : 1;
         long accumulated =
@@ -105,27 +105,27 @@ internal sealed class HistoryService : LibraryServiceBase
     }
 
     internal Task<PhoenixOperationResult> DeleteHistoryAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         CancellationToken cancellationToken
     ) =>
         ReportProgressAsync(
             new ProgressUpdate
             {
-                SeriesId = seriesId,
+                DramaId = dramaId,
                 VideoId = videoId,
                 UseSoftDelete = true,
             },
             cancellationToken
         );
 
-    private static ReadHistoryEntry MapHistory(AppHistoryItem item)
+    private static ReadHistoryItem MapHistory(AppHistoryItem item)
     {
         AppHistoryVideoData video = item.Video ?? new();
-        return new ReadHistoryEntry
+        return new ReadHistoryItem
         {
             Id = item.Id,
-            SeriesId = ValueNormalizer.First(
+            DramaId = ValueNormalizer.First(
                 item.BookIdString,
                 item.SeriesId,
                 item.BookId,

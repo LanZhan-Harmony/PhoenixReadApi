@@ -31,7 +31,7 @@ public sealed class UserProfile
     public long FollowCount { get; init; }
 
     /// <summary>获赞总数。</summary>
-    public long LikedCount { get; init; }
+    public long LikeCount { get; init; }
 
     /// <summary>当前客户端或登录账号是否可以关注该用户。</summary>
     public bool CanFollow { get; init; }

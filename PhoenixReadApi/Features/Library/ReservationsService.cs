@@ -15,18 +15,18 @@ internal sealed class ReservationsService : LibraryServiceBase
         : base(runtime) { }
 
     private async Task<PhoenixOperationResult> SetReservationCoreAsync(
-        string seriesId,
+        string dramaId,
         bool active,
         CancellationToken cancellationToken
     )
     {
-        seriesId = NormalizeSeriesId(seriesId);
+        dramaId = NormalizeSeriesId(dramaId);
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppReservationActionPayload, AppOperationResponse>(
                 "/reading/bookapi/search/uncover_subscribe/v",
                 new AppReservationActionPayload
                 {
-                    ItemId = seriesId,
+                    ItemId = dramaId,
                     ItemType = 14,
                     OperationType = active ? 1 : 2,
                     WishListAllDelete = 0,
@@ -105,10 +105,10 @@ internal sealed class ReservationsService : LibraryServiceBase
     }
 
     internal Task<PhoenixOperationResult> SetReservationAsync(
-        string seriesId,
+        string dramaId,
         bool active,
         CancellationToken cancellationToken
-    ) => SetReservationCoreAsync(seriesId, active, cancellationToken);
+    ) => SetReservationCoreAsync(dramaId, active, cancellationToken);
 
     private static ReservationPage MapReservations(AppReservationData data)
     {
@@ -128,11 +128,11 @@ internal sealed class ReservationsService : LibraryServiceBase
         };
     }
 
-    private static Reservation MapReservation(AppReservationItem item) =>
+    private static ReservationItem MapReservation(AppReservationItem item) =>
         new()
         {
             Id = ValueNormalizer.First(item.Id, item.ItemId),
-            SeriesId = ValueNormalizer.First(item.SeriesId, item.ItemId),
+            DramaId = ValueNormalizer.First(item.SeriesId, item.ItemId),
             VideoId = item.VideoId ?? string.Empty,
             Title = ValueNormalizer.First(item.Title, item.Name),
             CoverUrl = item.CoverUrl ?? string.Empty,

@@ -4,7 +4,7 @@ namespace PhoenixReadApi;
 public sealed class ReservationPage
 {
     /// <summary>当前页预约记录。</summary>
-    public IReadOnlyList<Reservation> Items { get; init; } = [];
+    public IReadOnlyList<ReservationItem> Items { get; init; } = [];
 
     /// <summary>下一次偏移量。</summary>
     public int NextOffset { get; init; }

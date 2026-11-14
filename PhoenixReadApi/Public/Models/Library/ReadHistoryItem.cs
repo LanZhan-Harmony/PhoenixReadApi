@@ -1,13 +1,13 @@
 namespace PhoenixReadApi;
 
 /// <summary>阅读历史中的一条短剧记录。</summary>
-public sealed class ReadHistoryEntry
+public sealed class ReadHistoryItem
 {
     /// <summary>服务端记录 ID。</summary>
     public string Id { get; init; } = string.Empty;
 
     /// <summary>剧集 ID。</summary>
-    public string SeriesId { get; init; } = string.Empty;
+    public string DramaId { get; init; } = string.Empty;
 
     /// <summary>视频 ID。</summary>
     public string VideoId { get; init; } = string.Empty;

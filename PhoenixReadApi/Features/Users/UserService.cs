@@ -408,7 +408,7 @@ internal sealed class UserService : PhoenixFeatureService
             Honors = honors,
             FansCount = Math.Max(0, ugc?.UserRelation?.FansNum ?? 0),
             FollowCount = Math.Max(0, ugc?.UserRelation?.FollowUserNum ?? 0),
-            LikedCount = Math.Max(0, ugc?.UserRelation?.RecvDiggedCount ?? 0),
+            LikeCount = Math.Max(0, ugc?.UserRelation?.RecvDiggedCount ?? 0),
             CanFollow = ugc?.UserRelation?.CanFollow ?? true,
             IsFollowing = ugc?.UserRelation?.RelationType is 2 or 4,
             BackgroundCoverUrl = bgCover,

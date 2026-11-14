@@ -14,19 +14,19 @@ internal sealed class FavoritesService : LibraryServiceBase
         : base(runtime) { }
 
     internal async Task<PhoenixOperationResult> SetFavoriteAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         bool active,
         CancellationToken cancellationToken
     )
     {
-        seriesId = NormalizeSeriesId(seriesId);
+        dramaId = NormalizeSeriesId(dramaId);
         videoId = NormalizeVideoId(videoId);
         AppShelfUpdatePayload payload = new()
         {
             IsActiveBehavior = true,
             OperationType = active ? 1 : 2,
-            Items = [new AppShelfUpdateItem { SeriesId = seriesId, VideoId = videoId }],
+            Items = [new AppShelfUpdateItem { SeriesId = dramaId, VideoId = videoId }],
         };
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppShelfUpdatePayload, AppOperationResponse>(
@@ -75,13 +75,13 @@ internal sealed class FavoritesService : LibraryServiceBase
     private static Drama MapShelf(AppShelfItem item)
     {
         AppShelfVideoData video = item.Video ?? new();
-        string seriesId = ValueNormalizer.First(item.SeriesId, video.SeriesId);
+        string dramaId = ValueNormalizer.First(item.SeriesId, video.SeriesId);
         // The real bookshelf list currently returns only series_id for short dramas.
         // Keep missing metadata empty instead of presenting the ID as a title; callers
-        // can request full details with GetDramaDetailsAsync(seriesId).
+        // can request full details with GetDramaDetailsAsync(dramaId).
         return new Drama
         {
-            Id = seriesId,
+            Id = dramaId,
             Title = item.Title,
             Description = item.Description,
             CoverUrl = item.CoverUrl,

@@ -114,7 +114,7 @@ public sealed class DetailsAndPlaybackTests
         );
 
         await Assert.That(link).IsNotNull();
-        await Assert.That(link.SeriesId).IsEqualTo(scenario.SeriesId);
+        await Assert.That(link.DramaId).IsEqualTo(scenario.SeriesId);
         await Assert.That(link.VideoId).IsEqualTo(scenario.Episode.VideoId);
         await Assert.That(link.Url).IsNotNull();
         await Assert.That(link.ShortUrl).IsNotNull();
@@ -128,7 +128,7 @@ public sealed class DetailsAndPlaybackTests
         ShareLink resolved = SharedScenario.Client.ResolveShareLink(sampleUrl);
 
         await Assert.That(resolved).IsNotNull();
-        await Assert.That(resolved.SeriesId).IsEqualTo("74123456789");
+        await Assert.That(resolved.DramaId).IsEqualTo("74123456789");
         await Assert.That(resolved.VideoId).IsEqualTo("74987654321");
         await Assert.That(resolved.Url).IsEqualTo(sampleUrl);
 
@@ -137,7 +137,7 @@ public sealed class DetailsAndPlaybackTests
         ShareLink plainResolved = SharedScenario.Client.ResolveShareLink(plainUrl);
         await Assert.That(plainResolved).IsNotNull();
         await Assert.That(plainResolved.Url).IsEqualTo(plainUrl);
-        await Assert.That(plainResolved.SeriesId).IsEmpty();
+        await Assert.That(plainResolved.DramaId).IsEmpty();
         await Assert.That(plainResolved.VideoId).IsEmpty();
     }
 }
