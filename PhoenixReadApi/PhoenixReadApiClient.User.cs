@@ -15,7 +15,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<UserProfile> GetUserProfileAsync(
         string userId,
         CancellationToken cancellationToken = default
-    ) => _users.GetAsync(userId, cancellationToken);
+    ) => _user.GetAsync(userId, cancellationToken);
 
     /// <summary>根据剧集署名关系获取对应账号的主页。</summary>
     /// <param name="credit">详情中的剧集署名关系；方法会使用其中的 User ID 和已有资料。</param>
@@ -25,7 +25,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<UserProfile> GetUserProfileAsync(
         DramaCredit credit,
         CancellationToken cancellationToken = default
-    ) => _users.GetAsync(credit, cancellationToken);
+    ) => _user.GetAsync(credit, cancellationToken);
 
     /// <summary>获取用户或演职人员主页作品列表的一页（支持全部、剧作、预约、合集、剧评等子分类及最新/最热排序）。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
@@ -36,7 +36,7 @@ public sealed partial class PhoenixReadApiClient
         string userId,
         UserWorksQuery? query = null,
         CancellationToken cancellationToken = default
-    ) => _users.GetWorksAsync(userId, query ?? new UserWorksQuery(), cancellationToken);
+    ) => _user.GetWorksAsync(userId, query ?? new UserWorksQuery(), cancellationToken);
 
     /// <summary>获取账号动态的一页。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
@@ -50,7 +50,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 18,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) => _users.GetActivitiesAsync(userId, count, cursor, cancellationToken);
+    ) => _user.GetActivitiesAsync(userId, count, cursor, cancellationToken);
 
     /// <summary>获取账号收藏剧集的一页。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
@@ -64,7 +64,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 18,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _users.GetCollectionsAsync(userId, count, offset, cancellationToken);
+    ) => _user.GetCollectionsAsync(userId, count, offset, cancellationToken);
 
     /// <summary>获取账号点赞剧集的一页。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
@@ -78,7 +78,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 18,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _users.GetLikesAsync(userId, count, offset, cancellationToken);
+    ) => _user.GetLikesAsync(userId, count, offset, cancellationToken);
 
     /// <summary>获取账号粉丝列表的一页（如果用户设置了隐藏粉丝列表，则返回受隐私保护且列表为空）。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
@@ -91,7 +91,7 @@ public sealed partial class PhoenixReadApiClient
         string cursor = "",
         int count = 20,
         CancellationToken cancellationToken = default
-    ) => _users.GetFollowersAsync(userId, cursor, count, cancellationToken);
+    ) => _user.GetFollowersAsync(userId, cursor, count, cancellationToken);
 
     /// <summary>获取账号关注人员列表的一页（如果用户设置了隐藏关注列表，则返回受隐私保护且列表为空）。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
@@ -104,5 +104,5 @@ public sealed partial class PhoenixReadApiClient
         string cursor = "",
         int count = 20,
         CancellationToken cancellationToken = default
-    ) => _users.GetFollowingsAsync(userId, cursor, count, cancellationToken);
+    ) => _user.GetFollowingsAsync(userId, cursor, count, cancellationToken);
 }

@@ -42,7 +42,7 @@ public sealed partial class PhoenixReadApiClient
         string cursor = "",
         CommentSortOrder sort = CommentSortOrder.Hot,
         CancellationToken cancellationToken = default
-    ) => _comments.GetDramaReviewsAsync(dramaId, count, cursor, cancellationToken, sort);
+    ) => _comment.GetDramaReviewsAsync(dramaId, count, cursor, cancellationToken, sort);
 
     /// <summary>获取指定分集的一页评论。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -61,7 +61,7 @@ public sealed partial class PhoenixReadApiClient
         CommentSortOrder sort = CommentSortOrder.Hot,
         CancellationToken cancellationToken = default
     ) =>
-        _comments.GetEpisodeCommentsAsync(
+        _comment.GetEpisodeCommentsAsync(
             dramaId,
             videoId,
             count,
@@ -82,7 +82,7 @@ public sealed partial class PhoenixReadApiClient
         string cursor = "",
         CancellationToken cancellationToken = default
     ) =>
-        _comments.GetRepliesAsync(
+        _comment.GetRepliesAsync(
             commentId,
             string.Empty,
             string.Empty,
@@ -105,7 +105,7 @@ public sealed partial class PhoenixReadApiClient
         string cursor = "",
         CancellationToken cancellationToken = default
     ) =>
-        _comments.GetRepliesAsync(
+        _comment.GetRepliesAsync(
             commentId,
             groupId,
             string.Empty,
@@ -129,7 +129,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) => _comments.GetRepliesAsync(commentId, dramaId, videoId, count, cursor, cancellationToken);
+    ) => _comment.GetRepliesAsync(commentId, dramaId, videoId, count, cursor, cancellationToken);
 
     /// <summary>获取一条剧评下的回复。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -145,7 +145,7 @@ public sealed partial class PhoenixReadApiClient
         string cursor = "",
         CancellationToken cancellationToken = default
     ) =>
-        _comments.GetDramaReviewRepliesAsync(commentId, dramaId, count, cursor, cancellationToken);
+        _comment.GetDramaReviewRepliesAsync(commentId, dramaId, count, cursor, cancellationToken);
 
     /// <summary>获取一条分集评论下的回复。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -163,7 +163,7 @@ public sealed partial class PhoenixReadApiClient
         string cursor = "",
         CancellationToken cancellationToken = default
     ) =>
-        _comments.GetEpisodeCommentRepliesAsync(
+        _comment.GetEpisodeCommentRepliesAsync(
             commentId,
             dramaId,
             videoId,
@@ -184,7 +184,7 @@ public sealed partial class PhoenixReadApiClient
         string videoId,
         string text,
         CancellationToken cancellationToken = default
-    ) => _comments.SendCommentAsync(dramaId, videoId, text, cancellationToken);
+    ) => _comment.SendCommentAsync(dramaId, videoId, text, cancellationToken);
 
     /// <summary>发送一条五分剧评（兼容重载）。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -196,7 +196,7 @@ public sealed partial class PhoenixReadApiClient
         string dramaId,
         string text,
         CancellationToken cancellationToken = default
-    ) => _comments.SendReviewAsync(dramaId, 5.0, text, cancellationToken);
+    ) => _comment.SendReviewAsync(dramaId, 5.0, text, cancellationToken);
 
     /// <summary>按 0~5 星评分发送一条剧评。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -210,7 +210,7 @@ public sealed partial class PhoenixReadApiClient
         double rating,
         string text,
         CancellationToken cancellationToken = default
-    ) => _comments.SendReviewAsync(dramaId, rating, text, cancellationToken);
+    ) => _comment.SendReviewAsync(dramaId, rating, text, cancellationToken);
 
     /// <summary>发送一条弹幕。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -224,7 +224,7 @@ public sealed partial class PhoenixReadApiClient
         string videoId,
         string text,
         CancellationToken cancellationToken = default
-    ) => _comments.SendDanmakuAsync(dramaId, videoId, text, cancellationToken);
+    ) => _comment.SendDanmakuAsync(dramaId, videoId, text, cancellationToken);
 
     /// <summary>点赞或取消点赞一条评论。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -238,7 +238,7 @@ public sealed partial class PhoenixReadApiClient
         string groupId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _comments.LikeCommentAsync(commentId, groupId, active, cancellationToken);
+    ) => _comment.LikeCommentAsync(commentId, groupId, active, cancellationToken);
 
     /// <summary>删除自己发布的评论。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -250,7 +250,7 @@ public sealed partial class PhoenixReadApiClient
         string commentId,
         string groupId,
         CancellationToken cancellationToken = default
-    ) => _comments.DeleteCommentAsync(commentId, groupId, cancellationToken);
+    ) => _comment.DeleteCommentAsync(commentId, groupId, cancellationToken);
 
     /// <summary>回复一条分集评论。</summary>
     /// <param name="commentId">目标评论 ID。</param>
@@ -269,7 +269,7 @@ public sealed partial class PhoenixReadApiClient
         string replyToUserId = "",
         CancellationToken cancellationToken = default
     ) =>
-        _comments.SendReplyAsync(
+        _comment.SendReplyAsync(
             commentId,
             dramaId,
             videoId,
@@ -293,7 +293,7 @@ public sealed partial class PhoenixReadApiClient
         string replyToUserId = "",
         CancellationToken cancellationToken = default
     ) =>
-        _comments.SendDramaReviewReplyAsync(
+        _comment.SendDramaReviewReplyAsync(
             commentId,
             dramaId,
             text,
@@ -313,7 +313,7 @@ public sealed partial class PhoenixReadApiClient
         bool active = true,
         CancellationToken cancellationToken = default
     ) =>
-        _comments.LikeCommentAsync(
+        _comment.LikeCommentAsync(
             commentId,
             dramaId,
             active,
@@ -334,7 +334,7 @@ public sealed partial class PhoenixReadApiClient
         bool active = true,
         CancellationToken cancellationToken = default
     ) =>
-        _comments.LikeCommentAsync(
+        _comment.LikeCommentAsync(
             commentId,
             videoId,
             active,
@@ -355,7 +355,7 @@ public sealed partial class PhoenixReadApiClient
         bool active = true,
         CancellationToken cancellationToken = default
     ) =>
-        _comments.LikeCommentAsync(
+        _comment.LikeCommentAsync(
             replyId,
             groupId,
             active,
@@ -371,7 +371,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<PhoenixOperationResult> DeleteReplyAsync(
         string replyId,
         CancellationToken cancellationToken = default
-    ) => _comments.DeleteReplyAsync(replyId, cancellationToken);
+    ) => _comment.DeleteReplyAsync(replyId, cancellationToken);
 
     /// <summary>删除一条剧评。</summary>
     /// <param name="commentId">剧评 ID。</param>
@@ -383,7 +383,7 @@ public sealed partial class PhoenixReadApiClient
         string dramaId,
         CancellationToken cancellationToken = default
     ) =>
-        _comments.DeleteCommentAsync(
+        _comment.DeleteCommentAsync(
             commentId,
             dramaId,
             cancellationToken,
@@ -402,7 +402,7 @@ public sealed partial class PhoenixReadApiClient
         string videoId,
         CancellationToken cancellationToken = default
     ) =>
-        _comments.DeleteCommentAsync(
+        _comment.DeleteCommentAsync(
             commentId,
             videoId,
             cancellationToken,
@@ -422,7 +422,7 @@ public sealed partial class PhoenixReadApiClient
         int offset = 0,
         int count = 20,
         CancellationToken cancellationToken = default
-    ) => _emoticons.GetEmoticonsAsync(isCollected, offset, count, cancellationToken);
+    ) => _emoticon.GetEmoticonsAsync(isCollected, offset, count, cancellationToken);
 
     /// <summary>收藏或移除表情包。</summary>
     /// <param name="imageId">表情 ID。</param>
@@ -441,7 +441,7 @@ public sealed partial class PhoenixReadApiClient
         int imageHeight = 0,
         int imageType = 0,
         CancellationToken cancellationToken = default
-    ) => _emoticons.CollectEmoticonAsync(imageId, isAdd, imageUrl, imageWidth, imageHeight, imageType, cancellationToken);
+    ) => _emoticon.CollectEmoticonAsync(imageId, isAdd, imageUrl, imageWidth, imageHeight, imageType, cancellationToken);
 
     /// <summary>上传评论配图或剧评图片（Stream 流式上传）。</summary>
     /// <param name="imageStream">包含图片二进制数据的流对象。</param>
@@ -454,7 +454,7 @@ public sealed partial class PhoenixReadApiClient
         string fileName = "image.png",
         string contentType = "image/png",
         CancellationToken cancellationToken = default
-    ) => _emoticons.UploadPictureAsync(imageStream, fileName, contentType, cancellationToken);
+    ) => _emoticon.UploadPictureAsync(imageStream, fileName, contentType, cancellationToken);
 
     /// <summary>上传评论配图或剧评图片（byte 数组上传）。</summary>
     /// <param name="imageBytes">图片字节数组。</param>
@@ -467,5 +467,5 @@ public sealed partial class PhoenixReadApiClient
         string fileName = "image.png",
         string contentType = "image/png",
         CancellationToken cancellationToken = default
-    ) => _emoticons.UploadPictureAsync(imageBytes, fileName, contentType, cancellationToken);
+    ) => _emoticon.UploadPictureAsync(imageBytes, fileName, contentType, cancellationToken);
 }

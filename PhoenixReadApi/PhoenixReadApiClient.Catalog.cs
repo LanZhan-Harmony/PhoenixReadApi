@@ -136,7 +136,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<IReadOnlyList<ShortDramaFilterGroup>> GetShortDramaFilterPanelAsync(
         ShortDramaGenre genre = ShortDramaGenre.ShortPlay,
         CancellationToken cancellationToken = default
-    ) => _shortFilter.GetFilterPanelAsync(genre, cancellationToken);
+    ) => _shortDramaFilter.GetFilterPanelAsync(genre, cancellationToken);
 
     /// <summary>按多维筛选条件矩阵分页筛选短剧。</summary>
     /// <param name="query">多维筛选查询参数。</param>
@@ -145,7 +145,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<ShortDramaFilterPage> FilterShortDramasAsync(
         ShortDramaFilterQuery query,
         CancellationToken cancellationToken = default
-    ) => _shortFilter.FilterShortDramasAsync(query, cancellationToken);
+    ) => _shortDramaFilter.FilterShortDramasAsync(query, cancellationToken);
 
     /// <summary>按指定日期查询短剧上新日历及预告排期剧集。</summary>
     /// <param name="targetDate">目标日期（如 2026-11-04），为 null 时查询今天。</param>

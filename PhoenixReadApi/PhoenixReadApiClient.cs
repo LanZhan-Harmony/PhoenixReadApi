@@ -1,14 +1,14 @@
 using PhoenixReadApi.Internal.Features.Authentication;
 using PhoenixReadApi.Internal.Features.Catalog;
-using PhoenixReadApi.Internal.Features.Comments;
+using PhoenixReadApi.Internal.Features.Comment;
 using PhoenixReadApi.Internal.Features.Danmaku;
-using PhoenixReadApi.Internal.Features.Details;
-using PhoenixReadApi.Internal.Features.Interactions;
+using PhoenixReadApi.Internal.Features.Drama;
+using PhoenixReadApi.Internal.Features.Interaction;
 using PhoenixReadApi.Internal.Features.Library;
-using PhoenixReadApi.Internal.Features.Notifications;
+using PhoenixReadApi.Internal.Features.Notification;
 using PhoenixReadApi.Internal.Features.Playback;
 using PhoenixReadApi.Internal.Features.Search;
-using PhoenixReadApi.Internal.Features.Users;
+using PhoenixReadApi.Internal.Features.User;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
 namespace PhoenixReadApi;
@@ -26,26 +26,26 @@ public sealed partial class PhoenixReadApiClient : IDisposable
 {
     private readonly PhoenixReadClientRuntime _runtime;
     private readonly CatalogService _catalog;
-    private readonly DetailsService _details;
+    private readonly DramaService _drama;
     private readonly SearchService _search;
     private readonly PlaybackService _playback;
     private readonly DanmakuService _danmaku;
-    private readonly CommentService _comments;
-    private readonly UserService _users;
+    private readonly CommentService _comment;
+    private readonly UserService _user;
     private readonly HistoryService _history;
-    private readonly FavoritesService _favorites;
-    private readonly LikesService _likes;
-    private readonly FollowsService _follows;
-    private readonly ReservationsService _reservations;
-    private readonly DiscoveryService _discovery;
+    private readonly FavoriteService _favorite;
+    private readonly LikeService _like;
+    private readonly FollowService _follow;
+    private readonly ReservationService _reservation;
+    private readonly ShareService _share;
     private readonly AuthenticationService _authentication;
     private readonly DiscoverService _discover;
-    private readonly ShortFilterService _shortFilter;
+    private readonly ShortDramaFilterService _shortDramaFilter;
     private readonly DailyReleaseService _dailyRelease;
     private readonly NovelCategoryService _novelCategory;
-    private readonly NotificationService _notifications;
-    private readonly EmoticonService _emoticons;
-    private readonly DislikeService _interactions;
+    private readonly NotificationService _notification;
+    private readonly EmoticonService _emoticon;
+    private readonly InteractionService _interaction;
 
     /// <summary>创建并拥有一个 API 客户端。</summary>
     /// <param name="options">
@@ -84,26 +84,26 @@ public sealed partial class PhoenixReadApiClient : IDisposable
     {
         _runtime = new PhoenixReadClientRuntime(httpClient, options, ownsHttpClient);
         _catalog = new CatalogService(_runtime);
-        _details = new DetailsService(_runtime);
+        _drama = new DramaService(_runtime);
         _search = new SearchService(_runtime);
         _playback = new PlaybackService(_runtime);
         _danmaku = new DanmakuService(_runtime);
-        _comments = new CommentService(_runtime);
-        _users = new UserService(_runtime);
+        _comment = new CommentService(_runtime);
+        _user = new UserService(_runtime);
         _history = new HistoryService(_runtime);
-        _favorites = new FavoritesService(_runtime);
-        _likes = new LikesService(_runtime);
-        _follows = new FollowsService(_runtime);
-        _reservations = new ReservationsService(_runtime);
-        _discovery = new DiscoveryService(_runtime);
+        _favorite = new FavoriteService(_runtime);
+        _like = new LikeService(_runtime);
+        _follow = new FollowService(_runtime);
+        _reservation = new ReservationService(_runtime);
+        _share = new ShareService(_runtime);
         _authentication = new AuthenticationService(_runtime);
         _discover = new DiscoverService(_runtime);
-        _shortFilter = new ShortFilterService(_runtime);
+        _shortDramaFilter = new ShortDramaFilterService(_runtime);
         _dailyRelease = new DailyReleaseService(_runtime);
         _novelCategory = new NovelCategoryService(_runtime);
-        _notifications = new NotificationService(_runtime);
-        _emoticons = new EmoticonService(_runtime);
-        _interactions = new DislikeService(_runtime);
+        _notification = new NotificationService(_runtime);
+        _emoticon = new EmoticonService(_runtime);
+        _interaction = new InteractionService(_runtime);
     }
 
     /// <summary>释放 API 客户端使用的资源。</summary>

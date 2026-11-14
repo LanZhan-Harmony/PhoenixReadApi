@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using PhoenixReadApi.Internal.Contracts.App.Details;
+using PhoenixReadApi.Internal.Contracts.App.Drama;
 
 namespace PhoenixReadApi.Internal.Serialization;
 

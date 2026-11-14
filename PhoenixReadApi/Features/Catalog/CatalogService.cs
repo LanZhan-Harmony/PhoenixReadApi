@@ -14,6 +14,8 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Catalog;
 
+using Drama = global::PhoenixReadApi.Drama;
+
 /// <summary>协调剧库数据源、分页状态、结果合并和网页兜底。</summary>
 internal sealed class CatalogService : PhoenixFeatureService
 {

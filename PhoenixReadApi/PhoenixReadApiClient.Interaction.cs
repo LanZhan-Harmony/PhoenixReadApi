@@ -9,7 +9,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<DislikePanel> GetDislikePanelAsync(
         int cardType = 2,
         CancellationToken cancellationToken = default
-    ) => _interactions.GetDislikePanelAsync(cardType, cancellationToken);
+    ) => _interaction.GetDislikePanelAsync(cardType, cancellationToken);
 
     /// <summary>提交对某部短剧或视频的不感兴趣负反馈以调整推荐算法。</summary>
     /// <param name="dramaId">短剧 ID，必须是由数字构成的字符串。</param>
@@ -24,5 +24,5 @@ public sealed partial class PhoenixReadApiClient
         string recommendInfo,
         DislikeOption option,
         CancellationToken cancellationToken = default
-    ) => _interactions.SubmitDislikeAsync(dramaId, videoId, recommendInfo, option, cancellationToken);
+    ) => _interaction.SubmitDislikeAsync(dramaId, videoId, recommendInfo, option, cancellationToken);
 }

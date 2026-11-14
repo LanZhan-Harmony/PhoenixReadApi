@@ -5,6 +5,9 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Shared;
 
+using Drama = global::PhoenixReadApi.Drama;
+using User = global::PhoenixReadApi.User;
+
 /// <summary>将红果接口返回的剧集记录映射为稳定的公共模型。</summary>
 internal static class DramaMapper
 {
