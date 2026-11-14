@@ -35,7 +35,10 @@ internal sealed class EmoticonService : PhoenixFeatureService
                     new("source_type", "1"),
                     new("search_type", isCollected ? "4" : "2"),
                     new("count", count.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                    new("offset", offset.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new(
+                        "offset",
+                        offset.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    ),
                 ],
                 cancellationToken
             )
@@ -43,7 +46,7 @@ internal sealed class EmoticonService : PhoenixFeatureService
 
         AppEmoticonData? data = response.Data;
         List<CommentImage> items = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         foreach (AppEmoticonImage? img in data?.Items ?? [])
         {
@@ -152,7 +155,10 @@ internal sealed class EmoticonService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         AppUploadPictureData data = response.Data
-            ?? throw new PhoenixReadApiResponseException("图片上传未返回有效数据。", "upload-picture");
+            ?? throw new PhoenixReadApiResponseException(
+                "图片上传未返回有效数据。",
+                "upload-picture"
+            );
 
         return new UploadedImage
         {
@@ -193,11 +199,7 @@ internal sealed class EmoticonService : PhoenixFeatureService
     {
         if (offset < 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(offset),
-                offset,
-                "分页偏移量不能为负数。"
-            );
+            throw new ArgumentOutOfRangeException(nameof(offset), offset, "分页偏移量不能为负数。");
         }
     }
 }

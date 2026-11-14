@@ -20,9 +20,10 @@ internal sealed partial class DramaService : PhoenixFeatureService
 {
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(5);
     private readonly Lock _stateLock = new();
-    private readonly Dictionary<string, CachedValue<DramaDetails>> _cache = new(
-        StringComparer.Ordinal
-    );
+    private readonly Dictionary<string, CachedValue<DramaDetails>> _cache =
+    [
+        with(StringComparer.Ordinal),
+    ];
     private readonly ConcurrentDictionary<string, Lazy<Task<DramaDetails>>> _pending = new(
         StringComparer.Ordinal
     );
@@ -127,7 +128,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
 
         Drama drama = DramaMapper.FromDto(detail, "短剧", scoreOverride: extraScore);
         List<Episode> episodes = [];
-        HashSet<string> usedIds = new(StringComparer.Ordinal);
+        HashSet<string> usedIds = [with(StringComparer.Ordinal)];
         HashSet<int> usedEpisodes = [];
         foreach (DramaEpisodeDto item in detail.VideoList)
         {
@@ -190,8 +191,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
             "detail_page",
             "detail_"
         );
-        WebSeriesDetailDto? detail =
-            (page?.SeriesDetail)
+        WebSeriesDetailDto? detail = (page?.SeriesDetail)
             ?? throw new PhoenixReadApiResponseException("网页详情为空。", "detail");
         string title = ValueNormalizer.First(
             detail.SeriesName,
@@ -299,7 +299,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
             )
             .ConfigureAwait(false);
 
-        Dictionary<string, DramaDetails> found = new(StringComparer.Ordinal);
+        Dictionary<string, DramaDetails> found = [with(StringComparer.Ordinal)];
         const int batchSize = 10;
         for (int i = 0; i < ids.Count; i += batchSize)
         {
@@ -380,7 +380,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        Dictionary<string, string> result = new(StringComparer.Ordinal);
+        Dictionary<string, string> result = [with(StringComparer.Ordinal)];
         List<string> ids =
         [
             .. seriesIds
@@ -751,9 +751,9 @@ internal sealed partial class DramaService : PhoenixFeatureService
             )
             .ConfigureAwait(false);
 
-        AppPlanCellDto? targetCell =
-            plan.Data.FirstOrDefault(static c => c.ShowType == 160 && c.EffectiveItems.Count > 0)
-            ?? plan.Data.FirstOrDefault(static c => c.EffectiveItems.Count > 0);
+        AppPlanCellDto? targetCell = plan.Data.FirstOrDefault(static c =>
+            c.ShowType == 160 && c.EffectiveItems.Count > 0
+        ) ?? plan.Data.FirstOrDefault(static c => c.EffectiveItems.Count > 0);
 
         if (targetCell is null || targetCell.EffectiveItems.Count == 0)
         {
@@ -761,7 +761,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
         }
 
         List<Drama> items = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (DramaDto dto in targetCell.EffectiveItems)
         {
             Drama drama = DramaMapper.FromDto(dto, "短剧");

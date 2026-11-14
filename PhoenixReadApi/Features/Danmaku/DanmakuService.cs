@@ -56,7 +56,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
         long nextMs = startMs;
         long total = 0L;
         List<DanmakuItem> items = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         for (int request = 0; request < MaxDanmakuRequests && currentMs < requestedEndMs; request++)
         {

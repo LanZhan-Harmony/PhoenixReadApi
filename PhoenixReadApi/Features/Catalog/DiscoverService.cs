@@ -46,12 +46,11 @@ internal sealed class DiscoverService : PhoenixFeatureService
 
         List<Drama> dramas = [];
         List<Novel> novels = [];
-        HashSet<string> seenDramas = new(StringComparer.Ordinal);
-        HashSet<string> seenNovels = new(StringComparer.Ordinal);
+        HashSet<string> seenDramas = [with(StringComparer.Ordinal)];
+        HashSet<string> seenNovels = [with(StringComparer.Ordinal)];
 
         IReadOnlyList<AppBookmallTabItemDto> tabItems = tabResponse.Data?.TabItems ?? [];
-        AppBookmallTabItemDto? matchedTab =
-            tabItems.FirstOrDefault(t => t.TabType == responseTab)
+        AppBookmallTabItemDto? matchedTab = tabItems.FirstOrDefault(t => t.TabType == responseTab)
             ?? tabItems.FirstOrDefault(t =>
                 t.TabType.ToString(CultureInfo.InvariantCulture) == requestTab
             )
@@ -167,8 +166,8 @@ internal sealed class DiscoverService : PhoenixFeatureService
 
         List<Drama> dramas = [];
         List<Novel> novels = [];
-        HashSet<string> seenDramas = new(StringComparer.Ordinal);
-        HashSet<string> seenNovels = new(StringComparer.Ordinal);
+        HashSet<string> seenDramas = [with(StringComparer.Ordinal)];
+        HashSet<string> seenNovels = [with(StringComparer.Ordinal)];
 
         foreach (DramaDto dto in changeResponse.Data.CellView.VideoData ?? [])
         {

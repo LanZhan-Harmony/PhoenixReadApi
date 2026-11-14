@@ -63,6 +63,31 @@ internal sealed class PhoenixReadAppTransport
         );
     }
 
+    /// <summary>发送需要 Argus 551 和 Ladon 签名的播放请求。</summary>
+    internal Task<AppResponse<TResponse>> PostPlaybackAsync<TRequest, TResponse>(
+        string path,
+        TRequest payload,
+        CancellationToken cancellationToken
+    )
+    {
+        byte[] body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+        return RetryPolicy.ExecuteAsync(
+            (attempt, token) =>
+                SendOnceAsync<TResponse>(
+                    path,
+                    body,
+                    commentRequest: false,
+                    commentSource: 601,
+                    serverChannel: 1000,
+                    cancellationToken: token,
+                    playbackRequest: true
+                ),
+            _options.RetryCount,
+            RetryPolicy.IsTransient,
+            cancellationToken
+        );
+    }
+
     internal Task<AppResponse<TResponse>> GetAsync<TResponse>(
         string path,
         IEnumerable<KeyValuePair<string, string>> query,
@@ -448,7 +473,8 @@ internal sealed class PhoenixReadAppTransport
         bool commentRequest,
         int commentSource,
         int? serverChannel,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool playbackRequest = false
     )
     {
         bool isBookmallTab = path.Contains(
@@ -513,6 +539,10 @@ internal sealed class PhoenixReadAppTransport
                     PhoenixReadRequestSigner.CreateCommentNonce(),
                     now
                 );
+            }
+            else if (playbackRequest)
+            {
+                PhoenixReadRequestSigner.SignPlayback(request, body, _deviceManager.DeviceId, now);
             }
             else if (isPassport)
             {

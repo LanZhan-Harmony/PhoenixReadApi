@@ -59,7 +59,7 @@ internal sealed class DailyReleaseService : PhoenixFeatureService
 
         AppDailyReleaseData? data = response.Data;
         List<DailyReleaseItem> items = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         foreach (AppDailyReleaseItemDto item in data?.SubscribeItems ?? [])
         {

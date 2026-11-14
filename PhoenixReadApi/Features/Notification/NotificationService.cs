@@ -14,8 +14,12 @@ internal sealed class NotificationService : PhoenixFeatureService
     private const int DefaultCount = 20;
     private const int MaxCount = 50;
 
-    private readonly ConcurrentDictionary<string, NoticeItem> _notices = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, int> _lastKnownEpisodes = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, NoticeItem> _notices = new(
+        StringComparer.Ordinal
+    );
+    private readonly ConcurrentDictionary<string, int> _lastKnownEpisodes = new(
+        StringComparer.Ordinal
+    );
 
     internal NotificationService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
@@ -77,7 +81,7 @@ internal sealed class NotificationService : PhoenixFeatureService
 
         AppFollowUpdateListData? data = response.Data;
         List<FollowUpdateItem> items = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         foreach (AppFollowUpdateRecord? record in data?.Items ?? [])
         {
@@ -126,15 +130,27 @@ internal sealed class NotificationService : PhoenixFeatureService
     )
     {
         dramaId = NormalizeDramaId(dramaId);
-        FollowUpdatePage page = await GetFollowUpdatesAsync(string.Empty, MaxCount, cancellationToken)
+        FollowUpdatePage page = await GetFollowUpdatesAsync(
+                string.Empty,
+                MaxCount,
+                cancellationToken
+            )
             .ConfigureAwait(false);
 
-        return page.Items.Any(item => string.Equals(item.DramaId, dramaId, StringComparison.Ordinal));
+        return page.Items.Any(item =>
+            string.Equals(item.DramaId, dramaId, StringComparison.Ordinal)
+        );
     }
 
-    internal async Task<IReadOnlyList<NoticeItem>> CheckNoticesAsync(CancellationToken cancellationToken)
+    internal async Task<IReadOnlyList<NoticeItem>> CheckNoticesAsync(
+        CancellationToken cancellationToken
+    )
     {
-        FollowUpdatePage updates = await GetFollowUpdatesAsync(string.Empty, MaxCount, cancellationToken)
+        FollowUpdatePage updates = await GetFollowUpdatesAsync(
+                string.Empty,
+                MaxCount,
+                cancellationToken
+            )
             .ConfigureAwait(false);
 
         List<NoticeItem> newNotices = [];
@@ -163,9 +179,10 @@ internal sealed class NotificationService : PhoenixFeatureService
                     CoverUrl = item.CoverUrl,
                     FromEpisode = lastSeen,
                     EpisodeCount = item.EpisodeCount,
-                    CreatedAtUnixMilliseconds = item.LastReleasedAtUnixMilliseconds > 0
-                        ? item.LastReleasedAtUnixMilliseconds
-                        : now,
+                    CreatedAtUnixMilliseconds =
+                        item.LastReleasedAtUnixMilliseconds > 0
+                            ? item.LastReleasedAtUnixMilliseconds
+                            : now,
                     IsRead = false,
                 };
 
@@ -183,16 +200,12 @@ internal sealed class NotificationService : PhoenixFeatureService
 
     internal Task<NoticePage> GetNoticesAsync(CancellationToken cancellationToken)
     {
-        List<NoticeItem> list = _notices.Values
-            .OrderByDescending(static n => n.CreatedAtUnixMilliseconds)
+        List<NoticeItem> list = _notices
+            .Values.OrderByDescending(static n => n.CreatedAtUnixMilliseconds)
             .ToList();
 
         int unread = list.Count(static n => !n.IsRead);
-        return Task.FromResult(new NoticePage
-        {
-            Items = list,
-            UnreadCount = unread,
-        });
+        return Task.FromResult(new NoticePage { Items = list, UnreadCount = unread });
     }
 
     internal Task MarkNoticesReadAsync(

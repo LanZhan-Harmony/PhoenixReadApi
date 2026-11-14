@@ -252,7 +252,7 @@ internal static class DramaMapper
     )
     {
         List<DramaCredit> credits = [];
-        Dictionary<string, int> positions = new(StringComparer.Ordinal);
+        Dictionary<string, int> positions = [with(StringComparer.Ordinal)];
         foreach (DramaCreatorUserDto? creator in creators ?? [])
         {
             if (creator is null)
@@ -363,7 +363,7 @@ internal static class DramaMapper
     )
     {
         List<DramaCreditRole> result = [];
-        Dictionary<string, int> positions = new(StringComparer.Ordinal);
+        Dictionary<string, int> positions = [with(StringComparer.Ordinal)];
         foreach (DramaCreditRole? role in first.Concat(second))
         {
             if (role is null)
@@ -403,7 +403,7 @@ internal static class DramaMapper
     )
     {
         List<DramaCreditRole> roles = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (var raw in labels ?? [])
         {
             string label = (raw ?? string.Empty).Trim();
@@ -464,7 +464,7 @@ internal static class DramaMapper
     private static List<string> DtoTags(DramaDto data)
     {
         List<string> tags = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (DramaTagDto item in data.Tags ?? [])
         {
             if (!string.IsNullOrWhiteSpace(item.Name) && seen.Add(item.Name.Trim()))

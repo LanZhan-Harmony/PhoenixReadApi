@@ -2,11 +2,11 @@
 
 [![NuGet Version](https://img.shields.io/nuget/v/PhoenixReadApi.svg?style=flat-square&color=blue)](https://www.nuget.org/packages/PhoenixReadApi)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/PhoenixReadApi.svg?style=flat-square&color=blue)](https://www.nuget.org/packages/PhoenixReadApi)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg?style=flat-square)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-11.0-512BD4.svg?style=flat-square)](https://dotnet.microsoft.com/)
 [![NativeAOT Ready](https://img.shields.io/badge/NativeAOT-Compatible-2ea44f.svg?style=flat-square)](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
-`PhoenixReadApi` 是一个面向 .NET 10 的现代化、轻量级红果短剧（PhoenixRead）客户端类库。它封装了红果短剧服务端的核心能力，提供剧库浏览、短剧检索、多清晰度播放地址解析、CENC 媒体内容密钥提取、弹幕抓取、评论互动、书架与播放进度同步，以及开箱即用的登录会话持久化支持。
+`PhoenixReadApi` 是一个面向 .NET 11 的现代化、轻量级红果短剧（PhoenixRead）客户端类库。它封装了红果短剧服务端的核心能力，提供剧库浏览、短剧检索、多清晰度播放地址解析、CENC 媒体内容密钥提取、弹幕抓取、评论互动、书架与播放进度同步，以及开箱即用的登录会话持久化支持。
 
 ### 设计理念
 

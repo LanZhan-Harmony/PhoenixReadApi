@@ -186,7 +186,7 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
     )
     {
         List<Drama> output = [];
-        Dictionary<string, int> positions = new(StringComparer.Ordinal);
+        Dictionary<string, int> positions = [with(StringComparer.Ordinal)];
         foreach (Drama? drama in original.Concat(additions))
         {
             if (drama.Id.Length == 0)
@@ -242,7 +242,7 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
     )
     {
         List<DramaCredit> output = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (DramaCredit? credit in first.Concat(second))
         {
             if (credit?.User is null || credit.User.Id.Length == 0 || !seen.Add(credit.User.Id))
