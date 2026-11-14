@@ -647,7 +647,11 @@ internal sealed class CommentService : PhoenixFeatureService
 
     private static IReadOnlyList<CommentImage> MapCommentImages(AppComment comment)
     {
-        var contentImages = comment.Common?.Content?.ImageDataList?.ImageData;
+        IReadOnlyList<AppCommentImageDataDto>? contentImages = comment
+            .Common
+            ?.Content
+            ?.ImageDataList
+            ?.ImageData;
         if (contentImages is { Count: > 0 })
         {
             return MapImageData(contentImages);
@@ -668,13 +672,19 @@ internal sealed class CommentService : PhoenixFeatureService
         AppReplyCommon? common
     )
     {
-        var replyImages = reply?.Content?.ImageDataList?.ImageData;
+        IReadOnlyList<AppCommentImageDataDto>? replyImages = reply
+            ?.Content
+            ?.ImageDataList
+            ?.ImageData;
         if (replyImages is { Count: > 0 })
         {
             return MapImageData(replyImages);
         }
 
-        var commonImages = common?.Content?.ImageDataList?.ImageData;
+        IReadOnlyList<AppCommentImageDataDto>? commonImages = common
+            ?.Content
+            ?.ImageDataList
+            ?.ImageData;
         if (commonImages is { Count: > 0 })
         {
             return MapImageData(commonImages);
@@ -718,10 +728,12 @@ internal sealed class CommentService : PhoenixFeatureService
                 candidateUrls.Add(raw.WebUri.Trim());
             }
 
-            IReadOnlyList<string> backupUrls = candidateUrls
-                .Where(u => !string.Equals(u, primaryUrl, StringComparison.Ordinal))
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
+            IReadOnlyList<string> backupUrls =
+            [
+                .. candidateUrls
+                    .Where(u => !string.Equals(u, primaryUrl, StringComparison.Ordinal))
+                    .Distinct(StringComparer.Ordinal),
+            ];
 
             images.Add(
                 new CommentImage

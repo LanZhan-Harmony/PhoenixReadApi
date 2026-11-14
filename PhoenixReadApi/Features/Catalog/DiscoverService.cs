@@ -148,7 +148,7 @@ internal sealed class DiscoverService : PhoenixFeatureService
             Dramas = dramas,
             Novels = novels,
             Cursor = nextCursor,
-            HasMore = hasMore || (dramas.Count > 0 || novels.Count > 0),
+            HasMore = hasMore || dramas.Count > 0 || novels.Count > 0,
         };
     }
 

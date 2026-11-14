@@ -200,9 +200,10 @@ internal sealed class NotificationService : PhoenixFeatureService
 
     internal Task<NoticePage> GetNoticesAsync(CancellationToken cancellationToken)
     {
-        List<NoticeItem> list = _notices
-            .Values.OrderByDescending(static n => n.CreatedAtUnixMilliseconds)
-            .ToList();
+        List<NoticeItem> list =
+        [
+            .. _notices.Values.OrderByDescending(static n => n.CreatedAtUnixMilliseconds),
+        ];
 
         int unread = list.Count(static n => !n.IsRead);
         return Task.FromResult(new NoticePage { Items = list, UnreadCount = unread });
@@ -214,7 +215,7 @@ internal sealed class NotificationService : PhoenixFeatureService
     )
     {
         ArgumentNullException.ThrowIfNull(noticeIds);
-        HashSet<string> targetSet = new(noticeIds, StringComparer.Ordinal);
+        HashSet<string> targetSet = [with(StringComparer.Ordinal), .. noticeIds];
 
         foreach (string id in targetSet)
         {

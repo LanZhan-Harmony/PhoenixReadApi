@@ -153,11 +153,13 @@ internal sealed class UserService : PhoenixFeatureService
             AppUgcUserRelation relation = ugc.UserRelation ?? new();
             AppUgcUserTag tag = ugc.UserTag ?? new();
 
-            IReadOnlyList<string> roles = (tag.SubTitleList ?? [])
-                .Where(static s => s is not null && !string.IsNullOrWhiteSpace(s.Text))
-                .Select(static s => s.Text.Trim())
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
+            IReadOnlyList<string> roles =
+            [
+                .. (tag.SubTitleList ?? [])
+                    .Where(static s => s is not null && !string.IsNullOrWhiteSpace(s.Text))
+                    .Select(static s => s.Text.Trim())
+                    .Distinct(StringComparer.Ordinal),
+            ];
 
             bool isCreator = (tag.CreatorTypesFull?.Count ?? 0) > 0 || roles.Count > 0;
 
@@ -310,7 +312,10 @@ internal sealed class UserService : PhoenixFeatureService
         ];
 
         // If tabs has 16 (Works - 短剧作品), load Tab 16; else if 8 (Related), load Tab 8
-        int worksTabType = tabTypes.Contains(16) ? 16 : (tabTypes.Contains(8) ? 8 : 0);
+        int worksTabType =
+            tabTypes.Contains(16) ? 16
+            : tabTypes.Contains(8) ? 8
+            : 0;
         Task<AppUserProfileData?> worksTask =
             worksTabType != 0
                 ? LoadProfileTabAsync(
@@ -397,15 +402,17 @@ internal sealed class UserService : PhoenixFeatureService
 
         string bgCover = ValueNormalizer.First(ugc?.BgCover, ugcResponse?.Data?.BgCover);
 
-        IReadOnlyList<UserProfileTab> availableTabs = (metadata.Tabs ?? [])
-            .Where(static t => t is not null)
-            .Select(static t => new UserProfileTab
-            {
-                Type = t.Type,
-                Name = t.Name,
-                Total = t.Total,
-            })
-            .ToList();
+        IReadOnlyList<UserProfileTab> availableTabs =
+        [
+            .. (metadata.Tabs ?? [])
+                .Where(static t => t is not null)
+                .Select(static t => new UserProfileTab
+                {
+                    Type = t.Type,
+                    Name = t.Name,
+                    Total = t.Total,
+                }),
+        ];
 
         return new UserProfile
         {

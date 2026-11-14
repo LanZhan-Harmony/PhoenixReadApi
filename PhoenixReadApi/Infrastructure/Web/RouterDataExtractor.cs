@@ -83,6 +83,6 @@ internal static partial class RouterDataExtractor
         return -1;
     }
 
-    [GeneratedRegex("(?s)(?:window\\.)?_ROUTER_DATA\\s*=\\s*")]
+    [GeneratedRegex(@"(?s)(?:window\.)?_ROUTER_DATA\s*=\s*")]
     private static partial Regex RouterAssignmentRegex();
 }

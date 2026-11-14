@@ -94,7 +94,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         if (
             offset == 0
-            && (query.Tab == SearchTab.ShortPlay || query.Tab == SearchTab.SeriesVideo)
+            && query.Tab is SearchTab.ShortPlay or SearchTab.SeriesVideo
             && count == 20
             && string.IsNullOrWhiteSpace(query.SearchId)
         )
@@ -430,18 +430,16 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     {
                         string boardTitle = !string.IsNullOrWhiteSpace(boardCell.CellName)
                             ? boardCell.CellName
-                            : (
-                                boardCell.ShowType switch
-                                {
-                                    388 => "短剧热搜榜",
+                            : boardCell.ShowType switch
+                            {
+                                388 => "短剧热搜榜",
 
-                                    591 => "漫剧热搜榜",
+                                591 => "漫剧热搜榜",
 
-                                    619 => "热点话题榜",
+                                619 => "热点话题榜",
 
-                                    _ => "热搜榜",
-                                }
-                            );
+                                _ => "热搜榜",
+                            };
 
                         List<HotSearchItem> boardItems = [];
 
@@ -601,7 +599,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
             Total = Math.Max(page.Total, merged.Count + page.Novels.Count + page.Users.Count),
 
-            NextOffset = page.NextOffset > 0 ? page.NextOffset : (page.HasMore ? 20 : 0),
+            NextOffset =
+                page.NextOffset > 0 ? page.NextOffset
+                : page.HasMore ? 20
+                : 0,
 
             HasMore = page.HasMore,
 
@@ -718,9 +719,9 @@ internal sealed partial class SearchService : PhoenixFeatureService
             ) ?? [];
 
             AppSearchTabItem? tab = allTabs.FirstOrDefault(static t =>
-                t.TabType == "11" && t.Data is { Count: > 0 }
+                t is { TabType: "11", Data.Count: > 0 }
             )
-                ?? allTabs.FirstOrDefault(static t => t.TabType == "29" && t.Data is { Count: > 0 })
+                ?? allTabs.FirstOrDefault(static t => t is { TabType: "29", Data.Count: > 0 })
                 ?? allTabs.FirstOrDefault(static t => t.Data is { Count: > 0 });
 
             if (tab?.Data is { Count: > 0 } cells)
@@ -910,11 +911,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
             nextOffset = offset + total;
         }
 
-        if (total == 0 && (tabType == "11" || tabType == "29"))
+        if (total == 0 && tabType is "11" or "29")
         {
             try
             {
-                int pageNumber = (offset / Math.Max(1, count)) + 1;
+                int pageNumber = offset / Math.Max(1, count) + 1;
 
                 SearchResult webResult = await FetchWebSearchPagedAsync(
                         keyword,
@@ -955,7 +956,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
             SearchId = tab?.SearchId ?? string.Empty,
 
-            Limited = tab?.HasMore ?? (total == 0),
+            Limited = tab?.HasMore ?? total == 0,
 
             Warning = warning,
         };
@@ -1118,7 +1119,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         List<Drama> output = [];
 
-        HashSet<string> seenIds = new(seen, StringComparer.Ordinal);
+        HashSet<string> seenIds = [with(StringComparer.Ordinal), .. seen];
 
         int validDramaCount = 0;
 

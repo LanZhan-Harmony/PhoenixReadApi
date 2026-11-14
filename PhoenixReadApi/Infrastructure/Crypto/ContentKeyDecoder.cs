@@ -67,7 +67,7 @@ internal static class ContentKeyDecoder
         for (int j = 0; j < num2; j++)
         {
             byte b4 = array3[j];
-            byte term = (byte)(-(0x15 + BitOperations.PopCount((uint)j)));
+            byte term = (byte)-(0x15 + BitOperations.PopCount((uint)j));
             if (j % 2 == 0)
             {
                 array3[j] = isV2 ? (byte)((cur ^ b4) - prev + term) : (byte)(term + (cur ^ b4));

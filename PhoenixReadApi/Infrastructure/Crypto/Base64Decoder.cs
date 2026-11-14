@@ -44,17 +44,15 @@ internal static class Base64Decoder
             Span<char> charBuffer = stackalloc char[totalLen];
             return DecodeWithBuffer(span, charBuffer, paddingNeeded);
         }
-        else
+
+        char[] rented = ArrayPool<char>.Shared.Rent(totalLen);
+        try
         {
-            char[] rented = ArrayPool<char>.Shared.Rent(totalLen);
-            try
-            {
-                return DecodeWithBuffer(span, rented.AsSpan(0, totalLen), paddingNeeded);
-            }
-            finally
-            {
-                ArrayPool<char>.Shared.Return(rented);
-            }
+            return DecodeWithBuffer(span, rented.AsSpan(0, totalLen), paddingNeeded);
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(rented);
         }
     }
 

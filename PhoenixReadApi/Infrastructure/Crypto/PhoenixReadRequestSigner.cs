@@ -538,8 +538,7 @@ internal static class PhoenixReadRequestSigner
         {
             num = BinaryPrimitives.ReadUInt64LittleEndian(array3.AsSpan(j));
             value = BinaryPrimitives.ReadUInt64LittleEndian(array3.AsSpan(j + 8));
-            ulong[] array4 = array2;
-            foreach (ulong num3 in array4)
+            foreach (ulong num3 in array2)
             {
                 value = num3 ^ (num + BitOperations.RotateRight(value, 8));
                 num = value ^ BitOperations.RotateLeft(num, 3);
@@ -598,14 +597,13 @@ internal static class PhoenixReadRequestSigner
         Span<byte> span = CollectionsMarshal.AsSpan(list2);
         span[0] = 8;
         span[1] = (byte)(2 + nonce[10] % 49 * 2);
-        List<byte> list3 = list2;
         ulong[] array3 = [2uL, 3uL, 4uL];
         foreach (ulong num2 in array3)
         {
-            WriteVarint(list3, num2 * 8);
-            WriteVarint(list3, 1388734uL);
+            WriteVarint(list2, num2 * 8);
+            WriteVarint(list2, 1388734uL);
         }
-        Bytes(list, 15uL, CollectionsMarshal.AsSpan(list3));
+        Bytes(list, 15uL, CollectionsMarshal.AsSpan(list2));
         Bytes(list, 20uL, "none"u8);
         Varint(list, 21uL, 738uL);
 
@@ -923,7 +921,7 @@ internal static class PhoenixReadRequestSigner
         Varint(bean, 9, 134744640UL);
         Bytes(bean, 10, stackalloc byte[8]);
         Varint(bean, 11, 0UL);
-        Varint(bean, 12, (ulong)(timestamp << 1));
+        Varint(bean, 12, timestamp << 1);
         Bytes(bean, 13, bodyHash[..6]);
         Bytes(bean, 14, queryHash[..6]);
         Bytes(bean, 15, PlaybackCounters);
