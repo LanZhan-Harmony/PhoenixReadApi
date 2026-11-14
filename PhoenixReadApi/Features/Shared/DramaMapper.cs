@@ -18,13 +18,12 @@ internal static class DramaMapper
         string? scoreOverride = null
     )
     {
-        DramaDto data = value;
         string sourceId = ValueNormalizer.First(
-            data.SeriesId,
-            data.SeriesIdNumber,
-            data.BookId,
-            data.Keyword,
-            data.VideoDetail?.SeriesId
+            value.SeriesId,
+            value.SeriesIdNumber,
+            value.BookId,
+            value.Keyword,
+            value.VideoDetail?.SeriesId
         );
         if (!ValueNormalizer.IsNumericId(sourceId))
         {
@@ -32,29 +31,29 @@ internal static class DramaMapper
         }
 
         string title = ValueNormalizer.First(
-            data.SeriesTitle,
-            data.SeriesName,
-            data.Title,
-            data.Name,
-            data.VideoDetail?.SeriesTitle,
-            data.VideoDetail?.Title,
+            value.SeriesTitle,
+            value.SeriesName,
+            value.Title,
+            value.Name,
+            value.VideoDetail?.SeriesTitle,
+            value.VideoDetail?.Title,
             sourceId
         );
-        string remark = ValueNormalizer.First(data.EpisodeRemark);
-        List<string> tags = DtoTags(data);
+        string remark = ValueNormalizer.First(value.EpisodeRemark);
+        List<string> tags = DtoTags(value);
         string genre = ValueNormalizer.First(
-            data.CategoryName,
-            data.CategoryNameCamel,
-            data.Category,
+            value.CategoryName,
+            value.CategoryNameCamel,
+            value.Category,
             tags.FirstOrDefault() ?? category
         );
         int episodeCount = Math.Max(
-            data.EpisodeCount,
+            value.EpisodeCount,
             Math.Max(
-                data.EpisodeCountAlias,
+                value.EpisodeCountAlias,
                 Math.Max(
-                    data.DramaChapterNumber,
-                    Math.Max(data.ChapterNumber, data.VideoDetail?.EpisodeCount ?? 0)
+                    value.DramaChapterNumber,
+                    Math.Max(value.ChapterNumber, value.VideoDetail?.EpisodeCount ?? 0)
                 )
             )
         );
@@ -64,30 +63,30 @@ internal static class DramaMapper
         }
 
         string desc = ValueNormalizer.First(
-            data.SeriesIntro,
-            data.VideoDescription,
-            data.Abstract,
-            data.Intro,
-            data.Description
+            value.SeriesIntro,
+            value.VideoDescription,
+            value.Abstract,
+            value.Intro,
+            value.Description
         );
         string cover = ValueNormalizer.First(
-            data.SeriesCover,
-            data.Cover,
-            data.CoverUrl,
-            data.ThumbUrl,
-            data.ExpandThumbUrl,
-            data.VideoDetail?.CoverUrl
+            value.SeriesCover,
+            value.Cover,
+            value.CoverUrl,
+            value.ThumbUrl,
+            value.ExpandThumbUrl,
+            value.VideoDetail?.CoverUrl
         );
         string score = ValueNormalizer.First(
-            data.FinalScoreV2,
-            data.FinalScore,
-            data.Score,
+            value.FinalScoreV2,
+            value.FinalScore,
+            value.Score,
             scoreOverride
         );
-        string status = ValueNormalizer.First(data.SeriesStatus, data.Status);
+        string status = ValueNormalizer.First(value.SeriesStatus, value.Status);
 
         long playCount = 0;
-        string playCountStr = ValueNormalizer.First(data.SeriesPlayCount, data.PlayCount);
+        string playCountStr = ValueNormalizer.First(value.SeriesPlayCount, value.PlayCount);
         if (
             long.TryParse(
                 playCountStr,
@@ -100,10 +99,10 @@ internal static class DramaMapper
             playCount = parsedPlay;
         }
 
-        string novelId = data.RelateBook?.BookInfo?.BookId ?? string.Empty;
+        string novelId = value.RelateBook?.BookInfo?.BookId ?? string.Empty;
         string novelTitle = ValueNormalizer.First(
-            data.RelateBook?.BookInfo?.BookName,
-            data.RelateBook?.BookInfo?.BookShortName
+            value.RelateBook?.BookInfo?.BookName,
+            value.RelateBook?.BookInfo?.BookShortName
         );
 
         return new Drama
@@ -118,18 +117,19 @@ internal static class DramaMapper
             Tags = tags,
             ReleaseStatus = ReleaseStatusFromValue(status, remark, tags),
             Score = score,
-            Views = ValueNormalizer.First(data.SeriesPlayCount, data.PlayCount),
-            Heat = DtoHeat(data),
-            OnlineDate = DtoOnlineDate(data, now ?? DateTimeOffset.Now),
-            Credits = DtoCredits(data.MainCreatorUsers, data.Celebrities),
-            IsMultiSeason = data.IsMultiSeason || !string.IsNullOrWhiteSpace(data.EffectiveAlbumId),
-            SeasonIndex = data.SeasonIndex > 0 ? data.SeasonIndex : 1,
-            AlbumId = data.EffectiveAlbumId,
+            Views = ValueNormalizer.First(value.SeriesPlayCount, value.PlayCount),
+            Heat = DtoHeat(value),
+            OnlineDate = DtoOnlineDate(value, now ?? DateTimeOffset.Now),
+            Credits = DtoCredits(value.MainCreatorUsers, value.Celebrities),
+            IsMultiSeason =
+                value.IsMultiSeason || !string.IsNullOrWhiteSpace(value.EffectiveAlbumId),
+            SeasonIndex = value.SeasonIndex > 0 ? value.SeasonIndex : 1,
+            AlbumId = value.EffectiveAlbumId,
             NovelId = novelId,
             NovelTitle = novelTitle,
             PlayCount = playCount,
-            FollowCount = data.FollowedCount,
-            LikeCount = data.DiggCount,
+            FollowCount = value.FollowedCount,
+            LikeCount = value.DiggCount,
         };
     }
 

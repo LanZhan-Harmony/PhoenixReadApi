@@ -191,7 +191,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
             "detail_page",
             "detail_"
         );
-        WebSeriesDetailDto? detail = (page?.SeriesDetail)
+        WebSeriesDetailDto? detail = page?.SeriesDetail
             ?? throw new PhoenixReadApiResponseException("网页详情为空。", "detail");
         string title = ValueNormalizer.First(
             detail.SeriesName,
@@ -588,7 +588,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 {
                     DramaId = sid,
                     Title = item.Title,
-                    Index = item.SeasonIndex > 0 ? item.SeasonIndex : (seasons.Count + 1),
+                    Index = item.SeasonIndex > 0 ? item.SeasonIndex : seasons.Count + 1,
                     CoverUrl = item.Cover,
                     EpisodeCount = item.EpisodeCount,
                     Status =
@@ -638,7 +638,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 .ConfigureAwait(false);
 
             AppPlanCellDto? seasonsCell = plan.Data.FirstOrDefault(static c =>
-                c.ShowType == 547 && c.EffectiveItems.Count > 0
+                c is { ShowType: 547, EffectiveItems.Count: > 0 }
             );
             if (seasonsCell is not null && seasonsCell.EffectiveItems.Count > 0)
             {
@@ -660,7 +660,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                         {
                             DramaId = sid,
                             Title = ValueNormalizer.First(item.SeriesTitle, item.Title, item.Name),
-                            Index = item.SeasonIndex > 0 ? item.SeasonIndex : (seasons.Count + 1),
+                            Index = item.SeasonIndex > 0 ? item.SeasonIndex : seasons.Count + 1,
                             CoverUrl = ValueNormalizer.First(item.Cover, item.SeriesCover),
                             EpisodeCount = item.EpisodeCount,
                             Status =
@@ -752,7 +752,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         AppPlanCellDto? targetCell = plan.Data.FirstOrDefault(static c =>
-            c.ShowType == 160 && c.EffectiveItems.Count > 0
+            c is { ShowType: 160, EffectiveItems.Count: > 0 }
         ) ?? plan.Data.FirstOrDefault(static c => c.EffectiveItems.Count > 0);
 
         if (targetCell is null || targetCell.EffectiveItems.Count == 0)

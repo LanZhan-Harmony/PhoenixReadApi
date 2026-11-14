@@ -102,13 +102,9 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         AppPlaybackData? data = result.Data;
         AppPlaybackModel model = data?.VideoModel ?? new();
         IReadOnlyList<AppMediaVariantDto> variants =
-            model.Variants.Count > 0
-                ? model.Variants
-                : (
-                    model.DynamicVideo?.DynamicVideoList is { Count: > 0 } dynamicList
-                        ? dynamicList
-                        : data?.VideoList ?? []
-                );
+            model.Variants.Count > 0 ? model.Variants
+            : model.DynamicVideo?.DynamicVideoList is { Count: > 0 } dynamicList ? dynamicList
+            : data?.VideoList ?? [];
 
         if (variants.Count == 0)
         {

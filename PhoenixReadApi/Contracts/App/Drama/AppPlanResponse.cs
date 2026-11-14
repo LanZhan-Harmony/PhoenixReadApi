@@ -54,5 +54,6 @@ internal sealed class AppPlanCellDto
     public IReadOnlyList<DramaDto> CellData { get; init; } = [];
 
     [JsonIgnore]
-    public IReadOnlyList<DramaDto> EffectiveItems => VideoData?.Count > 0 ? VideoData : (CellData ?? []);
+    public IReadOnlyList<DramaDto> EffectiveItems =>
+        VideoData?.Count > 0 ? VideoData : CellData ?? [];
 }
