@@ -38,7 +38,10 @@ internal static class PhoenixReadRequestSigner
     private static readonly byte[] CommentArgusKey = Convert.FromHexString(
         "ac1adaae95a7af94a5114ab3b3a97dd80050aa0a39314c40528caec95256c28c"
     );
+    private static readonly byte[] CommentArgusAesKey = MD5.HashData(CommentArgusKey[..16]);
+    private static readonly byte[] CommentArgusAesIv = MD5.HashData(CommentArgusKey[16..]);
     private static readonly byte[] StaticDerivedArgusKey = ComputeDerivedArgusKey();
+    private static readonly ulong[] PlayerArgusSimonRoundKeys = PrecomputePlayerSimonRoundKeys();
     private static readonly byte[] StaticCounters = ComputeStaticCounters();
     private static readonly byte[] StaticEnvironment = ComputeStaticEnvironment();
     private static readonly byte[] StaticZero16Sm3 = Sm3(new byte[16]);
@@ -80,6 +83,24 @@ internal static class PhoenixReadRequestSigner
         PrecomputePlaybackSimonRoundKeys();
     private static readonly byte[] PlaybackCounters = PrecomputePlaybackCounters();
     private static readonly byte[] PlaybackDevice = PrecomputePlaybackDevice();
+
+    private static ulong[] PrecomputePlayerSimonRoundKeys()
+    {
+        ulong[] rounds = new ulong[72];
+        for (int i = 0; i < 4; i++)
+        {
+            rounds[i] = BinaryPrimitives.ReadUInt64LittleEndian(
+                StaticDerivedArgusKey.AsSpan(i * 8, 8)
+            );
+        }
+        for (int k = 4; k < 72; k++)
+        {
+            ulong mixed = BitOperations.RotateRight(rounds[k - 1], 3) ^ rounds[k - 3];
+            mixed ^= BitOperations.RotateRight(mixed, 1);
+            rounds[k] = ~rounds[k - 4] ^ mixed ^ (0x3dc94c3a046d678bUL >>> ((k - 4) % 62)) & 1 ^ 3;
+        }
+        return rounds;
+    }
 
     private static ulong[] PrecomputePlaybackSimonRoundKeys()
     {
@@ -725,7 +746,7 @@ internal static class PhoenixReadRequestSigner
             now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
         );
 
-        byte[] nonce = new byte[11];
+        Span<byte> nonce = stackalloc byte[11];
         RandomNumberGenerator.Fill(nonce);
 
         string effectiveDeviceId = !string.IsNullOrEmpty(deviceId)
@@ -742,7 +763,7 @@ internal static class PhoenixReadRequestSigner
             "X-Argus",
             PlayerArgus(query, body, timestamp, effectiveDeviceId, nonce)
         );
-        SetHeader(request, "X-Ladon", PlayerLadon(aid, timestamp, nonce.AsSpan(2, 4)));
+        SetHeader(request, "X-Ladon", PlayerLadon(aid, timestamp, nonce.Slice(2, 4)));
     }
 
     internal static void SignPlayback(
@@ -1245,19 +1266,7 @@ internal static class PhoenixReadRequestSigner
         Varint(message, 25uL, 2uL);
 
         byte[] data = Pad(CollectionsMarshal.AsSpan(message));
-        ReadOnlySpan<byte> derived = StaticDerivedArgusKey;
-
-        Span<ulong> rounds = stackalloc ulong[72];
-        for (int i = 0; i < 4; i++)
-        {
-            rounds[i] = BinaryPrimitives.ReadUInt64LittleEndian(derived.Slice(i * 8, 8));
-        }
-        for (int k = 4; k < 72; k++)
-        {
-            ulong mixed = BitOperations.RotateRight(rounds[k - 1], 3) ^ rounds[k - 3];
-            mixed ^= BitOperations.RotateRight(mixed, 1);
-            rounds[k] = ~rounds[k - 4] ^ mixed ^ (0x3dc94c3a046d678bUL >>> ((k - 4) % 62)) & 1 ^ 3;
-        }
+        ReadOnlySpan<ulong> rounds = PlayerArgusSimonRoundKeys;
 
         for (int l = 0; l < data.Length; l += 16)
         {
@@ -1295,11 +1304,9 @@ internal static class PhoenixReadRequestSigner
         container[^1] = 0x7B;
         container = Pad(container);
 
-        byte[] aesKey = MD5.HashData(CommentArgusKey[..16]);
-        byte[] iv = MD5.HashData(CommentArgusKey[16..]);
         using Aes aes = Aes.Create();
-        aes.Key = aesKey;
-        aes.IV = iv;
+        aes.Key = CommentArgusAesKey;
+        aes.IV = CommentArgusAesIv;
         aes.Mode = CipherMode.CBC;
         aes.Padding = PaddingMode.None;
         byte[] encrypted = aes.CreateEncryptor()
@@ -1357,8 +1364,9 @@ internal static class PhoenixReadRequestSigner
     internal static void Sm3(ReadOnlySpan<byte> input, Span<byte> destination)
     {
         ulong value = (ulong)input.Length * 8uL;
-        int i;
-        for (i = input.Length + 1; i % 64 != 56; i++) { }
+        int i = input.Length + 1;
+        int rem = i % 64;
+        i += rem <= 56 ? (56 - rem) : (120 - rem);
         byte[]? rented = null;
         Span<byte> array =
             i + 8 <= 512

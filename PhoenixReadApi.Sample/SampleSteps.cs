@@ -90,6 +90,18 @@ internal static partial class SampleSteps
         );
         PrintCount("  剧库", context.Catalog?.Count);
 
+        NewDramaRecommendationPage? newDramas = await TryAsync(
+            "GetNewDramaRecommendationsAsync",
+            () => client.GetNewDramaRecommendationsAsync(ShortDramaLeaderboardChannel.All, limit: 5, cancellationToken: cancellationToken)
+        );
+        PrintCount("  新剧推荐(总榜)", newDramas?.Items.Count);
+
+        ShortDramaLeaderboardPage? recommendRank = await TryAsync(
+            "GetShortDramaLeaderboardAsync(Recommend)",
+            () => client.GetShortDramaLeaderboardAsync(ShortDramaLeaderboardType.Recommend, offset: 0, cancellationToken: cancellationToken)
+        );
+        PrintCount("  推荐榜首屏", recommendRank?.Items.Count);
+
         IReadOnlyList<LoginRegion> loginRegions = client.GetLoginRegions();
         Console.WriteLine($"  登录支持区域: {loginRegions.Count} 个 (示例: {loginRegions[0].Name} +{loginRegions[0].Code})");
 

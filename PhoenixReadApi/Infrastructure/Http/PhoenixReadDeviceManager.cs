@@ -18,10 +18,48 @@ internal sealed class PhoenixReadDeviceManager
 
     private DateTimeOffset _registerPausedUntil = DateTimeOffset.MinValue;
 
-    internal string DeviceId { get; set; } = string.Empty;
-    internal string InstallId { get; set; } = string.Empty;
-    internal string Cdid { get; set; } = string.Empty;
-    internal string KlinkEgdi { get; set; } = string.Empty;
+    private string _deviceId = string.Empty;
+    private string _installId = string.Empty;
+    private string _cdid = string.Empty;
+    private string _klinkEgdi = string.Empty;
+    private volatile string? _cachedAppQuery;
+
+    internal string DeviceId
+    {
+        get => _deviceId;
+        set
+        {
+            _deviceId = value;
+            _cachedAppQuery = null;
+        }
+    }
+    internal string InstallId
+    {
+        get => _installId;
+        set
+        {
+            _installId = value;
+            _cachedAppQuery = null;
+        }
+    }
+    internal string Cdid
+    {
+        get => _cdid;
+        set
+        {
+            _cdid = value;
+            _cachedAppQuery = null;
+        }
+    }
+    internal string KlinkEgdi
+    {
+        get => _klinkEgdi;
+        set
+        {
+            _klinkEgdi = value;
+            _cachedAppQuery = null;
+        }
+    }
     internal bool IsRegistered { get; set; }
 
     internal PhoenixReadDeviceManager(
@@ -45,27 +83,35 @@ internal sealed class PhoenixReadDeviceManager
 
     internal void AppendAppQuery(StringBuilder sb)
     {
+        sb.Append(GetCachedAppQuery());
+    }
+
+    private string GetCachedAppQuery()
+    {
+        string? cached = _cachedAppQuery;
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        StringBuilder sb = new(512);
         sb.Append(StaticAppQueryPrefix);
         sb.Append("&device_id=")
-            .Append(
-                Uri.EscapeDataString(
-                    DeviceIdGenerator.IsValid(DeviceId) ? DeviceId : "1589262967141403"
-                )
-            );
+            .Append(DeviceIdGenerator.IsValid(_deviceId) ? _deviceId : "1589262967141403");
         sb.Append("&iid=")
-            .Append(
-                Uri.EscapeDataString(
-                    DeviceIdGenerator.IsValid(InstallId) ? InstallId : "2380912043756905"
-                )
-            );
-        string cdid = string.IsNullOrWhiteSpace(Cdid)
+            .Append(DeviceIdGenerator.IsValid(_installId) ? _installId : "2380912043756905");
+        string cdid = string.IsNullOrWhiteSpace(_cdid)
             ? "c179f4ce-dbbe-4c3e-ae27-8d462e63782b"
-            : Cdid;
+            : _cdid;
         sb.Append("&cdid=").Append(Uri.EscapeDataString(cdid));
-        string klink = string.IsNullOrWhiteSpace(KlinkEgdi)
+        string klink = string.IsNullOrWhiteSpace(_klinkEgdi)
             ? "AAJgUhu9EVIH0a1aMHvCy177wq-bhqHT3XS5vNNgeIgolcgOrGQOGZwL"
-            : KlinkEgdi;
+            : _klinkEgdi;
         sb.Append("&klink_egdi=").Append(Uri.EscapeDataString(klink));
+
+        cached = sb.ToString();
+        _cachedAppQuery = cached;
+        return cached;
     }
 
     internal async Task EnsureRegisteredAsync(bool forceNew, CancellationToken cancellationToken)

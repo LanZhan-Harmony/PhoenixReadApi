@@ -52,7 +52,7 @@ internal static class RouterDataLocator
     {
         JsonElement section = Find(document, names);
         return section.ValueKind == JsonValueKind.Object
-            ? JsonAotSerializer.Deserialize<T>(section.GetRawText())
+            ? JsonAotSerializer.Deserialize<T>(section)
             : default;
     }
 }

@@ -20,12 +20,7 @@ internal sealed class PhoenixReadSessionStore
         "d-ticket",
     ];
 
-    private static readonly string[] CleanupFileExtensions =
-    [
-        "",
-        ".response.json",
-        ".tmp",
-    ];
+    private static readonly string[] CleanupFileExtensions = ["", ".response.json", ".tmp"];
 
     private readonly ConcurrentDictionary<string, string> _cookies = new(
         StringComparer.OrdinalIgnoreCase
@@ -52,8 +47,8 @@ internal sealed class PhoenixReadSessionStore
 
     internal PhoenixReadSessionStore(PhoenixReadApiOptions options)
     {
-        _sessionStateFilePath =
-            options.AuthenticationStateFilePath ?? options.AnonymousStateFilePath;
+        _sessionStateFilePath = options.AuthenticationStateFilePath
+            ?? options.AnonymousStateFilePath;
         DeviceId = options.DeviceId!;
         InstallId = options.InstallId!;
         LoadSessionSnapshot();
@@ -157,27 +152,32 @@ internal sealed class PhoenixReadSessionStore
         bool changed = false;
         if (response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values))
         {
+            var lookup = _cookies.GetAlternateLookup<ReadOnlySpan<char>>();
             foreach (string value in values)
             {
                 int semiIndex = value.IndexOf(';');
-                ReadOnlySpan<char> cookiePart = semiIndex >= 0 ? value.AsSpan(0, semiIndex).Trim() : value.AsSpan().Trim();
+                ReadOnlySpan<char> cookiePart =
+                    semiIndex >= 0 ? value.AsSpan(0, semiIndex).Trim() : value.AsSpan().Trim();
                 int eqIndex = cookiePart.IndexOf('=');
                 if (eqIndex > 0)
                 {
-                    string key = cookiePart[..eqIndex].ToString();
-                    string val = cookiePart[(eqIndex + 1)..].ToString();
-                    if (val.Length == 0)
+                    ReadOnlySpan<char> keySpan = cookiePart[..eqIndex];
+                    ReadOnlySpan<char> valSpan = cookiePart[(eqIndex + 1)..];
+                    if (valSpan.Length == 0)
                     {
-                        if (_cookies.TryRemove(key, out _))
+                        if (lookup.TryRemove(keySpan, out _))
                         {
                             changed = true;
                         }
                     }
                     else
                     {
-                        if (!_cookies.TryGetValue(key, out string? existing) || existing != val)
+                        if (
+                            !lookup.TryGetValue(keySpan, out string? existing)
+                            || !valSpan.Equals(existing.AsSpan(), StringComparison.Ordinal)
+                        )
                         {
-                            _cookies[key] = val;
+                            _cookies[keySpan.ToString()] = valSpan.ToString();
                             changed = true;
                         }
                     }
@@ -429,6 +429,7 @@ internal sealed class PhoenixReadSessionStore
                 $"Path: {path}\nStatus: {(int)response.StatusCode}\nHeaders:\n{headers}\nBody:\n{System.Text.Encoding.UTF8.GetString(body)}\n"
             );
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        { }
     }
 }

@@ -23,9 +23,7 @@ internal sealed class FlexibleSearchBookListConverter
         {
             foreach (JsonElement value in root.EnumerateArray())
             {
-                AppSearchBookDto? item = JsonAotSerializer.Deserialize<AppSearchBookDto>(
-                    value.GetRawText()
-                );
+                AppSearchBookDto? item = JsonAotSerializer.Deserialize<AppSearchBookDto>(value);
                 if (item is not null)
                 {
                     result.Add(item);
@@ -34,9 +32,7 @@ internal sealed class FlexibleSearchBookListConverter
         }
         else if (root.ValueKind == JsonValueKind.Object)
         {
-            AppSearchBookDto? item = JsonAotSerializer.Deserialize<AppSearchBookDto>(
-                root.GetRawText()
-            );
+            AppSearchBookDto? item = JsonAotSerializer.Deserialize<AppSearchBookDto>(root);
             if (item is not null)
             {
                 result.Add(item);

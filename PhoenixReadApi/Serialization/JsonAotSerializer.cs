@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using PhoenixReadApi.Internal.Contracts.App;
@@ -175,7 +175,6 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppUserWorkRecord))]
 [JsonSerializable(typeof(AppVideoMetaDto))]
 [JsonSerializable(typeof(AppVipInfoDto))]
-
 // ============================================================================
 // 2. App 统一响应包装容器 (AppResponse<T>, A-Z)
 // ============================================================================
@@ -213,7 +212,6 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppResponse<IReadOnlyList<AppHotSearchPlanCellDto>>))]
 [JsonSerializable(typeof(AppResponse<IReadOnlyList<AppMultiDetailItem>>))]
 [JsonSerializable(typeof(AppResponse<List<AppHotSearchPlanCellDto>>))]
-
 // ============================================================================
 // 3. Web 网页端协议数据传输对象 (Web DTOs & Responses, A-Z)
 // ============================================================================
@@ -228,7 +226,6 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(WebQrStatusData))]
 [JsonSerializable(typeof(WebSearchPageDto))]
 [JsonSerializable(typeof(WebSuggestionResponseDto))]
-
 // ============================================================================
 // 4. 跨端共享剧集协议实体 (Shared Drama DTOs, A-Z)
 // ============================================================================
@@ -239,7 +236,6 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(DramaSecondaryInfoDto))]
 [JsonSerializable(typeof(DramaTagDto))]
 [JsonSerializable(typeof(DramaVideoDetailDto))]
-
 // ============================================================================
 // 5. 顶层泛型集合容器类型 (Collections, A-Z)
 // ============================================================================
@@ -251,55 +247,28 @@ internal partial class SourceGenerationContext : JsonSerializerContext;
 
 internal static class JsonAotSerializer
 {
+    private static class TypeCache<T>
+    {
+        internal static readonly JsonTypeInfo<T> Info =
+            SourceGenerationContext.Default.GetTypeInfo(typeof(T)) as JsonTypeInfo<T>
+            ?? throw new ArgumentException(
+                $"{typeof(T)} is not declared in the SourceGenerationContext attributes."
+            );
+    }
+
     /// <summary>
     /// 将对象序列化为 JSON 字符串。
     /// </summary>
     /// <param name="value">要序列化的对象</param>
     /// <returns>序列化后的 JSON 字符串</returns>
-    internal static string Serialize<T>(T value)
-    {
-        if (
-            SourceGenerationContext.Default.GetTypeInfo(typeof(T))
-            is not JsonTypeInfo<T> jsonTypeInfo
-        )
-        {
-            throw new ArgumentNullException(
-                nameof(value),
-                $"{typeof(T)} is not declared in the SourceGenerationContext attributes."
-            );
-        }
-        return JsonSerializer.Serialize(value, jsonTypeInfo);
-    }
+    internal static string Serialize<T>(T value) =>
+        JsonSerializer.Serialize(value, TypeCache<T>.Info);
 
-    internal static byte[] SerializeToUtf8Bytes<T>(T value)
-    {
-        if (
-            SourceGenerationContext.Default.GetTypeInfo(typeof(T))
-            is not JsonTypeInfo<T> jsonTypeInfo
-        )
-        {
-            throw new ArgumentNullException(
-                nameof(value),
-                $"{typeof(T)} is not declared in the SourceGenerationContext attributes."
-            );
-        }
-        return JsonSerializer.SerializeToUtf8Bytes(value, jsonTypeInfo);
-    }
+    internal static byte[] SerializeToUtf8Bytes<T>(T value) =>
+        JsonSerializer.SerializeToUtf8Bytes(value, TypeCache<T>.Info);
 
-    internal static void Serialize<T>(Utf8JsonWriter writer, T value)
-    {
-        if (
-            SourceGenerationContext.Default.GetTypeInfo(typeof(T))
-            is not JsonTypeInfo<T> jsonTypeInfo
-        )
-        {
-            throw new ArgumentNullException(
-                nameof(value),
-                $"{typeof(T)} is not declared in the SourceGenerationContext attributes."
-            );
-        }
-        JsonSerializer.Serialize(writer, value, jsonTypeInfo);
-    }
+    internal static void Serialize<T>(Utf8JsonWriter writer, T value) =>
+        JsonSerializer.Serialize(writer, value, TypeCache<T>.Info);
 
     /// <summary>
     /// 将 JSON 字符串反序列化为指定类型。
@@ -307,33 +276,12 @@ internal static class JsonAotSerializer
     /// <typeparam name="T">目标类型</typeparam>
     /// <param name="value">JSON 字符串</param>
     /// <returns>反序列化后的对象</returns>
-    internal static T? Deserialize<T>(string value)
-    {
-        if (
-            SourceGenerationContext.Default.GetTypeInfo(typeof(T))
-            is not JsonTypeInfo<T> jsonTypeInfo
-        )
-        {
-            throw new ArgumentNullException(
-                nameof(T),
-                $"{typeof(T)} is not declared in the SourceGenerationContext attributes."
-            );
-        }
-        return JsonSerializer.Deserialize(value, jsonTypeInfo);
-    }
+    internal static T? Deserialize<T>(string value) =>
+        JsonSerializer.Deserialize(value, TypeCache<T>.Info);
 
-    internal static T? Deserialize<T>(ReadOnlySpan<byte> value)
-    {
-        if (
-            SourceGenerationContext.Default.GetTypeInfo(typeof(T))
-            is not JsonTypeInfo<T> jsonTypeInfo
-        )
-        {
-            throw new ArgumentNullException(
-                nameof(T),
-                $"{typeof(T)} is not declared in the SourceGenerationContext attributes."
-            );
-        }
-        return JsonSerializer.Deserialize(value, jsonTypeInfo);
-    }
+    internal static T? Deserialize<T>(ReadOnlySpan<byte> value) =>
+        JsonSerializer.Deserialize(value, TypeCache<T>.Info);
+
+    internal static T? Deserialize<T>(JsonElement value) =>
+        JsonSerializer.Deserialize(value, TypeCache<T>.Info);
 }

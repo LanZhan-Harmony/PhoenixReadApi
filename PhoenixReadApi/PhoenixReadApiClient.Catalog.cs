@@ -56,10 +56,14 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="channel">频道受众（总榜、女频、男频），默认为 <see cref="ShortDramaLeaderboardChannel.All"/>。</param>
     /// <param name="genreTag">可选的题材标签 ID（例如 "cate_1051" 表示打脸虐渣，"cate_739" 表示逆袭）；非空时优先作为细分筛选条件。</param>
     /// <param name="offset">分页偏移量，初次调用传入 0。</param>
-    /// <param name="sessionId">上一页返回的会话 ID；初次请求可为 null。</param>
-    /// <param name="seenIds">已展示过的剧集 ID 集合，用于服务端跳过去重。</param>
+    /// <param name="sessionId">上一页返回的会话 ID；初次请求可为 null。推荐榜（Recommend）内部已自动维持该会话。</param>
+    /// <param name="seenIds">已展示过的剧集 ID 集合，用于服务端跳过去重。推荐榜未显式传入时，客户端内部会自动累积历史已曝光 ID 进行排重。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>短剧排行榜分页数据。</returns>
+    /// <remarks>
+    /// 热播榜、新剧榜和热搜榜为指标排序榜单，支持常规 offset 偏移分页；
+    /// 推荐榜（Recommend）为个性化算法流，跨页依赖会话与已看过滤，若需连续流式拉取，推荐直接使用 <see cref="EnumerateShortDramaLeaderboardAsync"/>。
+    /// </remarks>
     public Task<ShortDramaLeaderboardPage> GetShortDramaLeaderboardAsync(
         ShortDramaLeaderboardType type = ShortDramaLeaderboardType.Recommend,
         ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
@@ -76,6 +80,47 @@ public sealed partial class PhoenixReadApiClient
             offset,
             sessionId,
             seenIds,
+            cancellationToken
+        );
+
+    /// <summary>获取新剧推荐的一页（对应应用新剧专区，包含“今日上新”与首发短剧，支持总榜、女频与男频筛选）。</summary>
+    /// <param name="channel">受众频道（总榜、女频、男频），默认为 <see cref="ShortDramaLeaderboardChannel.All"/>。</param>
+    /// <param name="offset">分页偏移量，首次请求传 0，后续传入上一页的 <see cref="NewDramaRecommendationPage.NextOffset"/>。</param>
+    /// <param name="limit">每页请求条数，默认为 18，范围为 1 到 50。</param>
+    /// <param name="sessionId">上一页返回的会话 ID，有助于保持推荐流连续性；首次请求可传 null。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>新剧推荐分页结果。</returns>
+    public Task<NewDramaRecommendationPage> GetNewDramaRecommendationsAsync(
+        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
+        int offset = 0,
+        int limit = 18,
+        string? sessionId = null,
+        CancellationToken cancellationToken = default
+    ) =>
+        _catalog.GetNewDramaRecommendationsAsync(
+            channel,
+            offset,
+            limit,
+            sessionId,
+            cancellationToken
+        );
+
+    /// <summary>流式遍历新剧推荐，跨页自动传递会话并在客户端去重。</summary>
+    /// <param name="channel">受众频道（总榜、女频、男频），默认为 <see cref="ShortDramaLeaderboardChannel.All"/>。</param>
+    /// <param name="pageSize">每页拉取条数，默认为 18，范围为 1 到 50。</param>
+    /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
+    /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
+    /// <returns>去重后的新剧推荐异步流。</returns>
+    public IAsyncEnumerable<Drama> EnumerateNewDramaRecommendationsAsync(
+        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
+        int pageSize = 18,
+        int maxPages = 10,
+        CancellationToken cancellationToken = default
+    ) =>
+        _catalog.EnumerateNewDramaRecommendationsAsync(
+            channel,
+            pageSize,
+            maxPages,
             cancellationToken
         );
 
@@ -107,7 +152,14 @@ public sealed partial class PhoenixReadApiClient
         string? genreTag = null,
         int maxPages = 10,
         CancellationToken cancellationToken = default
-    ) => _catalog.EnumerateShortDramaLeaderboardAsync(type, channel, genreTag, maxPages, cancellationToken);
+    ) =>
+        _catalog.EnumerateShortDramaLeaderboardAsync(
+            type,
+            channel,
+            genreTag,
+            maxPages,
+            cancellationToken
+        );
 
     /// <summary>流式遍历演员排行榜。</summary>
     /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>

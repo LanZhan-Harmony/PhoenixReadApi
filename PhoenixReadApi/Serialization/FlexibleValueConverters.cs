@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+using System.Buffers.Text;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
@@ -52,6 +53,15 @@ internal sealed class FlexibleIntConverter : JsonConverter<int>
             return number;
         }
 
+        if (
+            reader.TokenType == JsonTokenType.String
+            && Utf8Parser.TryParse(reader.ValueSpan, out int parsed, out int bytesConsumed)
+            && bytesConsumed == reader.ValueSpan.Length
+        )
+        {
+            return parsed;
+        }
+
         string text = ReadText(ref reader);
         return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out number)
             ? number
@@ -87,6 +97,15 @@ internal sealed class FlexibleLongConverter : JsonConverter<long>
             return number;
         }
 
+        if (
+            reader.TokenType == JsonTokenType.String
+            && Utf8Parser.TryParse(reader.ValueSpan, out long parsed, out int bytesConsumed)
+            && bytesConsumed == reader.ValueSpan.Length
+        )
+        {
+            return parsed;
+        }
+
         string text = ReadText(ref reader);
         return long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out number)
             ? number
@@ -120,6 +139,15 @@ internal sealed class FlexibleDoubleConverter : JsonConverter<double>
         if (reader.TokenType == JsonTokenType.Number && reader.TryGetDouble(out double number))
         {
             return number;
+        }
+
+        if (
+            reader.TokenType == JsonTokenType.String
+            && Utf8Parser.TryParse(reader.ValueSpan, out double parsed, out int bytesConsumed)
+            && bytesConsumed == reader.ValueSpan.Length
+        )
+        {
+            return parsed;
         }
 
         string text = ReadText(ref reader);
@@ -192,7 +220,7 @@ internal sealed class VideoModelDtoConverter : JsonConverter<AppPlaybackModel>
         }
 
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
-        return JsonAotSerializer.Deserialize<AppPlaybackModel>(document.RootElement.GetRawText())
+        return JsonAotSerializer.Deserialize<AppPlaybackModel>(document.RootElement)
             ?? new AppPlaybackModel();
     }
 
@@ -216,21 +244,27 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<D
     {
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
         JsonElement root = document.RootElement;
-        IEnumerable<JsonElement> values = root.ValueKind switch
-        {
-            JsonValueKind.Array => root.EnumerateArray(),
-            JsonValueKind.Object => root.EnumerateObject().Select(static item => item.Value),
-            _ => [],
-        };
         List<DramaEpisodeDto> result = [];
-        foreach (JsonElement value in values)
+        if (root.ValueKind == JsonValueKind.Array)
         {
-            DramaEpisodeDto? item = JsonAotSerializer.Deserialize<DramaEpisodeDto>(
-                value.GetRawText()
-            );
-            if (item is not null)
+            foreach (JsonElement value in root.EnumerateArray())
             {
-                result.Add(item);
+                DramaEpisodeDto? item = JsonAotSerializer.Deserialize<DramaEpisodeDto>(value);
+                if (item is not null)
+                {
+                    result.Add(item);
+                }
+            }
+        }
+        else if (root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (JsonProperty item in root.EnumerateObject())
+            {
+                DramaEpisodeDto? ep = JsonAotSerializer.Deserialize<DramaEpisodeDto>(item.Value);
+                if (ep is not null)
+                {
+                    result.Add(ep);
+                }
             }
         }
         return result;
@@ -264,19 +298,27 @@ internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<D
     {
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
         JsonElement root = document.RootElement;
-        IEnumerable<JsonElement> values = root.ValueKind switch
-        {
-            JsonValueKind.Array => root.EnumerateArray(),
-            JsonValueKind.Object => root.EnumerateObject().Select(static item => item.Value),
-            _ => [],
-        };
         List<DramaDto> result = [];
-        foreach (JsonElement value in values)
+        if (root.ValueKind == JsonValueKind.Array)
         {
-            DramaDto? item = JsonAotSerializer.Deserialize<DramaDto>(value.GetRawText());
-            if (item is not null)
+            foreach (JsonElement value in root.EnumerateArray())
             {
-                result.Add(item);
+                DramaDto? item = JsonAotSerializer.Deserialize<DramaDto>(value);
+                if (item is not null)
+                {
+                    result.Add(item);
+                }
+            }
+        }
+        else if (root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (JsonProperty item in root.EnumerateObject())
+            {
+                DramaDto? itemVal = JsonAotSerializer.Deserialize<DramaDto>(item.Value);
+                if (itemVal is not null)
+                {
+                    result.Add(itemVal);
+                }
             }
         }
         return result;
@@ -323,7 +365,10 @@ internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<
 
         if (root.ValueKind == JsonValueKind.Object)
         {
-            if (root.TryGetProperty("url", out JsonElement singleUrl) && singleUrl.ValueKind == JsonValueKind.String)
+            if (
+                root.TryGetProperty("url", out JsonElement singleUrl)
+                && singleUrl.ValueKind == JsonValueKind.String
+            )
             {
                 string single = singleUrl.GetString() ?? string.Empty;
                 return single.Length > 0 ? [single] : [];
@@ -348,11 +393,17 @@ internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<
                     result.Add(text);
                 }
             }
-            else if (item.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False)
+            else if (
+                item.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False
+            )
             {
                 result.Add(item.GetRawText());
             }
-            else if (item.ValueKind == JsonValueKind.Object && item.TryGetProperty("url", out JsonElement urlElem) && urlElem.ValueKind == JsonValueKind.String)
+            else if (
+                item.ValueKind == JsonValueKind.Object
+                && item.TryGetProperty("url", out JsonElement urlElem)
+                && urlElem.ValueKind == JsonValueKind.String
+            )
             {
                 string text = urlElem.GetString() ?? string.Empty;
                 if (text.Length > 0)
@@ -472,21 +523,29 @@ internal sealed class FlexibleMediaVariantListConverter
     {
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
         JsonElement root = document.RootElement;
-        IEnumerable<JsonElement> values = root.ValueKind switch
-        {
-            JsonValueKind.Array => root.EnumerateArray(),
-            JsonValueKind.Object => root.EnumerateObject().Select(static item => item.Value),
-            _ => [],
-        };
         List<AppMediaVariantDto> result = [];
-        foreach (JsonElement value in values)
+        if (root.ValueKind == JsonValueKind.Array)
         {
-            AppMediaVariantDto? item = JsonAotSerializer.Deserialize<AppMediaVariantDto>(
-                value.GetRawText()
-            );
-            if (item is not null)
+            foreach (JsonElement value in root.EnumerateArray())
             {
-                result.Add(item);
+                AppMediaVariantDto? item = JsonAotSerializer.Deserialize<AppMediaVariantDto>(value);
+                if (item is not null)
+                {
+                    result.Add(item);
+                }
+            }
+        }
+        else if (root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (JsonProperty item in root.EnumerateObject())
+            {
+                AppMediaVariantDto? itemVal = JsonAotSerializer.Deserialize<AppMediaVariantDto>(
+                    item.Value
+                );
+                if (itemVal is not null)
+                {
+                    result.Add(itemVal);
+                }
             }
         }
         return result;
@@ -582,8 +641,10 @@ internal sealed class CategorySchemaConverter : JsonConverter<IReadOnlyList<stri
         return text.Length == 0 ? [] : [text];
     }
 }
+
 /// <summary>转换红果评论接口可能返回空对象 {}、空列表 [] 或图片数组的 image_data_list。</summary>
-internal sealed class FlexibleCommentImageDataListConverter : JsonConverter<AppCommentImageDataListDto>
+internal sealed class FlexibleCommentImageDataListConverter
+    : JsonConverter<AppCommentImageDataListDto>
 {
     public override AppCommentImageDataListDto Read(
         ref Utf8JsonReader reader,
@@ -616,38 +677,44 @@ internal sealed class FlexibleCommentImageDataListConverter : JsonConverter<AppC
                     continue;
                 }
 
-                string webUrl = item.TryGetProperty("web_url", out JsonElement u)
+                string webUrl =
+                    item.TryGetProperty("web_url", out JsonElement u)
                     && u.ValueKind == JsonValueKind.String
-                    ? u.GetString() ?? string.Empty
-                    : string.Empty;
-                string expandUrl = item.TryGetProperty("expand_web_url", out JsonElement eu)
+                        ? u.GetString() ?? string.Empty
+                        : string.Empty;
+                string expandUrl =
+                    item.TryGetProperty("expand_web_url", out JsonElement eu)
                     && eu.ValueKind == JsonValueKind.String
-                    ? eu.GetString() ?? string.Empty
-                    : string.Empty;
-                string webUri = item.TryGetProperty("web_uri", out JsonElement wu)
+                        ? eu.GetString() ?? string.Empty
+                        : string.Empty;
+                string webUri =
+                    item.TryGetProperty("web_uri", out JsonElement wu)
                     && wu.ValueKind == JsonValueKind.String
-                    ? wu.GetString() ?? string.Empty
-                    : string.Empty;
-                string id = item.TryGetProperty("id", out JsonElement idElem)
+                        ? wu.GetString() ?? string.Empty
+                        : string.Empty;
+                string id =
+                    item.TryGetProperty("id", out JsonElement idElem)
                     && idElem.ValueKind == JsonValueKind.String
-                    ? idElem.GetString() ?? string.Empty
-                    : string.Empty;
-                int width = item.TryGetProperty("width", out JsonElement w)
-                    && w.TryGetInt32(out int wv)
-                    ? wv
-                    : 0;
-                int height = item.TryGetProperty("height", out JsonElement h)
-                    && h.TryGetInt32(out int hv)
-                    ? hv
-                    : 0;
-                int imageType = item.TryGetProperty("image_type", out JsonElement it)
+                        ? idElem.GetString() ?? string.Empty
+                        : string.Empty;
+                int width =
+                    item.TryGetProperty("width", out JsonElement w) && w.TryGetInt32(out int wv)
+                        ? wv
+                        : 0;
+                int height =
+                    item.TryGetProperty("height", out JsonElement h) && h.TryGetInt32(out int hv)
+                        ? hv
+                        : 0;
+                int imageType =
+                    item.TryGetProperty("image_type", out JsonElement it)
                     && it.TryGetInt32(out int itv)
-                    ? itv
-                    : 0;
-                string format = item.TryGetProperty("format", out JsonElement fmt)
+                        ? itv
+                        : 0;
+                string format =
+                    item.TryGetProperty("format", out JsonElement fmt)
                     && fmt.ValueKind == JsonValueKind.String
-                    ? fmt.GetString() ?? string.Empty
-                    : string.Empty;
+                        ? fmt.GetString() ?? string.Empty
+                        : string.Empty;
 
                 items.Add(
                     new AppCommentImageDataDto

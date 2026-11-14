@@ -22,8 +22,9 @@ internal sealed class CatalogService : PhoenixFeatureService
     private const int CatalogPageSize = 18;
     private static readonly TimeSpan CursorLifetime = TimeSpan.FromMinutes(30);
     private readonly Lock _stateLock = new();
-    private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Dictionary<string, CatalogCursor> _cursors = [with(StringComparer.Ordinal)];
+    private string? _lastRecommendSessionId;
+    private readonly HashSet<string> _lastRecommendSeenIds = [with(StringComparer.Ordinal)];
 
     internal CatalogService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
@@ -34,104 +35,106 @@ internal sealed class CatalogService : PhoenixFeatureService
     )
     {
         ValidateCategory(category);
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        List<string> warnings = [];
+        List<Drama> items = [];
+        bool usedWebFallback = category == PhoenixReadApiCategory.Comic;
+        if (category != PhoenixReadApiCategory.Comic)
         {
-            List<string> warnings = [];
-            List<Drama> items = [];
-            bool usedWebFallback = category == PhoenixReadApiCategory.Comic;
-            if (category != PhoenixReadApiCategory.Comic)
+            try
             {
-                try
+                if (category == PhoenixReadApiCategory.All)
                 {
-                    PhoenixReadApiCategory[] categories =
-                        category == PhoenixReadApiCategory.All
-                            ?
-                            [
+                    List<Drama>[] results = await Task.WhenAll(
+                            FetchAppCategoryAsync(
                                 PhoenixReadApiCategory.RealDrama,
+                                cancellationToken
+                            ),
+                            FetchAppCategoryAsync(
                                 PhoenixReadApiCategory.ComicDrama,
-                                PhoenixReadApiCategory.AiDrama,
-                            ]
-                            : [category];
-                    foreach (PhoenixReadApiCategory appCategory in categories)
-                    {
-                        items.AddRange(
-                            await FetchAppCategoryAsync(appCategory, cancellationToken)
-                                .ConfigureAwait(false)
-                        );
-                    }
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception exception) when (IsRecoverable(exception))
-                {
-                    warnings.Add(PublicError(exception));
-                    usedWebFallback = true;
-                }
-            }
-
-            if (items.Count == 0 || usedWebFallback)
-            {
-                (string, string)[] routes = category switch
-                {
-                    PhoenixReadApiCategory.RealDrama => [("real-drama", "真人剧")],
-                    PhoenixReadApiCategory.ComicDrama => [("comic-drama", "漫剧")],
-                    PhoenixReadApiCategory.AiDrama => [("ai-drama", "AI剧")],
-                    PhoenixReadApiCategory.Comic => [("comic", "动漫")],
-                    _ =>
-                    [
-                        ("real-drama", "真人剧"),
-                        ("comic-drama", "漫剧"),
-                        ("ai-drama", "AI剧"),
-                        ("comic", "动漫"),
-                    ],
-                };
-                try
-                {
-                    List<Drama> webItems = await FetchWebCatalogAsync(routes, cancellationToken)
+                                cancellationToken
+                            ),
+                            FetchAppCategoryAsync(PhoenixReadApiCategory.AiDrama, cancellationToken)
+                        )
                         .ConfigureAwait(false);
-                    items = MergeDramas(items, webItems);
-                    usedWebFallback = true;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception exception) when (IsRecoverable(exception))
-                {
-                    warnings.Add(PublicError(exception));
-                    if (items.Count == 0)
+                    foreach (List<Drama> catItems in results)
                     {
-                        throw new PhoenixReadApiFallbackException(
-                            "网页剧库获取失败。",
-                            "catalog",
-                            exception
-                        );
+                        items.AddRange(catItems);
                     }
                 }
+                else
+                {
+                    items.AddRange(
+                        await FetchAppCategoryAsync(category, cancellationToken)
+                            .ConfigureAwait(false)
+                    );
+                }
             }
-
-            items = MergeDramas([], items);
-            items.Sort(
-                static (left, right) =>
-                    string.Compare(left.Title, right.Title, StringComparison.Ordinal)
-            );
-            if (items.Count == 0 && warnings.Count > 0)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                throw new PhoenixReadApiFallbackException(
-                    "无法获取红果剧库。" + string.Join("；", warnings),
-                    "catalog"
-                );
+                throw;
             }
+            catch (Exception exception) when (IsRecoverable(exception))
+            {
+                warnings.Add(PublicError(exception));
+                usedWebFallback = true;
+            }
+        }
 
-            return items;
-        }
-        finally
+        if (items.Count == 0 || usedWebFallback)
         {
-            _gate.Release();
+            (string, string)[] routes = category switch
+            {
+                PhoenixReadApiCategory.RealDrama => [("real-drama", "真人剧")],
+                PhoenixReadApiCategory.ComicDrama => [("comic-drama", "漫剧")],
+                PhoenixReadApiCategory.AiDrama => [("ai-drama", "AI剧")],
+                PhoenixReadApiCategory.Comic => [("comic", "动漫")],
+                _ =>
+                [
+                    ("real-drama", "真人剧"),
+                    ("comic-drama", "漫剧"),
+                    ("ai-drama", "AI剧"),
+                    ("comic", "动漫"),
+                ],
+            };
+            try
+            {
+                List<Drama> webItems = await FetchWebCatalogAsync(routes, cancellationToken)
+                    .ConfigureAwait(false);
+                items = MergeDramas(items, webItems);
+                usedWebFallback = true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (IsRecoverable(exception))
+            {
+                warnings.Add(PublicError(exception));
+                if (items.Count == 0)
+                {
+                    throw new PhoenixReadApiFallbackException(
+                        "网页剧库获取失败。",
+                        "catalog",
+                        exception
+                    );
+                }
+            }
         }
+
+        items = MergeDramas([], items);
+        items.Sort(
+            static (left, right) =>
+                string.Compare(left.Title, right.Title, StringComparison.Ordinal)
+        );
+        if (items.Count == 0 && warnings.Count > 0)
+        {
+            throw new PhoenixReadApiFallbackException(
+                "无法获取红果剧库。" + string.Join("；", warnings),
+                "catalog"
+            );
+        }
+
+        return items;
     }
 
     private async Task<List<Drama>> FetchAppCategoryAsync(
@@ -641,21 +644,56 @@ internal sealed class CatalogService : PhoenixFeatureService
             query.Add(new("sub_selected_items", normalizedSub));
         }
 
+        bool isRecommendBoard = string.Equals(
+            selectedBoard,
+            "ranklist_hot_sc",
+            StringComparison.Ordinal
+        );
+        List<string> effectiveSeenIds = [];
+
         if (seenIds is not null)
         {
-            string joinedSeen = string.Join(
-                ",",
-                seenIds.Where(id => !string.IsNullOrWhiteSpace(id))
-            );
-            if (joinedSeen.Length > 0)
+            effectiveSeenIds.AddRange(seenIds.Where(id => !string.IsNullOrWhiteSpace(id)));
+        }
+
+        string? effectiveSessionId = sessionId;
+
+        if (isRecommendBoard)
+        {
+            lock (_stateLock)
             {
-                query.Add(new("filter_ids", joinedSeen));
+                if (offset == 0)
+                {
+                    _lastRecommendSessionId = null;
+                    _lastRecommendSeenIds.Clear();
+                }
+                else
+                {
+                    if (
+                        string.IsNullOrWhiteSpace(effectiveSessionId)
+                        && !string.IsNullOrWhiteSpace(_lastRecommendSessionId)
+                    )
+                    {
+                        effectiveSessionId = _lastRecommendSessionId;
+                    }
+
+                    if (effectiveSeenIds.Count == 0 && _lastRecommendSeenIds.Count > 0)
+                    {
+                        effectiveSeenIds.AddRange(_lastRecommendSeenIds);
+                    }
+                }
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(sessionId))
+        if (effectiveSeenIds.Count > 0)
         {
-            query.Add(new("session_id", sessionId));
+            string joinedSeen = string.Join(",", effectiveSeenIds);
+            query.Add(new("filter_ids", joinedSeen));
+        }
+
+        if (!string.IsNullOrWhiteSpace(effectiveSessionId))
+        {
+            query.Add(new("session_id", effectiveSessionId));
         }
 
         AppResponse<AppShortRankDataContainer> response = await _appTransport
@@ -678,6 +716,28 @@ internal sealed class CatalogService : PhoenixFeatureService
                 if (!string.IsNullOrWhiteSpace(drama.Id) && localSeen.Add(drama.Id))
                 {
                     items.Add(drama);
+                }
+            }
+        }
+
+        if (isRecommendBoard)
+        {
+            lock (_stateLock)
+            {
+                if (!string.IsNullOrWhiteSpace(data.SessionId))
+                {
+                    _lastRecommendSessionId = data.SessionId;
+                }
+                foreach (Drama drama in items)
+                {
+                    if (!string.IsNullOrWhiteSpace(drama.Id))
+                    {
+                        _lastRecommendSeenIds.Add(drama.Id);
+                    }
+                }
+                foreach (string id in effectiveSeenIds)
+                {
+                    _lastRecommendSeenIds.Add(id);
                 }
             }
         }
@@ -974,5 +1034,128 @@ internal sealed class CatalogService : PhoenixFeatureService
         {
             TagDramaSortOrder.Latest => "new_sort_latest",
             _ => "new_sort_hot",
+        };
+
+    internal async Task<NewDramaRecommendationPage> GetNewDramaRecommendationsAsync(
+        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
+        int offset = 0,
+        int limit = 18,
+        string? sessionId = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset), offset, "分页偏移量不能为负数。");
+        }
+        if (limit is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(limit),
+                limit,
+                "每页条数必须在 1 到 50 之间。"
+            );
+        }
+
+        List<KeyValuePair<string, string>> query =
+        [
+            new("book_type", "0"),
+            new("cell_id", "7431550523368554558"),
+            new("change_type", "1"),
+            new("client_req_type", "0"),
+            new("limit", limit.ToString(CultureInfo.InvariantCulture)),
+            new("offset", offset.ToString(CultureInfo.InvariantCulture)),
+            new("selected_items", "firstonlinetime_new"),
+            new("cell_gender", MapNewDramaGender(channel)),
+        ];
+
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            query.Add(new("session_id", sessionId.Trim()));
+        }
+
+        AppBookmallCellChangeResponse response = await _appTransport
+            .GetRootAsync<AppBookmallCellChangeResponse>(
+                "/reading/bookapi/bookmall/cell/change/v1/",
+                query,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        AppBookmallCellChangeData data = response.Data ?? new();
+        List<Drama> items = [];
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
+
+        foreach (DramaDto dto in data.CellView?.VideoData ?? [])
+        {
+            Drama drama = DramaMapper.FromDto(dto, "短剧");
+            if (!string.IsNullOrWhiteSpace(drama.Id) && seen.Add(drama.Id))
+            {
+                items.Add(drama);
+            }
+        }
+
+        return new NewDramaRecommendationPage
+        {
+            Items = items,
+            HasMore = data.HasMore,
+            NextOffset = data.NextOffset,
+            SessionId = data.SessionId,
+        };
+    }
+
+    internal async IAsyncEnumerable<Drama> EnumerateNewDramaRecommendationsAsync(
+        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
+        int pageSize = 18,
+        int maxPages = 10,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        int offset = 0;
+        string? sessionId = null;
+        HashSet<string> seenIds = [with(StringComparer.Ordinal)];
+        int pageCount = 0;
+
+        while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
+        {
+            NewDramaRecommendationPage page = await GetNewDramaRecommendationsAsync(
+                    channel,
+                    offset,
+                    pageSize,
+                    sessionId,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (page.Items.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (Drama drama in page.Items)
+            {
+                if (!string.IsNullOrWhiteSpace(drama.Id) && seenIds.Add(drama.Id))
+                {
+                    yield return drama;
+                }
+            }
+
+            if (!page.HasMore || page.NextOffset <= offset)
+            {
+                yield break;
+            }
+
+            offset = page.NextOffset;
+            sessionId = page.SessionId;
+            pageCount++;
+        }
+    }
+
+    private static string MapNewDramaGender(ShortDramaLeaderboardChannel channel) =>
+        channel switch
+        {
+            ShortDramaLeaderboardChannel.Female => "0",
+            ShortDramaLeaderboardChannel.Male => "1",
+            _ => "2",
         };
 }

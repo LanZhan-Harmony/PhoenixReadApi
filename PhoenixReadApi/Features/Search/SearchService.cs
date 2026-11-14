@@ -506,13 +506,19 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         CancellationToken cancellationToken = timeout.Token;
 
+        using CancellationTokenSource pageTimeout = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken
+        );
+        pageTimeout.CancelAfter(TimeSpan.FromSeconds(12));
+
+        Task<List<Drama>> namesTask = FetchSearchNamesAsync(keyword, cancellationToken);
+        Task<SearchResult> pageTask = FetchSearchPageAsync(keyword, pageTimeout.Token);
+
         List<Drama> names = [];
-
         Exception? namesError = null;
-
         try
         {
-            names = await FetchSearchNamesAsync(keyword, cancellationToken).ConfigureAwait(false);
+            names = await namesTask.ConfigureAwait(false);
         }
         catch (Exception exception) when (IsRecoverable(exception))
         {
@@ -520,17 +526,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
 
         SearchResult page = new();
-
         Exception? pageError = null;
-
         try
         {
-            using CancellationTokenSource pageTimeout =
-                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-            pageTimeout.CancelAfter(TimeSpan.FromSeconds(12));
-
-            page = await FetchSearchPageAsync(keyword, pageTimeout.Token).ConfigureAwait(false);
+            page = await pageTask.ConfigureAwait(false);
         }
         catch (Exception exception) when (IsRecoverable(exception))
         {
@@ -1236,9 +1235,15 @@ internal sealed partial class SearchService : PhoenixFeatureService
         {
             while (requestCount < 32 && !timeout.IsCancellationRequested)
             {
-                int missing = Enumerable
-                    .Range(1, group.Maximum)
-                    .FirstOrDefault(number => !group.Known.Contains(number));
+                int missing = 0;
+                for (int number = 1; number <= group.Maximum; number++)
+                {
+                    if (!group.Known.Contains(number))
+                    {
+                        missing = number;
+                        break;
+                    }
+                }
 
                 if (missing == 0)
                 {

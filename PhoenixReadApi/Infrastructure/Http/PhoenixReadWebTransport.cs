@@ -8,6 +8,7 @@ internal sealed class PhoenixReadWebTransport
 {
     private readonly PhoenixReadHttpTransport _http;
     private readonly PhoenixReadApiOptions _options;
+    private static readonly MediaTypeWithQualityHeaderValue HtmlAcceptHeader = new("text/html");
 
     internal PhoenixReadWebTransport(PhoenixReadHttpTransport http, PhoenixReadApiOptions options)
     {
@@ -39,26 +40,26 @@ internal sealed class PhoenixReadWebTransport
     {
         using HttpRequestMessage request = new(HttpMethod.Get, endpoint);
         request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
-        request.Headers.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9");
+        request.Headers.Accept.Add(HtmlAcceptHeader);
+        request.Headers.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9");
         request.Headers.Referrer = referer;
-        using HttpResponseMessage response = await _http
-            .SendAsync(request, cancellationToken)
+        (HttpResponseMessage response, byte[] body) = await _http
+            .SendAndReadAsync(request, cancellationToken, null, maxBytes)
             .ConfigureAwait(false);
-        byte[] body = await _http
-            .ReadBodyAsync(response, cancellationToken, maxBytes)
-            .ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+        using (response)
         {
-            throw new PhoenixReadApiHttpException(
-                $"{operation} 接口 HTTP {(int)response.StatusCode}。",
-                operation,
-                (int)response.StatusCode,
-                endpoint,
-                isTransient: (int)response.StatusCode >= 500
-            );
-        }
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new PhoenixReadApiHttpException(
+                    $"{operation} 接口 HTTP {(int)response.StatusCode}。",
+                    operation,
+                    (int)response.StatusCode,
+                    endpoint,
+                    isTransient: (int)response.StatusCode >= 500
+                );
+            }
 
-        return Encoding.UTF8.GetString(body);
+            return Encoding.UTF8.GetString(body);
+        }
     }
 }

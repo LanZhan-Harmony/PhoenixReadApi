@@ -47,6 +47,18 @@ internal sealed class PhoenixReadAppTransport
     {
         byte[] body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
         int attempts = retryMode == AppRequestRetryMode.NoRetry ? 1 : _options.RetryCount;
+        if (attempts <= 1)
+        {
+            return SendOnceAsync<TResponse>(
+                path,
+                body,
+                commentRequest,
+                commentSource,
+                serverChannel,
+                cancellationToken
+            );
+        }
+
         return RetryPolicy.ExecuteAsync(
             (attempt, token) =>
                 SendOnceAsync<TResponse>(
@@ -71,6 +83,19 @@ internal sealed class PhoenixReadAppTransport
     )
     {
         byte[] body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+        if (_options.RetryCount <= 1)
+        {
+            return SendOnceAsync<TResponse>(
+                path,
+                body,
+                commentRequest: false,
+                commentSource: 601,
+                serverChannel: 1000,
+                cancellationToken: cancellationToken,
+                playbackRequest: true
+            );
+        }
+
         return RetryPolicy.ExecuteAsync(
             (attempt, token) =>
                 SendOnceAsync<TResponse>(
@@ -93,12 +118,14 @@ internal sealed class PhoenixReadAppTransport
         IEnumerable<KeyValuePair<string, string>> query,
         CancellationToken cancellationToken
     ) =>
-        RetryPolicy.ExecuteAsync(
-            (attempt, token) => SendGetOnceAsync<TResponse>(path, query, token),
-            _options.RetryCount,
-            RetryPolicy.IsTransient,
-            cancellationToken
-        );
+        _options.RetryCount <= 1
+            ? SendGetOnceAsync<TResponse>(path, query, cancellationToken)
+            : RetryPolicy.ExecuteAsync(
+                (attempt, token) => SendGetOnceAsync<TResponse>(path, query, token),
+                _options.RetryCount,
+                RetryPolicy.IsTransient,
+                cancellationToken
+            );
 
     /// <summary>读取顶层 search_tabs 的短剧搜索 Tab 接口。</summary>
     internal Task<AppSearchTabResponse> GetSearchTabAsync(
@@ -106,12 +133,14 @@ internal sealed class PhoenixReadAppTransport
         IEnumerable<KeyValuePair<string, string>> query,
         CancellationToken cancellationToken
     ) =>
-        RetryPolicy.ExecuteAsync(
-            (_, token) => SendSearchTabOnceAsync(path, query, token),
-            _options.RetryCount,
-            RetryPolicy.IsTransient,
-            cancellationToken
-        );
+        _options.RetryCount <= 1
+            ? SendSearchTabOnceAsync(path, query, cancellationToken)
+            : RetryPolicy.ExecuteAsync(
+                (_, token) => SendSearchTabOnceAsync(path, query, token),
+                _options.RetryCount,
+                RetryPolicy.IsTransient,
+                cancellationToken
+            );
 
     /// <summary>读取未遵循通用 data 包装的顶层 JSON 接口。</summary>
     internal Task<TResponse> GetRootAsync<TResponse>(
@@ -119,12 +148,14 @@ internal sealed class PhoenixReadAppTransport
         IEnumerable<KeyValuePair<string, string>> query,
         CancellationToken cancellationToken
     ) =>
-        RetryPolicy.ExecuteAsync(
-            (_, token) => SendRootOnceAsync<TResponse>(path, query, token),
-            _options.RetryCount,
-            RetryPolicy.IsTransient,
-            cancellationToken
-        );
+        _options.RetryCount <= 1
+            ? SendRootOnceAsync<TResponse>(path, query, cancellationToken)
+            : RetryPolicy.ExecuteAsync(
+                (_, token) => SendRootOnceAsync<TResponse>(path, query, token),
+                _options.RetryCount,
+                RetryPolicy.IsTransient,
+                cancellationToken
+            );
 
     /// <summary>发送登录等接口使用的 application/x-www-form-urlencoded 请求。</summary>
     internal Task<AppResponse<TResponse>> PostFormAsync<TResponse>(
@@ -220,62 +251,62 @@ internal sealed class PhoenixReadAppTransport
                 );
             }
 
-            using HttpResponseMessage response = await _http
-                .SendAsync(request, cancellationToken)
+            (HttpResponseMessage response, byte[] bytes) = await _http
+                .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
                 .ConfigureAwait(false);
-            _sessionStore.CaptureSession(response);
-            byte[] bytes = await _http
-                .ReadBodyAsync(response, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (
-                !isBookmallTab
-                && (bytes.Length == 0 || (int)response.StatusCode == 403)
-                && rotations < 2
-            )
+            using (response)
             {
-                rotations++;
-                await _deviceManager
-                    .EnsureRegisteredAsync(forceNew: true, cancellationToken)
-                    .ConfigureAwait(false);
-                continue;
-            }
+                if (
+                    !isBookmallTab
+                    && (bytes.Length == 0 || (int)response.StatusCode == 403)
+                    && rotations < 2
+                )
+                {
+                    rotations++;
+                    await _deviceManager
+                        .EnsureRegisteredAsync(forceNew: true, cancellationToken)
+                        .ConfigureAwait(false);
+                    continue;
+                }
 
-            if (!response.IsSuccessStatusCode)
-            {
-                bool transient = (int)response.StatusCode >= 500;
-                throw new PhoenixReadApiHttpException(
-                    ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
-                    path,
-                    (int)response.StatusCode,
-                    requestUri,
-                    transient
-                );
-            }
+                if (!response.IsSuccessStatusCode)
+                {
+                    bool transient = (int)response.StatusCode >= 500;
+                    throw new PhoenixReadApiHttpException(
+                        ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
+                        path,
+                        (int)response.StatusCode,
+                        requestUri,
+                        transient
+                    );
+                }
 
-            if (bytes.Length == 0)
-            {
-                throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
-            }
+                if (bytes.Length == 0)
+                {
+                    throw new PhoenixReadApiResponseException(
+                        "红果 App 接口未返回有效数据。",
+                        path
+                    );
+                }
 
-            AppResponse<TResponse> result;
-            try
-            {
-                result =
-                    JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
-                    ?? throw new JsonException("The App response was null.");
-            }
-            catch (JsonException exception)
-            {
-                throw new PhoenixReadApiDeserializationException(
-                    "红果 App 接口返回格式异常。",
-                    path,
-                    exception
-                );
-            }
+                AppResponse<TResponse> result;
+                try
+                {
+                    result = JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
+                        ?? throw new JsonException("The App response was null.");
+                }
+                catch (JsonException exception)
+                {
+                    throw new PhoenixReadApiDeserializationException(
+                        "红果 App 接口返回格式异常。",
+                        path,
+                        exception
+                    );
+                }
 
-            EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
-            return result;
+                EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
+                return result;
+            }
         }
     }
 
@@ -303,44 +334,44 @@ internal sealed class PhoenixReadAppTransport
             DateTimeOffset.UtcNow
         );
 
-        using HttpResponseMessage response = await _http
-            .SendAsync(request, cancellationToken)
+        (HttpResponseMessage response, byte[] bytes) = await _http
+            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
             .ConfigureAwait(false);
-        _sessionStore.CaptureSession(response);
-        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+        using (response)
         {
-            throw new PhoenixReadApiHttpException(
-                ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
-                path,
-                (int)response.StatusCode,
-                requestUri,
-                (int)response.StatusCode >= 500
-            );
-        }
-        if (bytes.Length == 0)
-        {
-            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
-        }
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new PhoenixReadApiHttpException(
+                    ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
+                    path,
+                    (int)response.StatusCode,
+                    requestUri,
+                    (int)response.StatusCode >= 500
+                );
+            }
+            if (bytes.Length == 0)
+            {
+                throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+            }
 
-        AppSearchTabResponse result;
-        try
-        {
-            result =
-                JsonAotSerializer.Deserialize<AppSearchTabResponse>(bytes)
-                ?? throw new JsonException("The App response was null.");
-        }
-        catch (JsonException exception)
-        {
-            throw new PhoenixReadApiDeserializationException(
-                "红果 App 接口返回格式异常。",
-                path,
-                exception
-            );
-        }
+            AppSearchTabResponse result;
+            try
+            {
+                result = JsonAotSerializer.Deserialize<AppSearchTabResponse>(bytes)
+                    ?? throw new JsonException("The App response was null.");
+            }
+            catch (JsonException exception)
+            {
+                throw new PhoenixReadApiDeserializationException(
+                    "红果 App 接口返回格式异常。",
+                    path,
+                    exception
+                );
+            }
 
-        EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
-        return result;
+            EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
+            return result;
+        }
     }
 
     private async Task<TResponse> SendRootOnceAsync<TResponse>(
@@ -367,38 +398,39 @@ internal sealed class PhoenixReadAppTransport
             DateTimeOffset.UtcNow
         );
 
-        using HttpResponseMessage response = await _http
-            .SendAsync(request, cancellationToken)
+        (HttpResponseMessage response, byte[] bytes) = await _http
+            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
             .ConfigureAwait(false);
-        _sessionStore.CaptureSession(response);
-        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+        using (response)
         {
-            throw new PhoenixReadApiHttpException(
-                ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
-                path,
-                (int)response.StatusCode,
-                requestUri,
-                (int)response.StatusCode >= 500
-            );
-        }
-        if (bytes.Length == 0)
-        {
-            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
-        }
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new PhoenixReadApiHttpException(
+                    ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
+                    path,
+                    (int)response.StatusCode,
+                    requestUri,
+                    (int)response.StatusCode >= 500
+                );
+            }
+            if (bytes.Length == 0)
+            {
+                throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+            }
 
-        try
-        {
-            return JsonAotSerializer.Deserialize<TResponse>(bytes)
-                ?? throw new JsonException("The App response was null.");
-        }
-        catch (JsonException exception)
-        {
-            throw new PhoenixReadApiDeserializationException(
-                "红果 App 接口返回格式异常。",
-                path,
-                exception
-            );
+            try
+            {
+                return JsonAotSerializer.Deserialize<TResponse>(bytes)
+                    ?? throw new JsonException("The App response was null.");
+            }
+            catch (JsonException exception)
+            {
+                throw new PhoenixReadApiDeserializationException(
+                    "红果 App 接口返回格式异常。",
+                    path,
+                    exception
+                );
+            }
         }
     }
 
@@ -423,48 +455,52 @@ internal sealed class PhoenixReadAppTransport
         _sessionStore.ApplySession(request);
 
         request.Content = content;
-        PhoenixReadRequestSigner.SignPlayer(request, [], _deviceManager.DeviceId, DateTimeOffset.UtcNow);
+        PhoenixReadRequestSigner.SignPlayer(
+            request,
+            [],
+            _deviceManager.DeviceId,
+            DateTimeOffset.UtcNow
+        );
 
-        using HttpResponseMessage response = await _http
-            .SendAsync(request, cancellationToken)
+        (HttpResponseMessage response, byte[] bytes) = await _http
+            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
             .ConfigureAwait(false);
-        _sessionStore.CaptureSession(response);
-
-        byte[] bytes = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+        using (response)
         {
-            throw new PhoenixReadApiHttpException(
-                ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
-                path,
-                (int)response.StatusCode,
-                requestUri,
-                (int)response.StatusCode >= 500
-            );
-        }
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new PhoenixReadApiHttpException(
+                    ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
+                    path,
+                    (int)response.StatusCode,
+                    requestUri,
+                    (int)response.StatusCode >= 500
+                );
+            }
 
-        if (bytes.Length == 0)
-        {
-            throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
-        }
+            if (bytes.Length == 0)
+            {
+                throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
+            }
 
-        AppResponse<TResponse> result;
-        try
-        {
-            result =
-                JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
-                ?? throw new JsonException("The App response was null.");
-        }
-        catch (JsonException exception)
-        {
-            throw new PhoenixReadApiDeserializationException(
-                "红果 App 接口返回格式异常。",
-                path,
-                exception
-            );
-        }
+            AppResponse<TResponse> result;
+            try
+            {
+                result = JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
+                    ?? throw new JsonException("The App response was null.");
+            }
+            catch (JsonException exception)
+            {
+                throw new PhoenixReadApiDeserializationException(
+                    "红果 App 接口返回格式异常。",
+                    path,
+                    exception
+                );
+            }
 
-        EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
-        return result;
+            EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
+            return result;
+        }
     }
 
     private async Task<AppResponse<TResponse>> SendOnceAsync<TResponse>(
@@ -557,64 +593,64 @@ internal sealed class PhoenixReadAppTransport
                 PhoenixReadRequestSigner.SignPlayer(request, body, _deviceManager.DeviceId, now);
             }
 
-            using HttpResponseMessage response = await _http
-                .SendAsync(request, cancellationToken)
+            (HttpResponseMessage response, byte[] bytes) = await _http
+                .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
                 .ConfigureAwait(false);
-            _sessionStore.CaptureSession(response);
-            byte[] bytes = await _http
-                .ReadBodyAsync(response, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (
-                !commentRequest
-                && !isPassport
-                && !isBookmallTab
-                && (bytes.Length == 0 || (int)response.StatusCode == 403)
-                && rotations < 2
-            )
+            using (response)
             {
-                rotations++;
-                await _deviceManager
-                    .EnsureRegisteredAsync(forceNew: true, cancellationToken)
-                    .ConfigureAwait(false);
-                continue;
-            }
+                if (
+                    !commentRequest
+                    && !isPassport
+                    && !isBookmallTab
+                    && (bytes.Length == 0 || (int)response.StatusCode == 403)
+                    && rotations < 2
+                )
+                {
+                    rotations++;
+                    await _deviceManager
+                        .EnsureRegisteredAsync(forceNew: true, cancellationToken)
+                        .ConfigureAwait(false);
+                    continue;
+                }
 
-            if (!response.IsSuccessStatusCode)
-            {
-                bool transient = (int)response.StatusCode >= 500;
-                throw new PhoenixReadApiHttpException(
-                    ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
-                    path,
-                    (int)response.StatusCode,
-                    requestUri,
-                    transient
-                );
-            }
+                if (!response.IsSuccessStatusCode)
+                {
+                    bool transient = (int)response.StatusCode >= 500;
+                    throw new PhoenixReadApiHttpException(
+                        ExtractSafeHttpErrorMessage(bytes, (int)response.StatusCode),
+                        path,
+                        (int)response.StatusCode,
+                        requestUri,
+                        transient
+                    );
+                }
 
-            if (bytes.Length == 0)
-            {
-                throw new PhoenixReadApiResponseException("红果 App 接口未返回有效数据。", path);
-            }
+                if (bytes.Length == 0)
+                {
+                    throw new PhoenixReadApiResponseException(
+                        "红果 App 接口未返回有效数据。",
+                        path
+                    );
+                }
 
-            AppResponse<TResponse> result;
-            try
-            {
-                result =
-                    JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
-                    ?? throw new JsonException("The App response was null.");
-            }
-            catch (JsonException exception)
-            {
-                throw new PhoenixReadApiDeserializationException(
-                    "红果 App 接口返回格式异常。",
-                    path,
-                    exception
-                );
-            }
+                AppResponse<TResponse> result;
+                try
+                {
+                    result = JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
+                        ?? throw new JsonException("The App response was null.");
+                }
+                catch (JsonException exception)
+                {
+                    throw new PhoenixReadApiDeserializationException(
+                        "红果 App 接口返回格式异常。",
+                        path,
+                        exception
+                    );
+                }
 
-            EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
-            return result;
+                EnsureSuccess(result.Code, result.Message, result.BaseResponse, path);
+                return result;
+            }
         }
     }
 
@@ -643,8 +679,9 @@ internal sealed class PhoenixReadAppTransport
         sb.Append("&_rticket=");
         sb.Append(rticket);
 
+        string queryString = sb.ToString();
         Uri baseUri = new(_options.AppBaseUri, path.TrimStart('/'));
-        return new UriBuilder(baseUri) { Query = sb.ToString() }.Uri;
+        return new Uri($"{baseUri.AbsoluteUri}?{queryString}", UriKind.Absolute);
     }
 
     private void EnsureSuccess(
@@ -675,7 +712,9 @@ internal sealed class PhoenixReadAppTransport
         TimeSpan? retryAfter = TryParseBanCooldown(providerCode, serverMessage);
         if (retryAfter is { } banCooldown)
         {
-            long until = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (long)banCooldown.TotalMilliseconds;
+            long until =
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                + (long)banCooldown.TotalMilliseconds;
             Interlocked.Exchange(ref _deviceCooldownUntilUnixMilliseconds, until);
         }
 
@@ -725,7 +764,15 @@ internal sealed class PhoenixReadAppTransport
             end++;
         }
 
-        if (end > start && int.TryParse(message.AsSpan(start, end - start), CultureInfo.InvariantCulture, out int seconds) && seconds > 0)
+        if (
+            end > start
+            && int.TryParse(
+                message.AsSpan(start, end - start),
+                CultureInfo.InvariantCulture,
+                out int seconds
+            )
+            && seconds > 0
+        )
         {
             return TimeSpan.FromSeconds(Math.Min(seconds, 30));
         }
@@ -761,9 +808,11 @@ internal sealed class PhoenixReadAppTransport
             try
             {
                 using JsonDocument doc = JsonDocument.Parse(bytes);
-                if (doc.RootElement.TryGetProperty("message", out JsonElement msgProp) ||
-                    doc.RootElement.TryGetProperty("msg", out msgProp) ||
-                    doc.RootElement.TryGetProperty("status_msg", out msgProp))
+                if (
+                    doc.RootElement.TryGetProperty("message", out JsonElement msgProp)
+                    || doc.RootElement.TryGetProperty("msg", out msgProp)
+                    || doc.RootElement.TryGetProperty("status_msg", out msgProp)
+                )
                 {
                     string? msg = msgProp.GetString();
                     if (!string.IsNullOrWhiteSpace(msg) && msg.Length <= 100)

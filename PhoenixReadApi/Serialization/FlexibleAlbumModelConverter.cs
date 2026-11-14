@@ -41,7 +41,7 @@ internal sealed class FlexibleAlbumModelConverter : JsonConverter<AppAlbumModel>
         }
 
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
-        return JsonAotSerializer.Deserialize<AppAlbumModel>(document.RootElement.GetRawText())
+        return JsonAotSerializer.Deserialize<AppAlbumModel>(document.RootElement)
             ?? new AppAlbumModel();
     }
 

@@ -15,8 +15,27 @@ internal static class DeviceIdGenerator
         ).ToString(CultureInfo.InvariantCulture);
     }
 
-    internal static bool IsValid(string? value) =>
-        value?.Length is > 0 and <= 32
-        && value.All(static c => c is >= '0' and <= '9')
-        && value.Any(static c => c is >= '1' and <= '9');
+    internal static bool IsValid(string? value)
+    {
+        if (value is null or { Length: 0 or > 32 })
+        {
+            return false;
+        }
+
+        bool hasNonZero = false;
+        foreach (char c in value)
+        {
+            if (c is < '0' or > '9')
+            {
+                return false;
+            }
+
+            if (c != '0')
+            {
+                hasNonZero = true;
+            }
+        }
+
+        return hasNonZero;
+    }
 }
