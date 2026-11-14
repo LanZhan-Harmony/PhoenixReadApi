@@ -57,7 +57,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _favorites.GetFavoritesAsync(count, offset, cancellationToken);
+    ) => _favorite.GetFavoritesAsync(count, offset, cancellationToken);
 
     /// <summary>获取当前账号收藏剧集的 ID。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -84,7 +84,7 @@ public sealed partial class PhoenixReadApiClient
         string dramaId,
         string videoId,
         CancellationToken cancellationToken = default
-    ) => _favorites.SetFavoriteAsync(dramaId, videoId, active: false, cancellationToken);
+    ) => _favorite.SetFavoriteAsync(dramaId, videoId, active: false, cancellationToken);
 
     /// <summary>获取当前客户端账号点赞的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -95,7 +95,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _likes.GetLikesAsync(count, offset, cancellationToken);
+    ) => _like.GetLikesAsync(count, offset, cancellationToken);
 
     /// <summary>获取预约中的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -106,7 +106,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _reservations.GetReservationsAsync(count, offset, calendar: false, cancellationToken);
+    ) => _reservation.GetReservationsAsync(count, offset, calendar: false, cancellationToken);
 
     /// <summary>获取预约日历数据。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -117,7 +117,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _reservations.GetReservationsAsync(count, offset, calendar: true, cancellationToken);
+    ) => _reservation.GetReservationsAsync(count, offset, calendar: true, cancellationToken);
 
     /// <summary>获取可预约的新剧列表。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -128,7 +128,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _reservations.GetUpcomingReservationsAsync(count, offset, cancellationToken);
+    ) => _reservation.GetUpcomingReservationsAsync(count, offset, cancellationToken);
 
     /// <summary>设置或取消剧集预约。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -139,7 +139,7 @@ public sealed partial class PhoenixReadApiClient
         string dramaId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _reservations.SetReservationAsync(dramaId, active, cancellationToken);
+    ) => _reservation.SetReservationAsync(dramaId, active, cancellationToken);
 
     /// <summary>取消剧集预约。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -148,7 +148,7 @@ public sealed partial class PhoenixReadApiClient
     public Task<PhoenixOperationResult> DeleteReservationAsync(
         string dramaId,
         CancellationToken cancellationToken = default
-    ) => _reservations.SetReservationAsync(dramaId, active: false, cancellationToken);
+    ) => _reservation.SetReservationAsync(dramaId, active: false, cancellationToken);
 
     /// <summary>创建剧集分集分享链接。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -160,12 +160,12 @@ public sealed partial class PhoenixReadApiClient
         string dramaId,
         string videoId,
         CancellationToken cancellationToken = default
-    ) => _discovery.CreateShareLinkAsync(dramaId, videoId, cancellationToken);
+    ) => _share.CreateShareLinkAsync(dramaId, videoId, cancellationToken);
 
     /// <summary>从分享 URL 中解析剧集和分集 ID。</summary>
     /// <param name="url">完整分享 URL。</param>
     /// <returns>解析出的分享目标；链接不含某个 ID 时对应属性为空字符串。</returns>
-    public ShareLink ResolveShareLink(string url) => DiscoveryService.ResolveShareLink(url);
+    public ShareLink ResolveShareLink(string url) => ShareService.ResolveShareLink(url);
 
     /// <summary>收藏或取消收藏一部剧。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -178,7 +178,7 @@ public sealed partial class PhoenixReadApiClient
         string videoId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _favorites.SetFavoriteAsync(dramaId, videoId, active, cancellationToken);
+    ) => _favorite.SetFavoriteAsync(dramaId, videoId, active, cancellationToken);
 
     /// <summary>关注或取消关注一个账号。</summary>
     /// <param name="userId">账号 ID。</param>
@@ -190,7 +190,7 @@ public sealed partial class PhoenixReadApiClient
         string userId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _follows.SetFollowAsync(userId, active, cancellationToken);
+    ) => _follow.SetFollowAsync(userId, active, cancellationToken);
 
     /// <summary>点赞或取消点赞一部剧的一集。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -203,5 +203,5 @@ public sealed partial class PhoenixReadApiClient
         string videoId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _likes.SetDramaEpisodeLikeAsync(dramaId, videoId, active, cancellationToken);
+    ) => _like.SetDramaEpisodeLikeAsync(dramaId, videoId, active, cancellationToken);
 }

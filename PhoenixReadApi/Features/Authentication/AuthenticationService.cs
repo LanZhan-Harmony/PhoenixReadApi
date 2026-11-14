@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Text;
 using PhoenixReadApi.Internal.Contracts.App;
-using PhoenixReadApi.Internal.Contracts.App.Auth;
-using PhoenixReadApi.Internal.Contracts.App.Users;
-using PhoenixReadApi.Internal.Contracts.Web.Auth;
+using PhoenixReadApi.Internal.Contracts.App.Authentication;
+using PhoenixReadApi.Internal.Contracts.App.User;
+using PhoenixReadApi.Internal.Contracts.Web.Authentication;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 

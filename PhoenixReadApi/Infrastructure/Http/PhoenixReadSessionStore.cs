@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text.Json;
-using PhoenixReadApi.Internal.Contracts.App.Auth;
+using PhoenixReadApi.Internal.Contracts.App.Authentication;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
 using PhoenixReadApi.Internal.Serialization;
 

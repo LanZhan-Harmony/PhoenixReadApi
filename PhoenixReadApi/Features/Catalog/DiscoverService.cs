@@ -8,6 +8,8 @@ using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
 namespace PhoenixReadApi.Internal.Features.Catalog;
 
+using Drama = global::PhoenixReadApi.Drama;
+
 /// <summary>负责 App 首页频道流式瀑布流发现能力。</summary>
 internal sealed class DiscoverService : PhoenixFeatureService
 {

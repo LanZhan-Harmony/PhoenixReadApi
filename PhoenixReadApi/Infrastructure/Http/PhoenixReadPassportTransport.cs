@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
-using PhoenixReadApi.Internal.Contracts.Web.Auth;
+using PhoenixReadApi.Internal.Contracts.Web.Authentication;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
 using PhoenixReadApi.Internal.Serialization;
 

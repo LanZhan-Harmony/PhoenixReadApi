@@ -51,16 +51,18 @@ PhoenixReadApi/
 │       ├── Shared/
 │       └── User/
 ├── Features/                # 按业务能力组织的内部服务
-│   ├── Catalog/
-│   ├── Details/
-│   ├── Search/
-│   ├── Playback/
-│   ├── Danmaku/
-│   ├── Comments/
-│   ├── Users/
 │   ├── Authentication/
+│   ├── Catalog/
+│   ├── Comment/
+│   ├── Danmaku/
+│   ├── Drama/
+│   ├── Interaction/
 │   ├── Library/
-│   └── Shared/
+│   ├── Notification/
+│   ├── Playback/
+│   ├── Search/
+│   ├── Shared/
+│   └── User/
 ├── Contracts/               # 外部协议 DTO 和请求 Payload
 │   ├── App/
 │   ├── Web/
@@ -117,7 +119,86 @@ Infrastructure 处理协议和运行时机制，不暴露给 NuGet 用户：
 
 Infrastructure 类型使用 `internal`，命名空间以 `PhoenixReadApi.Internal.Infrastructure.*` 开头。
 
-## 3. C# 编码规范
+## 3. 全局命名规范与领域术语（AI 守则）
+
+代码编写或重构时，AI **必须严格遵守以下命名规范**。仓库内禁止任何随性、混用单复数或直接抄写服务端怪异字段的行为。
+
+### 3.1 核心三大原则
+
+1. **单数优先原则 (Singular Domain)**：
+   - 所有的业务领域目录、C# 命名空间、服务类、实体模型**一律使用单数**（例如 `Authentication`, `Catalog`, `Comment`, `Danmaku`, `Drama`, `Interaction`, `Library`, `Notification`, `Playback`, `Search`, `User`, `Favorite`, `Like`, `Follow`, `Reservation`, `Share`）。
+   - **禁止**出现同项目内“部分单数、部分复数”的混乱局面（严禁 `Comments/`, `Details/`, `Interactions/`, `Notifications/`, `Users/`, `FavoritesService`, `LikesService`, `FollowsService` 等）。
+   - 只有在模型属性明确表示多个实体的集合或列表时，该属性才使用复数形式（如 `Items`, `Tags`, `Credits`）。
+
+2. **禁止任意简写与动词化原则 (No Arbitrary Abbreviations)**：
+   - 禁用无上下文或口语化的缩写：认证必须是 `Authentication`（严禁 `Auth`），短剧筛选必须是 `ShortDramaFilter`（严禁 `ShortFilter`），负反馈交互必须是 `Interaction`（严禁 `Dislike`），分享能力必须是 `Share`（严禁 `Discovery`）。
+
+3. **概念唯一原则 (Single Canonical Term)**：
+   - 全局同一领域概念必须使用唯一的标准名称，禁止在不同类、方法或字段间任意混用。
+
+### 3.2 领域词典与标准属性对照表
+
+新增或修改公共模型属性时，必须查阅下表：
+
+| 领域概念 / 语义 | 唯一标准命名 | 严禁使用的旧词 / 别名 | 说明 |
+| :--- | :--- | :--- | :--- |
+| **红果短剧唯一标识** | `DramaId` / `Id` | `SeriesId`, `BookId`, `NovelBookId`, `DramaNumber` | 在 `Drama` 实体内部简写为 `Id`；在分集、其他实体、方法参数中统一使用 `DramaId` / `dramaId` |
+| **分集视频唯一标识** | `VideoId` | `EpisodeId`, `VideoUrl`, `ItemId` | 明确区分分集视频唯一 ID 与媒体播放 URL |
+| **关联原著小说 ID** | `NovelId` | `NovelBookId`, `BookId` | 短剧绑定的番茄/红果原著小说 ID |
+| **点赞数 / 喜欢数** | `LikeCount` | `DiggCount`, `Likes` | 对外屏蔽服务端内部的 `digg` 术语，统一使用通用领域词汇 `Like` |
+| **列表/分页项集合** | `Items` | `Books`, `Dramas`, `List`, `Data` | 所有分页模型内部统一使用 `IReadOnlyList<T> Items { get; init; }` |
+| **时间偏移行程（毫秒）** | `OffsetMs` | `TimeMs`, `StartTime`, `Start` | 弹幕、分集视频内部打点偏移，明确以 `Ms` 结尾表达单位 |
+| **绝对时间戳** | `*UnixMilliseconds` / `*UnixSeconds` | `Time`, `Timestamp` | 属性名必须清晰体现毫秒/秒单位及 Unix 时区语义 |
+| **剧集评论实体** | `Comment` | `DramaComment`, `CommentItem` | 顶级评论实体叫 `Comment`；分星评分方法保持 `Review` 区分语义 |
+| **历史记录项** | `ReadHistoryItem` | `ReadHistoryEntry` | 列表项统一以 `Item` 结尾 |
+| **预约记录项** | `ReservationItem` | `Reservation` | 区分行为与项 |
+| **筛选维度与可选值** | `FilterGroup` / `FilterItem` | `FilterRow`, `FilterOption` | 筛选面板维度矩阵统一使用 Group/Item 层级 |
+| **当前登录认证用户** | `AuthenticatedUser` | `CurrentUserInfo`, `AppCurrentUserInfo` | 用户会话中的完整认证资料模型 |
+
+### 3.3 各层命名与物理组织规范
+
+```text
+分层规范速查：
+Public Models  ──> 物理按领域单数文件夹归类；命名空间保持统一根空间 PhoenixReadApi
+Features       ──> 物理目录 Features/[Domain]/；命名空间 PhoenixReadApi.Internal.Features.[Domain]
+Contracts      ──> 物理目录 Contracts/[App|Web]/[Domain]/；命名空间 PhoenixReadApi.Internal.Contracts.[App|Web].[Domain]
+```
+
+- **公共模型层 (`Public/Models/`)**：
+  - 物理路径：`Public/Models/[Domain]/[Model].cs`（例如 `Public/Models/Drama/Drama.cs`, `Public/Models/Comment/Comment.cs`）。
+  - **重要命名空间约束**：`Public/Models/*` 物理上按文件夹分类，但其 C# 代码中的 `namespace` **必须保持为根命名空间 `PhoenixReadApi`**！不要将命名空间改成 `PhoenixReadApi.Public.Models.*`，否则会破坏包用户的根空间易用性。
+  - 分页模型必须以 `Page` 结尾（如 `CommentPage`, `DramaPage`, `TagDramaPage`）。
+  - 集合项模型统一以 `Item` 结尾（如 `ReadHistoryItem`, `ReservationItem`）。
+
+- **业务特性层 (`Features/`)**：
+  - 服务类名：统一为 `[Domain]Service`（如 `DramaService`, `InteractionService`, `FavoriteService`, `ShareService`, `ShortDramaFilterService`）。禁止使用 `Manager`, `Helper`, `Processor` 等空洞名称。
+  - 门面分部文件：`PhoenixReadApiClient.[Domain].cs`（单数 PascalCase，如 `PhoenixReadApiClient.Drama.cs`）。
+  - 门面私有字段：单数 camelCase（如 `_drama`, `_comment`, `_user`, `_shortDramaFilter`, `_favorite`, `_share`）。
+
+- **外部协议层 (`Contracts/`)**：
+  - 协议 DTO 区分数据源前缀：App 接口使用 `App` 前缀（如 `AppDetailsData`），网页接口使用 `Web` 前缀（如 `WebDetailsPage`）。
+  - 请求对象后缀：必须使用 `Payload` 结尾（如 `AppDetailPayload`, `AppDislikePayload`）。
+  - 响应对象后缀：必须使用 `Data`、`Response` 或明确页面名结尾（如 `AppDetailsData`, `AppPlanResponse`）。**严禁**使用含糊的 `Result` 作为 DTO 名。
+
+### 3.4 C# 命名空间遮蔽（Shadowing）与作用域解决方案
+
+当内部子命名空间与公共模型同名（例如命名空间包含 `PhoenixReadApi.Internal.Features.Drama`，而公共模型包含根空间类 `PhoenixReadApi.Drama`）时，C# 编译器会根据作用域规则将未限定的 `Drama` 绑定为命名空间，产生 `error CS0118: “Drama”是 命名空间，但此处被当做 类型 来使用`。
+
+AI 遇到此问题时**必须采取标准解法**，严禁擅自修改公共类型名称：
+
+1. **标准规范解法**：在受影响的 `Internal.Features.*` 文件中，在文件范围命名空间声明**之后**添加显式别名：
+   ```csharp
+   namespace PhoenixReadApi.Internal.Features.Catalog;
+
+   using Drama = global::PhoenixReadApi.Drama;
+   using User = global::PhoenixReadApi.User;
+   using Comment = global::PhoenixReadApi.Comment;
+   ```
+2. **禁止的做法**：
+   - **禁止**把 `using Drama = ...;` 写在 `namespace` 声明之前（文件作用域命名空间外部的 using 别名优先级低于祖先命名空间成员，无法解决遮蔽）；
+   - **禁止**为了消除内部编译报错而将公共类 `Drama` 改名为 `DramaModel` 或 `UserData`，这属于破坏 NuGet 公共契约的错误行为。
+
+## 4. C# 编码规范
 
 - 目标框架保持 `net10.0`，开启 nullable reference types 和 NativeAOT 兼容性。
 - 遵守根目录 `.editorconfig`：4 空格缩进、CRLF、文件范围命名空间、Allman 大括号、显式可访问性修饰符。
@@ -132,9 +213,9 @@ Infrastructure 类型使用 `internal`，命名空间以 `PhoenixReadApi.Interna
 - 不在库代码中使用 `Console.WriteLine` 输出诊断；诊断通过异常元数据或调用方注入的 `HttpClient`/处理器完成。
 - 不提交 `bin/`、`obj/`、临时会话文件、Cookie、Token、手机号、真实账号信息或抓取到的敏感响应。
 
-## 4. 公共 API 设计
+## 5. 公共 API 设计
 
-### 4.1 公共模型与协议 DTO 分离
+### 5.1 公共模型与协议 DTO 分离
 
 `Public/Models` 是给用户使用的稳定领域模型，不是服务端 JSON 的镜像。服务端字段名、兼容字段和请求协议不得直接泄露到公共模型。
 
@@ -156,7 +237,7 @@ Infrastructure 类型使用 `internal`，命名空间以 `PhoenixReadApi.Interna
 
 公共 API 一旦发布就视为兼容承诺。删除、重命名、改变类型或改变默认值属于破坏性变更，应在主版本升级中进行；尚未发布时可以一次性清理，不要用长期空壳类型掩盖错误设计。
 
-### 4.2 参数和默认值
+### 5.2 参数和默认值
 
 - 数量、偏移量、游标、ID、评分和文本都在公共入口处或 Feature 边界处校验。
 - 默认值应代表安全、常用且稳定的行为；服务端内部限制不能无说明地暴露为魔法数字。
@@ -165,24 +246,24 @@ Infrastructure 类型使用 `internal`，命名空间以 `PhoenixReadApi.Interna
 - 对复杂分页请求优先使用请求模型，例如 `RecommendationQuery`、`CategoryQuery`，避免继续增加长参数列表。
 - 语义别名只在确实改善可发现性或兼容旧 API 时保留；新 API 不要继续增加重复别名。
 
-## 5. Contracts、DTO 和 Payload 规范
+## 6. Contracts、DTO 和 Payload 规范
 
-### 5.1 目录和命名
+### 6.1 目录和命名
 
 - 所有协议类型使用 `internal sealed`，除非源代码生成或框架要求其他形式。
 - 新文件通常一个主要类型一个文件；相关的极小嵌套 DTO 可以放在同一文件，但不得重新建立 `Models.cs`、`Payloads.cs` 这种无边界大文件。
 - 物理目录与命名空间保持一致，例如：
 
   ```text
-  Contracts/App/Details/AppDetailsData.cs
-  PhoenixReadApi.Internal.Contracts.App.Details
+  Contracts/App/Drama/AppDetailsData.cs
+  PhoenixReadApi.Internal.Contracts.App.Drama
   ```
 
 - App DTO 只能描述 App 接口；Web DTO 只能描述网页接口；共享字段才放在 `Contracts/Shared`。
 - 评论动作和回复 DTO 放在 `Contracts/App/Comment` 下；Library DTO 不得混入评论协议。
 - 请求对象使用 `Payload` 后缀，响应对象使用 `Data`、`Response` 或明确的页面名称；不要使用含糊的 `Result` 作为协议 DTO 名称。
 
-### 5.2 字段映射
+### 6.2 字段映射
 
 - 服务端字段使用 `[JsonPropertyName]` 明确映射，不依赖命名策略猜测关键字段。
 - 类型不稳定的字符串、整数、列表或对象通过局部 `JsonConverter` 兼容，不在 Feature 服务中手动读取字段。
@@ -190,7 +271,7 @@ Infrastructure 类型使用 `internal`，命名空间以 `PhoenixReadApi.Interna
 - 不把公开模型直接登记为后端响应 DTO；公开模型由 Mapper 构造。
 - 不把 `JsonElement` 当作业务层的通用逃生舱。只有在协议本身确实是动态结构时，才允许在 Converter 或边界适配器内部使用。
 
-## 6. JSON、AOT 和序列化边界
+## 7. JSON、AOT 和序列化边界
 
 项目必须保持 NativeAOT 和裁剪兼容：
 
@@ -215,22 +296,22 @@ HTTP bytes
   → Public Model
 ```
 
-## 7. HTTP、超时和重试
+## 8. HTTP、超时和重试
 
-### 7.1 HttpClient 生命周期
+### 8.1 HttpClient 生命周期
 
 - 默认构造函数创建并拥有 `HttpClient`；注入的 `HttpClient` 始终由调用方管理。
 - 不在 Feature 服务中创建新的 `HttpClient`。
 - 不在库中偷偷修改调用方 `HttpClient` 的全局默认配置。
 - 所有请求都经过统一的 HTTP transport，以便统一处理响应大小、超时、请求 URI 和异常元数据。
 
-### 7.2 超时
+### 8.2 超时
 
 - `RequestTimeout` 应表达整个请求的截止时间，包括响应头和响应体读取；后续修改不得让两个阶段各自重新获得完整超时时间。
 - 响应体必须有最大字节数限制；超限抛出 `PhoenixReadApiResponseException`。
 - 调用方取消应原样传播，不要把主动取消包装成超时。
 
-### 7.3 重试
+### 8.3 重试
 
 使用 `AppRequestRetryMode` 明确表达请求语义：
 
@@ -242,7 +323,7 @@ HTTP bytes
 
 重试异常必须保留最后一个有意义的内部异常，并设置 `IsTransient`。不要对参数错误、JSON 结构错误或业务校验失败进行重试。
 
-## 8. 认证、会话和敏感数据
+## 9. 认证、会话和敏感数据
 
 - `AuthenticationStateFilePath` 与 `AnonymousStateFilePath` 不能同时设置；配置冲突应立即抛出异常。
 - 默认设备 ID、安装 ID 和会话标识必须随机生成；只有调用方显式传入或从同一会话快照恢复时才复用。
@@ -254,7 +335,7 @@ HTTP bytes
 - 恢复用户资料时，`AuthenticationState.User` 必须与持久化会话状态一致；没有用户资料时不要声称已恢复完整登录身份。
 - 认证 transport、普通 App transport 和会话存储应保持可拆分，避免继续把所有职责集中在一个类中。
 
-## 9. 异常模型
+## 10. 异常模型
 
 公开异常统一继承 `PhoenixReadApiException`，并保留可供调用方处理的元数据：
 
@@ -276,7 +357,7 @@ PhoenixReadApiException
 - 兜底失败如果有多个来源，应保留来源和异常关系；不要只保留最后一个失败文本。
 - 参数错误使用 .NET 标准参数异常，不包装为 API 远程异常。
 
-## 10. 映射、校验和数据质量
+## 11. 映射、校验和数据质量
 
 - Mapper 负责 DTO → 公开模型，不负责发请求。
 - Mapper 必须对 ID、集数、分集归属、媒体 URL、分页游标和重复项进行校验或归一化。
@@ -285,7 +366,7 @@ PhoenixReadApiException
 - 清晰度解析只接受明确的清晰度标识，例如 `360p`、`720p`、`1080p`、`2160p`；不能把媒体 URL 或视频 ID 中的任意数字当作清晰度。
 - 时间戳、游标、ID 和 URL 必须限制长度，并拒绝控制字符、换行和明显不合法的值。
 
-## 11. 测试和示例
+## 12. 测试和示例
 
 测试应优先验证稳定的协议和业务行为，而不是依赖实时站点的偶然结果：
 
@@ -298,7 +379,7 @@ PhoenixReadApiException
 
 不要为了提高覆盖率测试内部实现细节；优先测试公共方法的输入、输出、异常和副作用。
 
-## 12. 文档、版本和打包
+## 13. 文档、版本和打包
 
 任何公共 API 变化都要同步检查：
 
@@ -325,7 +406,7 @@ NuGet 包必须继续满足：
 - 删除、重命名、改类型或改变破坏性默认行为：主版本；
 - 尚未正式发布的 API 可以直接清理，但要一次性同步所有引用和文档。
 
-## 13. 变更流程
+## 14. 变更流程
 
 开始修改前：
 
@@ -348,8 +429,12 @@ NuGet 包必须继续满足：
 3. 检查异常、重试和取消行为；
 4. 按用户要求进行构建、测试或 NativeAOT 验证，并在交付说明中明确实际执行过的验证。
 
-## 14. 明确禁止的做法
+## 15. 明确禁止的做法
 
+- 物理目录、命名空间、类名混用单复数（如出现 `Comments/`, `Interactions/`, `Users/`, `FavoritesService` 等）；
+- 在公共模型或公共方法中直接出现服务端方言字段（如 `SeriesId`, `BookId`, `DiggCount`, `EpisodeId`）；
+- 为了绕过 C# 命名空间遮蔽而擅自修改公共模型类名（如把 `Drama` 改名为 `DramaModel`，把 `User` 改名为 `UserData`）；
+- 将 `using Drama = global::PhoenixReadApi.Drama;` 别名错误地放置在 `namespace ...;` 之前；
 - 新建集中所有模型的 `Models.cs`、所有请求的 `Payloads.cs` 或不受控的 `Helpers.cs`；
 - 在 Feature 服务里用 `JsonElement` 逐字段解析正常 DTO 响应；
 - 用路径字符串判断请求策略、签名方式或是否安全重试；

@@ -5,6 +5,8 @@ using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
 namespace PhoenixReadApi.Internal.Features.Catalog;
 
+using Drama = global::PhoenixReadApi.Drama;
+
 /// <summary>负责按指定日期查询短剧上新日历服务。</summary>
 internal sealed class DailyReleaseService : PhoenixFeatureService
 {

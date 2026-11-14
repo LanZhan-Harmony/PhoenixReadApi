@@ -15,6 +15,9 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Search;
 
+using Drama = global::PhoenixReadApi.Drama;
+using User = global::PhoenixReadApi.User;
+
 /// <summary>负责搜索、联想、季数补齐和推荐分页。</summary>
 internal sealed partial class SearchService : PhoenixFeatureService
 {
