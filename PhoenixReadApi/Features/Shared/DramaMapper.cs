@@ -467,27 +467,35 @@ internal static class DramaMapper
         HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (DramaTagDto item in data.Tags ?? [])
         {
-            if (!string.IsNullOrWhiteSpace(item.Name) && seen.Add(item.Name.Trim()))
+            if (!string.IsNullOrWhiteSpace(item.Name))
             {
-                tags.Add(item.Name.Trim());
+                string tag = item.Name.Trim();
+                if (seen.Add(tag))
+                {
+                    tags.Add(tag);
+                }
             }
         }
         foreach (DramaCategoryDto item in data.CategoryList ?? [])
         {
-            if (
-                item is not null
-                && !string.IsNullOrWhiteSpace(item.Name)
-                && seen.Add(item.Name.Trim())
-            )
+            if (item is not null && !string.IsNullOrWhiteSpace(item.Name))
             {
-                tags.Add(item.Name.Trim());
+                string tag = item.Name.Trim();
+                if (seen.Add(tag))
+                {
+                    tags.Add(tag);
+                }
             }
         }
         foreach (string item in data.CategorySchema ?? [])
         {
-            if (!string.IsNullOrWhiteSpace(item) && seen.Add(item.Trim()))
+            if (!string.IsNullOrWhiteSpace(item))
             {
-                tags.Add(item.Trim());
+                string tag = item.Trim();
+                if (seen.Add(tag))
+                {
+                    tags.Add(tag);
+                }
             }
         }
         return tags;

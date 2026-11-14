@@ -26,13 +26,17 @@ internal static class UrlNormalizer
 
     internal static bool IsHttpUrl(string? value) =>
         Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
-        && uri is { IsAbsoluteUri: true, UserInfo: "" }
-        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-        && !string.IsNullOrWhiteSpace(uri.Host)
+        && IsHttpUri(uri)
         && value.Length <= 8192;
 
+    internal static bool IsHttpUri(Uri? uri) =>
+        uri is { IsAbsoluteUri: true, UserInfo: "" }
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+        && !string.IsNullOrWhiteSpace(uri.Host);
+
     internal static bool IsMediaUrl(Uri uri) =>
-        IsHttpUrl(uri.ToString())
+        IsHttpUri(uri)
+        && uri.AbsoluteUri.Length <= 8192
         && (
             uri.AbsolutePath.Contains(".m3u8", StringComparison.OrdinalIgnoreCase)
             || uri.AbsolutePath.Contains(".mp4", StringComparison.OrdinalIgnoreCase)

@@ -1,3 +1,4 @@
+using System.Net;
 using PhoenixReadApi.Internal.Features.Authentication;
 using PhoenixReadApi.Internal.Features.Catalog;
 using PhoenixReadApi.Internal.Features.Comment;
@@ -57,7 +58,18 @@ public sealed partial class PhoenixReadApiClient : IDisposable
     /// 应改用 <see cref="PhoenixReadApiClient(HttpClient, PhoenixReadApiOptions?)"/>。
     /// </remarks>
     public PhoenixReadApiClient(PhoenixReadApiOptions? options = null)
-        : this(new HttpClient(), options, ownsHttpClient: true) { }
+        : this(CreateDefaultHttpClient(), options, ownsHttpClient: true) { }
+
+    private static HttpClient CreateDefaultHttpClient() =>
+        new(
+            new SocketsHttpHandler
+            {
+                AutomaticDecompression = DecompressionMethods.All,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+                EnableMultipleHttp2Connections = true,
+            }
+        );
 
     /// <summary>使用由调用方管理的 <see cref="HttpClient"/> 创建 API 客户端。</summary>
     /// <param name="httpClient">
@@ -73,8 +85,7 @@ public sealed partial class PhoenixReadApiClient : IDisposable
             httpClient ?? throw new ArgumentNullException(nameof(httpClient)),
             options,
             ownsHttpClient: false
-        )
-    { }
+        ) { }
 
     private PhoenixReadApiClient(
         HttpClient httpClient,

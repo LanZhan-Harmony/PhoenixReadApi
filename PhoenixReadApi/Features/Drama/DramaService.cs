@@ -155,13 +155,17 @@ internal sealed partial class DramaService : PhoenixFeatureService
 
         episodes.Sort(static (left, right) => left.Number.CompareTo(right.Number));
         int total = detail.EpisodeCount;
-        if (
-            episodes.Count == 0
-            || total > episodes.Count
-            || episodes.Where((episode, index) => episode.Number != index + 1).Any()
-        )
+        if (episodes.Count == 0 || total > episodes.Count)
         {
             throw new PhoenixReadApiResponseException("App 未返回完整且连续的分集。", "detail");
+        }
+
+        for (int i = 0; i < episodes.Count; i++)
+        {
+            if (episodes[i].Number != i + 1)
+            {
+                throw new PhoenixReadApiResponseException("App 未返回完整且连续的分集。", "detail");
+            }
         }
 
         return new DramaDetails
@@ -301,9 +305,11 @@ internal sealed partial class DramaService : PhoenixFeatureService
 
         Dictionary<string, DramaDetails> found = [with(StringComparer.Ordinal)];
         const int batchSize = 10;
+        List<Task<AppResponse<Dictionary<string, AppPlayerSeriesEntry>>>> tasks = [];
         for (int i = 0; i < ids.Count; i += batchSize)
         {
-            List<string> chunk = [.. ids.Skip(i).Take(batchSize)];
+            int count = Math.Min(batchSize, ids.Count - i);
+            List<string> chunk = ids.GetRange(i, count);
             AppPlayerBatchDetailPayload payload = new()
             {
                 SeriesId = string.Join(",", chunk),
@@ -311,15 +317,26 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 BizParam = new AppPlayerBatchBizParam { Source = 7 },
             };
 
-            AppResponse<Dictionary<string, AppPlayerSeriesEntry>> response = await _appTransport
-                .PostAsync<AppPlayerBatchDetailPayload, Dictionary<string, AppPlayerSeriesEntry>>(
+            tasks.Add(
+                _appTransport.PostAsync<
+                    AppPlayerBatchDetailPayload,
+                    Dictionary<string, AppPlayerSeriesEntry>
+                >(
                     "/novel/player/multi_video_detail/player/v1",
                     payload,
                     commentRequest: false,
                     cancellationToken
                 )
-                .ConfigureAwait(false);
+            );
+        }
 
+        AppResponse<Dictionary<string, AppPlayerSeriesEntry>>[] responses = await Task.WhenAll(
+                tasks
+            )
+            .ConfigureAwait(false);
+
+        foreach (AppResponse<Dictionary<string, AppPlayerSeriesEntry>> response in responses)
+        {
             Dictionary<string, AppPlayerSeriesEntry> entries = response.Data ?? [];
             foreach ((string sid, AppPlayerSeriesEntry entry) in entries)
             {

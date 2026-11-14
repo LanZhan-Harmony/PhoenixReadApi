@@ -99,6 +99,7 @@ public sealed class DetailsAndPlaybackTests
         {
             await SharedScenario.AssertValidPlaybackMedia(media);
         }
+        await Assert.That(medias[0].Height).IsGreaterThanOrEqualTo(1080);
     }
 
     [Test, NotInParallel("phoenix-read-api")]

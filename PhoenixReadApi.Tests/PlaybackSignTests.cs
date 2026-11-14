@@ -121,4 +121,34 @@ public sealed class PlaybackSignTests
         await Assert.That(argus.StartsWith("8o")).IsTrue();
         await Assert.That(argus.Length > 64).IsTrue();
     }
+
+    [Test]
+    public async Task TestPlayerSimonRoundKeysEquivalence()
+    {
+        byte[] derived = PhoenixReadRequestSigner.Sm3([
+            .. Convert.FromHexString("ac1adaae95a7af94a5114ab3b3a97dd80050aa0a39314c40528caec95256c28c"),
+            0x3C, 0xCC, 0x56, 0x7B,
+            .. Convert.FromHexString("ac1adaae95a7af94a5114ab3b3a97dd80050aa0a39314c40528caec95256c28c")
+        ]);
+
+        ulong[] rounds = new ulong[72];
+        for (int i = 0; i < 4; i++)
+        {
+            rounds[i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(derived.AsSpan(i * 8, 8));
+        }
+        for (int k = 4; k < 72; k++)
+        {
+            ulong mixed = System.Numerics.BitOperations.RotateRight(rounds[k - 1], 3) ^ rounds[k - 3];
+            mixed ^= System.Numerics.BitOperations.RotateRight(mixed, 1);
+            rounds[k] = ~rounds[k - 4] ^ mixed ^ (0x3dc94c3a046d678bUL >>> ((k - 4) % 62)) & 1 ^ 3;
+        }
+
+        // Test SignPlayer
+        using HttpRequestMessage req = new(HttpMethod.Get, "https://api.example.com/novel/drama/detail/v1/?aid=8662&device_id=123");
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        PhoenixReadRequestSigner.SignPlayer(req, [], "123", now);
+        await Assert.That(req.Headers.Contains("X-Argus")).IsTrue();
+        await Assert.That(req.Headers.Contains("X-Ladon")).IsTrue();
+        await Assert.That(req.Headers.Contains("X-Gorgon")).IsTrue();
+    }
 }

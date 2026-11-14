@@ -36,15 +36,12 @@ internal static class ContentKeyDecoder
             throw new PhoenixReadApiResponseException("媒体密钥结构无效。", "media");
         }
         byte b = (byte)(array[array.Length - num - 2] ^ array[array.Length - num - 1]);
-        byte[] array2 = new byte[num];
+        Span<byte> tagSpan = num <= 256 ? stackalloc byte[num] : new byte[num];
         for (int i = 0; i < num; i++)
         {
-            array2[i] = (byte)(array[array.Length - num + i] ^ b);
+            tagSpan[i] = (byte)(array[array.Length - num + i] ^ b);
         }
-        string text = Encoding.UTF8.GetString(array2);
-        bool isV2 =
-            text.StartsWith("app_v2", StringComparison.Ordinal)
-            || text.StartsWith("web_v2", StringComparison.Ordinal);
+        bool isV2 = tagSpan.StartsWith("app_v2"u8) || tagSpan.StartsWith("web_v2"u8);
 
         byte[] array3 = new byte[num2];
         Array.Copy(array, 1, array3, 0, num2);

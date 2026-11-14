@@ -219,7 +219,21 @@ foreach (DailyReleaseItem item in dailyPage.Items)
     Console.WriteLine($"日历作品: 《{item.Drama.Title}》 - {item.Note} (上线: {item.IsOnline})");
 }
 
+// 新剧推荐专区（对应应用内今日上新/新剧专区，支持总榜/女频/男频受众筛选与流式遍历）
+NewDramaRecommendationPage newDramas = await client.GetNewDramaRecommendationsAsync(
+    channel: ShortDramaLeaderboardChannel.All,
+    offset: 0,
+    limit: 18,
+    cancellationToken: cts.Token
+);
+foreach (Drama drama in newDramas.Items)
+{
+    Console.WriteLine($"新剧推荐: 《{drama.Title}》, 集数: {drama.EpisodeCount}, 评分: {drama.Score}");
+}
+
 // 短剧排行榜（支持热播榜、推荐榜、新剧榜、热搜榜，支持按总榜/女频/男频频道细分）
+// 注：热播榜、新剧榜、热搜榜为固定指标排序，支持常规 offset 偏移；
+// 推荐榜（Recommend）为个性化推荐流，SDK 内部会自动维持会话并自动注入历史已看排重（也可直接调用 EnumerateShortDramaLeaderboardAsync）。
 ShortDramaLeaderboardPage rankBoard = await client.GetShortDramaLeaderboardAsync(
     type: ShortDramaLeaderboardType.HotPlay,
     channel: ShortDramaLeaderboardChannel.Female,

@@ -1,13 +1,27 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 
 namespace PhoenixReadApi.Internal.Serialization;
 
 /// <summary>规范化已反序列化的标量值、ID 和清晰度。</summary>
-internal static partial class ValueNormalizer
+internal static class ValueNormalizer
 {
-    internal static bool IsNumericId(string? value) =>
-        value is not null && NumericIdRegex().IsMatch(value);
+    internal static bool IsNumericId(string? value)
+    {
+        if (value is null or { Length: 0 or > 32 })
+        {
+            return false;
+        }
+
+        foreach (char c in value)
+        {
+            if (!char.IsAsciiDigit(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     internal static string First(params ReadOnlySpan<string?> values)
     {
@@ -22,15 +36,51 @@ internal static partial class ValueNormalizer
         return string.Empty;
     }
 
-    internal static int Quality(string name) =>
-        int.TryParse(
-            QualityNumberRegex().Match(name).Value,
-            NumberStyles.Integer,
-            CultureInfo.InvariantCulture,
-            out int value
-        )
-            ? value
-            : 0;
+    internal static int Quality(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return 0;
+        }
+
+        ReadOnlySpan<char> span = name.AsSpan();
+        int start = -1;
+        for (int i = 0; i < span.Length; i++)
+        {
+            if (char.IsAsciiDigit(span[i]))
+            {
+                if (start < 0)
+                {
+                    start = i;
+                }
+            }
+            else if (start >= 0)
+            {
+                return int.TryParse(
+                    span[start..i],
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out int val
+                )
+                    ? val
+                    : 0;
+            }
+        }
+
+        if (start >= 0)
+        {
+            return int.TryParse(
+                span[start..],
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out int val
+            )
+                ? val
+                : 0;
+        }
+
+        return 0;
+    }
 
     internal static MediaDefinition ParseDefinition(int height, string? rawDefinition)
     {
@@ -59,14 +109,35 @@ internal static partial class ValueNormalizer
             return MediaCodec.Unknown;
         }
 
-        string lower = rawCodec.Trim().ToLowerInvariant();
-        return lower switch
+        ReadOnlySpan<char> span = rawCodec.AsSpan().Trim();
+        if (
+            span.Equals("h264", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("avc1", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("avc", StringComparison.OrdinalIgnoreCase)
+        )
         {
-            "h264" or "avc1" or "avc" => MediaCodec.H264,
-            "bytevc1" or "h265" or "hevc" => MediaCodec.ByteVC1,
-            "bytevc2" or "h266" or "vvc" => MediaCodec.ByteVC2,
-            _ => MediaCodec.Unknown,
-        };
+            return MediaCodec.H264;
+        }
+
+        if (
+            span.Equals("bytevc1", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("h265", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("hevc", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            return MediaCodec.ByteVC1;
+        }
+
+        if (
+            span.Equals("bytevc2", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("h266", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("vvc", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            return MediaCodec.ByteVC2;
+        }
+
+        return MediaCodec.Unknown;
     }
 
     internal static string FormatCount(long count)
@@ -88,10 +159,4 @@ internal static partial class ValueNormalizer
 
         return count.ToString(CultureInfo.InvariantCulture);
     }
-
-    [GeneratedRegex("^[0-9]{1,32}$")]
-    private static partial Regex NumericIdRegex();
-
-    [GeneratedRegex("[0-9]+")]
-    private static partial Regex QualityNumberRegex();
 }

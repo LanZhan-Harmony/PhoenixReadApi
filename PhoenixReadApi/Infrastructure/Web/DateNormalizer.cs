@@ -11,24 +11,23 @@ internal static partial class DateNormalizer
         Match match = DateRegex().Match(value);
         if (
             !match.Success
-            || !int.TryParse(match.Groups[1].Value, out int year)
-            || !int.TryParse(match.Groups[2].Value, out int month)
-            || !int.TryParse(match.Groups[3].Value, out int day)
+            || !int.TryParse(match.Groups[1].ValueSpan, CultureInfo.InvariantCulture, out int year)
+            || !int.TryParse(match.Groups[2].ValueSpan, CultureInfo.InvariantCulture, out int month)
+            || !int.TryParse(match.Groups[3].ValueSpan, CultureInfo.InvariantCulture, out int day)
             || year is < 2000 or > 2100
+            || month is < 1 or > 12
+            || day < 1
+            || day > DateTime.DaysInMonth(year, month)
         )
         {
             return string.Empty;
         }
 
-        return DateTime.TryParseExact(
-            $"{year:0000}-{month:00}-{day:00}",
-            "yyyy-MM-dd",
+        return string.Create(
             CultureInfo.InvariantCulture,
-            DateTimeStyles.None,
-            out DateTime date
-        )
-            ? date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-            : string.Empty;
+            stackalloc char[10],
+            $"{year:0000}-{month:00}-{day:00}"
+        );
     }
 
     [GeneratedRegex(@"(\d{4})[年\-/](\d{1,2})[月\-/](\d{1,2})")]
