@@ -4,7 +4,7 @@ namespace PhoenixReadApi;
 public sealed class DramaSeason
 {
     /// <summary>该季对应的短剧 ID，可传给 GetDramaDetailsAsync。</summary>
-    public string SeriesId { get; init; } = string.Empty;
+    public string DramaId { get; init; } = string.Empty;
 
     /// <summary>该季短剧标题（例如“xxx 第一季”）。</summary>
     public string Title { get; init; } = string.Empty;

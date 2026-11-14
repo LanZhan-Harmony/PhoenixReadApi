@@ -24,7 +24,7 @@ public sealed class CommentsAndDanmakuTests
         );
 
         await Assert.That(danmaku).IsNotNull();
-        await Assert.That(danmaku.EpisodeId).IsEqualTo(scenario.Episode.VideoId);
+        await Assert.That(danmaku.VideoId).IsEqualTo(scenario.Episode.VideoId);
         await Assert.That(danmaku.StartMs).IsEqualTo(0L);
         await Assert.That(danmaku.NextMs >= danmaku.StartMs).IsTrue();
         await Assert.That(danmaku.Total >= 0).IsTrue();
@@ -36,7 +36,7 @@ public sealed class CommentsAndDanmakuTests
             await Assert.That(string.IsNullOrWhiteSpace(item.Id)).IsFalse();
             await Assert.That(item.Text).IsNotNull();
             await Assert
-                .That(item.TimeMs >= danmaku.StartMs && item.TimeMs <= danmaku.NextMs)
+                .That(item.OffsetMs >= danmaku.StartMs && item.OffsetMs <= danmaku.NextMs)
                 .IsTrue();
         }
     }
@@ -61,9 +61,9 @@ public sealed class CommentsAndDanmakuTests
         await Assert.That(reviews.Total >= reviews.Items.Count).IsTrue();
         await Assert.That(reviews.Cursor).IsNotNull();
 
-        foreach (DramaComment comment in reviews.Items)
+        foreach (Comment comment in reviews.Items)
         {
-            await SharedScenario.AssertValidDramaComment(comment);
+            await SharedScenario.AssertValidComment(comment);
         }
 
         if (reviews is { HasMore: true, Cursor.Length: > 0 })
@@ -99,9 +99,9 @@ public sealed class CommentsAndDanmakuTests
         await Assert.That(reviews.Items).IsNotNull();
         await Assert.That(reviews.Cursor).IsNotNull();
 
-        foreach (DramaComment comment in reviews.Items)
+        foreach (Comment comment in reviews.Items)
         {
-            await SharedScenario.AssertValidDramaComment(comment);
+            await SharedScenario.AssertValidComment(comment);
         }
     }
 
@@ -126,9 +126,9 @@ public sealed class CommentsAndDanmakuTests
         await Assert.That(comments.Total >= comments.Items.Count).IsTrue();
         await Assert.That(comments.Cursor).IsNotNull();
 
-        foreach (DramaComment comment in comments.Items)
+        foreach (Comment comment in comments.Items)
         {
-            await SharedScenario.AssertValidDramaComment(comment);
+            await SharedScenario.AssertValidComment(comment);
         }
 
         if (comments is { HasMore: true, Cursor.Length: > 0 })
@@ -166,9 +166,9 @@ public sealed class CommentsAndDanmakuTests
         await Assert.That(comments.Items).IsNotNull();
         await Assert.That(comments.Cursor).IsNotNull();
 
-        foreach (DramaComment comment in comments.Items)
+        foreach (Comment comment in comments.Items)
         {
-            await SharedScenario.AssertValidDramaComment(comment);
+            await SharedScenario.AssertValidComment(comment);
         }
     }
 
@@ -186,7 +186,7 @@ public sealed class CommentsAndDanmakuTests
             cancellationToken: timeout.Token
         );
 
-        DramaComment? targetComment = comments.Items.FirstOrDefault(c => c.ReplyCount > 0);
+        Comment? targetComment = comments.Items.FirstOrDefault(c => c.ReplyCount > 0);
         string groupId = scenario.Episode.VideoId;
 
         if (targetComment is null)
@@ -444,7 +444,7 @@ public sealed class CommentsAndDanmakuTests
         }
 
         // 2. 验证指定带图评论 7693917255795131198 能够成功解析附图
-        DramaComment? targetComment = latestPage.Items.FirstOrDefault(c => c.Id == "7693917255795131198");
+        Comment? targetComment = latestPage.Items.FirstOrDefault(c => c.Id == "7693917255795131198");
         if (targetComment is null)
         {
             // 如果在最新一页未包含，则从最热（count: 90）获取

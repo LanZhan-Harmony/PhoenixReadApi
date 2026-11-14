@@ -31,5 +31,5 @@ public sealed class Episode
     public long CommentCount { get; init; }
 
     /// <summary>分集点赞数。</summary>
-    public long DiggCount { get; init; }
+    public long LikeCount { get; init; }
 }

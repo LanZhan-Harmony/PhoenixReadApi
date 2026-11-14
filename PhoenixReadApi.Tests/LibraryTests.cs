@@ -23,7 +23,7 @@ public sealed class LibraryTests
         await Assert.That(history.NextOffset >= 0).IsTrue();
         await Assert.That(history.Total >= 0).IsTrue();
 
-        foreach (ReadHistoryEntry entry in history.Items)
+        foreach (ReadHistoryItem entry in history.Items)
         {
             await SharedScenario.AssertValidReadHistoryEntry(entry);
         }
@@ -93,7 +93,7 @@ public sealed class LibraryTests
             .That(async () =>
             {
                 await SharedScenario.Client.ReportProgressAsync(
-                    new ProgressUpdate { SeriesId = "", VideoId = "" }
+                    new ProgressUpdate { DramaId = "", VideoId = "" }
                 );
             })
             .Throws<ArgumentException>();
@@ -280,7 +280,7 @@ public sealed class LibraryTests
         PhoenixOperationResult reportResult = await authClient.ReportProgressAsync(
             new ProgressUpdate
             {
-                SeriesId = scenario.SeriesId,
+                DramaId = scenario.SeriesId,
                 VideoId = scenario.Episode.VideoId,
                 EpisodeNumber = scenario.Episode.Number,
                 CurrentPositionMs = 5000,

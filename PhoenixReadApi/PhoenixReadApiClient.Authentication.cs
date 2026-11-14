@@ -40,7 +40,7 @@ public sealed partial class PhoenixReadApiClient
     /// <summary>查询当前登录用户在红果服务端的最新资料。</summary>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>用户基础信息及 VIP 状态。</returns>
-    public Task<CurrentUserInfo> GetCurrentUserInfoAsync(
+    public Task<AuthenticatedUser> GetCurrentUserInfoAsync(
         CancellationToken cancellationToken = default
     ) => _authentication.GetCurrentUserInfoAsync(cancellationToken);
 

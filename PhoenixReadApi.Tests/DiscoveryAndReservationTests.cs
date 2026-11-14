@@ -23,7 +23,7 @@ public sealed class DiscoveryAndReservationTests
         await Assert.That(upcoming.NextOffset >= 0).IsTrue();
         await Assert.That(upcoming.Total >= 0).IsTrue();
 
-        foreach (Reservation res in upcoming.Items)
+        foreach (ReservationItem res in upcoming.Items)
         {
             await SharedScenario.AssertValidReservation(res);
         }
@@ -45,7 +45,7 @@ public sealed class DiscoveryAndReservationTests
         await Assert.That(reservations.NextOffset >= 0).IsTrue();
         await Assert.That(reservations.Total >= 0).IsTrue();
 
-        foreach (Reservation res in reservations.Items)
+        foreach (ReservationItem res in reservations.Items)
         {
             await SharedScenario.AssertValidReservation(res);
         }
@@ -67,7 +67,7 @@ public sealed class DiscoveryAndReservationTests
         await Assert.That(calendar.NextOffset >= 0).IsTrue();
         await Assert.That(calendar.Total >= 0).IsTrue();
 
-        foreach (Reservation res in calendar.Items)
+        foreach (ReservationItem res in calendar.Items)
         {
             await SharedScenario.AssertValidReservation(res);
         }

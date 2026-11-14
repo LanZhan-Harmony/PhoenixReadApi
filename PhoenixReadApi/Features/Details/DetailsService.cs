@@ -268,7 +268,7 @@ internal sealed partial class DetailsService : PhoenixFeatureService
             IsVertical = dto.Vertical,
             IsNewlyUpdated = dto.IsNewlyUpdate,
             CommentCount = dto.CommentCount,
-            DiggCount = dto.DiggedCount,
+            LikeCount = dto.DiggedCount,
         };
 
     internal async Task<IReadOnlyList<DramaDetails>> GetBatchDramaDetailsWithEpisodesAsync(
@@ -584,7 +584,7 @@ internal sealed partial class DetailsService : PhoenixFeatureService
             seasons.Add(
                 new DramaSeason
                 {
-                    SeriesId = sid,
+                    DramaId = sid,
                     Title = item.Title,
                     Index = item.SeasonIndex > 0 ? item.SeasonIndex : (seasons.Count + 1),
                     CoverUrl = item.Cover,
@@ -656,7 +656,7 @@ internal sealed partial class DetailsService : PhoenixFeatureService
                     seasons.Add(
                         new DramaSeason
                         {
-                            SeriesId = sid,
+                            DramaId = sid,
                             Title = ValueNormalizer.First(item.SeriesTitle, item.Title, item.Name),
                             Index = item.SeasonIndex > 0 ? item.SeasonIndex : (seasons.Count + 1),
                             CoverUrl = ValueNormalizer.First(item.Cover, item.SeriesCover),
@@ -718,7 +718,7 @@ internal sealed partial class DetailsService : PhoenixFeatureService
             [
                 new DramaSeason
                 {
-                    SeriesId = seriesId,
+                    DramaId = seriesId,
                     Title = details.Drama.Title,
                     Index = details.SeasonIndex > 0 ? details.SeasonIndex : 1,
                     CoverUrl = details.Drama.CoverUrl,
@@ -729,7 +729,7 @@ internal sealed partial class DetailsService : PhoenixFeatureService
         };
     }
 
-    internal async Task<DramaRelatedRecommendations> GetSeriesRecommendationsAsync(
+    internal async Task<DramaRecommendations> GetDramaRecommendationsAsync(
         string seriesId,
         CancellationToken cancellationToken
     )
@@ -776,7 +776,7 @@ internal sealed partial class DetailsService : PhoenixFeatureService
             ? targetCell.SessionId
             : plan.SessionId;
 
-        return new DramaRelatedRecommendations
+        return new DramaRecommendations
         {
             Title = cellTitle,
             SessionId = sessionId,

@@ -1,29 +1,29 @@
 namespace PhoenixReadApi;
 
 /// <summary>一条剧评或分集评论。</summary>
-public sealed class DramaComment
+public sealed class Comment
 {
     /// <summary>评论 ID。</summary>
     public string Id { get; init; } = string.Empty;
 
-    /// <summary>评论文本。</summary>
+    /// <summary>评论正文内容。</summary>
     public string Text { get; init; } = string.Empty;
 
-    /// <summary>评论作者。</summary>
+    /// <summary>发表评论的用户信息。</summary>
     public User Author { get; init; } = new();
 
-    /// <summary>创建时间的 Unix 时间戳（秒）。</summary>
+    /// <summary>发表时间戳（Unix 秒）。</summary>
     public long CreatedAtUnixSeconds { get; init; }
 
-    /// <summary>评论在视频中的位置（毫秒）；剧评为 0。</summary>
+    /// <summary>对应正片视频内的毫秒时间点（若为分集弹幕/片段评论）。</summary>
     public long OffsetMs { get; init; }
 
-    /// <summary>获赞数。</summary>
+    /// <summary>获赞数量。</summary>
     public long LikeCount { get; init; }
 
-    /// <summary>回复数。</summary>
+    /// <summary>该评论下的回复总数。</summary>
     public long ReplyCount { get; init; }
 
-    /// <summary>评论附带的图片列表；若无附图则为空列表。</summary>
+    /// <summary>评论中包含的图片或表情列表。</summary>
     public IReadOnlyList<CommentImage> Images { get; init; } = [];
 }

@@ -90,7 +90,7 @@ internal sealed class NovelCategoryService : PhoenixFeatureService
         {
             CategoryId = data?.CategoryId ?? categoryId,
             CategoryName = data?.CategoryName ?? string.Empty,
-            Books = books,
+            Items = books,
             HasMore = data?.HasMore ?? false,
         };
     }

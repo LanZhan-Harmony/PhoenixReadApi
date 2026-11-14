@@ -1,7 +1,7 @@
 namespace PhoenixReadApi;
 
 /// <summary>单剧专属关联推荐结果（播放器/详情页更多好剧推荐）。</summary>
-public sealed class DramaRelatedRecommendations
+public sealed class DramaRecommendations
 {
     /// <summary>推荐板块标题（如“相关推荐”、“更多好剧”）。</summary>
     public string Title { get; init; } = string.Empty;

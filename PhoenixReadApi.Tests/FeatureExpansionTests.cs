@@ -206,7 +206,7 @@ public sealed class FeatureExpansionTests
         await Assert.That(drama.Id).IsNotNull();
         await Assert.That(drama.Title).IsNotNull();
         await Assert.That(drama.AlbumId).IsNotNull();
-        await Assert.That(drama.NovelBookId).IsNotNull();
+        await Assert.That(drama.NovelId).IsNotNull();
         await Assert.That(drama.NovelTitle).IsNotNull();
         await Assert.That(drama.Tags).IsNotNull();
         await Assert.That(drama.Credits).IsNotNull();

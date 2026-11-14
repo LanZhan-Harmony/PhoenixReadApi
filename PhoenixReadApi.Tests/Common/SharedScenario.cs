@@ -171,7 +171,7 @@ public static class SharedScenario
         await Assert.That(episode.Title).IsNotNull();
     }
 
-    public static async Task AssertValidDramaComment(DramaComment? comment)
+    public static async Task AssertValidComment(Comment? comment)
     {
         await Assert.That(comment).IsNotNull();
         await Assert.That(string.IsNullOrWhiteSpace(comment!.Id)).IsFalse();
@@ -233,11 +233,11 @@ public static class SharedScenario
         }
     }
 
-    public static async Task AssertValidReservation(Reservation? reservation)
+    public static async Task AssertValidReservation(ReservationItem? reservation)
     {
         await Assert.That(reservation).IsNotNull();
         await Assert.That(reservation!.Id).IsNotNull();
-        await Assert.That(IsNumericId(reservation.SeriesId)).IsTrue();
+        await Assert.That(IsNumericId(reservation.DramaId)).IsTrue();
         await Assert.That(reservation.VideoId).IsNotNull();
         await Assert.That(reservation.Title).IsNotNull();
         await Assert.That(reservation.CoverUrl).IsNotNull();
@@ -245,11 +245,11 @@ public static class SharedScenario
         await Assert.That(reservation.ReleaseAtUnixSeconds >= 0).IsTrue();
     }
 
-    public static async Task AssertValidReadHistoryEntry(ReadHistoryEntry? entry)
+    public static async Task AssertValidReadHistoryEntry(ReadHistoryItem? entry)
     {
         await Assert.That(entry).IsNotNull();
         await Assert.That(entry!.Id).IsNotNull();
-        await Assert.That(IsNumericId(entry.SeriesId)).IsTrue();
+        await Assert.That(IsNumericId(entry.DramaId)).IsTrue();
         await Assert.That(entry.VideoId).IsNotNull();
         await Assert.That(entry.EpisodeNumber >= 0).IsTrue();
         await Assert.That(entry.Title).IsNotNull();

@@ -6,7 +6,7 @@ public sealed class ShortDramaFilterQuery
     /// <summary>短剧类型（真人剧、漫剧、AI剧），默认为 <see cref="ShortDramaGenre.ShortPlay"/>。</summary>
     public ShortDramaGenre Genre { get; init; } = ShortDramaGenre.ShortPlay;
 
-    /// <summary>筛选选项映射表：键为 <see cref="ShortDramaFilterRow.Key"/>，值为选中的选项 <see cref="ShortDramaFilterOption.Value"/> 列表。</summary>
+    /// <summary>筛选选项映射表：键为 <see cref="ShortDramaFilterGroup.Key"/>，值为选中的选项 <see cref="ShortDramaFilterItem.Value"/> 列表。</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> Selections { get; init; } =
         new Dictionary<string, IReadOnlyList<string>>();
 

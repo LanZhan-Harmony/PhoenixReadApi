@@ -40,16 +40,16 @@ PhoenixReadApi/
 │   └── Models/              # 按业务领域分类的公共实体模型
 │       ├── Authentication/
 │       ├── Catalog/
-│       ├── Comments/
+│       ├── Comment/
 │       ├── Danmaku/
-│       ├── Details/
-│       ├── Interactions/
+│       ├── Drama/
+│       ├── Interaction/
 │       ├── Library/
-│       ├── Notifications/
+│       ├── Notification/
 │       ├── Playback/
 │       ├── Search/
 │       ├── Shared/
-│       └── Users/
+│       └── User/
 ├── Features/                # 按业务能力组织的内部服务
 │   ├── Catalog/
 │   ├── Details/

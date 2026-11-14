@@ -59,7 +59,7 @@ public sealed class Drama
     public string AlbumId { get; init; } = string.Empty;
 
     /// <summary>改编的原著小说 ID（若有）。</summary>
-    public string NovelBookId { get; init; } = string.Empty;
+    public string NovelId { get; init; } = string.Empty;
 
     /// <summary>改编的原著小说标题（若有）。</summary>
     public string NovelTitle { get; init; } = string.Empty;
@@ -71,5 +71,5 @@ public sealed class Drama
     public long FollowCount { get; init; }
 
     /// <summary>点赞数量。</summary>
-    public long DiggCount { get; init; }
+    public long LikeCount { get; init; }
 }

@@ -7,7 +7,7 @@ public sealed class ProgressUpdate
     public string VideoId { get; init; } = string.Empty;
 
     /// <summary>所属剧集 ID。</summary>
-    public string SeriesId { get; init; } = string.Empty;
+    public string DramaId { get; init; } = string.Empty;
 
     /// <summary>从 1 开始的分集序号；未知时为 0。</summary>
     public int EpisodeNumber { get; init; }

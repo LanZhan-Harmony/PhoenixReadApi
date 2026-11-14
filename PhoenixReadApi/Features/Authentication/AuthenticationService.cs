@@ -145,7 +145,7 @@ internal sealed class AuthenticationService : PhoenixFeatureService
         _user = new AuthenticatedUser();
     }
 
-    internal async Task<CurrentUserInfo> GetCurrentUserInfoAsync(
+    internal async Task<AuthenticatedUser> GetCurrentUserInfoAsync(
         CancellationToken cancellationToken
     )
     {
@@ -154,26 +154,20 @@ internal sealed class AuthenticationService : PhoenixFeatureService
             .ConfigureAwait(false);
         AppCurrentUserInfoData data = response.Data ?? new();
         string userId = !string.IsNullOrEmpty(data.UserId) ? data.UserId : data.BizUserId;
-        CurrentUserInfo info = new()
+        AuthenticatedUser info = new()
         {
             Id = userId,
             Name = data.UserName,
             AvatarUrl = data.AvatarUrl,
             Description = data.Description,
+            MaskedPhone = _user.MaskedPhone,
             Gender = data.Gender,
             IsVip = data.VipInfo.IsVip == "1",
         };
 
         if (userId.Length > 0)
         {
-            _user = new AuthenticatedUser
-            {
-                Id = info.Id,
-                Name = info.Name,
-                AvatarUrl = info.AvatarUrl,
-                Description = info.Description,
-                MaskedPhone = _user.MaskedPhone,
-            };
+            _user = info;
             _appTransport.SaveAuthenticatedUser(_user);
         }
 
@@ -189,7 +183,7 @@ internal sealed class AuthenticationService : PhoenixFeatureService
 
         try
         {
-            CurrentUserInfo info = await GetCurrentUserInfoAsync(cancellationToken)
+            AuthenticatedUser info = await GetCurrentUserInfoAsync(cancellationToken)
                 .ConfigureAwait(false);
             return info.Id.Length > 0;
         }

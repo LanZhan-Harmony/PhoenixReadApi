@@ -18,14 +18,14 @@ internal sealed class DanmakuService : PhoenixFeatureService
         : base(runtime) { }
 
     internal Task<DanmakuPage> GetAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         long startMs,
         long durationMs,
         CancellationToken cancellationToken
     )
     {
-        string series = NormalizeSeriesId(seriesId);
+        string series = NormalizeSeriesId(dramaId);
         string video = NormalizeVideoId(videoId);
         if (
             startMs < 0
@@ -44,7 +44,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
     }
 
     private async Task<DanmakuPage> LoadAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         long startMs,
         long durationMs,
@@ -66,7 +66,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
             }
 
             AppDanmakuData data = await RequestPageWithRetryAsync(
-                    seriesId,
+                    dramaId,
                     videoId,
                     currentMs,
                     durationMs,
@@ -102,14 +102,14 @@ internal sealed class DanmakuService : PhoenixFeatureService
         items.Sort(
             static (left, right) =>
             {
-                int time = left.TimeMs.CompareTo(right.TimeMs);
+                int time = left.OffsetMs.CompareTo(right.OffsetMs);
                 return time != 0 ? time : string.CompareOrdinal(left.Id, right.Id);
             }
         );
 
         return new DanmakuPage
         {
-            EpisodeId = videoId,
+            VideoId = videoId,
             StartMs = startMs,
             NextMs = nextMs,
             Total = Math.Max(total, items.Count),
@@ -118,7 +118,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
     }
 
     private async Task<AppDanmakuData> RequestPageWithRetryAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         long startMs,
         long durationMs,
@@ -128,7 +128,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
         AppDanmakuData? last = null;
         for (int attempt = 0; attempt <= MaxEmptyDanmakuRetries; attempt++)
         {
-            last = await RequestPageAsync(seriesId, videoId, startMs, durationMs, cancellationToken)
+            last = await RequestPageAsync(dramaId, videoId, startMs, durationMs, cancellationToken)
                 .ConfigureAwait(false);
 
             if (last.Items?.Count > 0 || !HasReportedDanmaku(last))
@@ -146,7 +146,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
     }
 
     private async Task<AppDanmakuData> RequestPageAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         long startMs,
         long durationMs,
@@ -159,7 +159,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
             Count = MaxDanmakuItemsPerRequest,
             BusinessParameter = new AppCommentBusinessParameter
             {
-                BookId = seriesId,
+                BookId = dramaId,
                 StartOffsetTime = startMs,
                 PlayletItemDuration = durationMs,
             },
@@ -224,7 +224,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
                 {
                     Id = id,
                     Text = text,
-                    TimeMs = position,
+                    OffsetMs = position,
                 }
             );
         }

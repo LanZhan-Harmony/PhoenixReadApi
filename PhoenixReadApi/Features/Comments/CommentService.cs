@@ -16,14 +16,14 @@ internal sealed class CommentService : PhoenixFeatureService
         : base(runtime) { }
 
     internal Task<CommentPage> GetDramaReviewsAsync(
-        string seriesId,
+        string dramaId,
         int count,
         string cursor,
         CancellationToken cancellationToken,
         CommentSortOrder sort = CommentSortOrder.Hot
     )
     {
-        string normalizedSeriesId = NormalizeSeriesId(seriesId);
+        string normalizedSeriesId = NormalizeSeriesId(dramaId);
         return LoadAsync(
             normalizedSeriesId,
             normalizedSeriesId,
@@ -36,7 +36,7 @@ internal sealed class CommentService : PhoenixFeatureService
     }
 
     internal Task<CommentPage> GetEpisodeCommentsAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         int count,
         string cursor,
@@ -44,7 +44,7 @@ internal sealed class CommentService : PhoenixFeatureService
         CommentSortOrder sort = CommentSortOrder.Hot
     )
     {
-        string normalizedSeriesId = NormalizeSeriesId(seriesId);
+        string normalizedSeriesId = NormalizeSeriesId(dramaId);
         string normalizedVideoId = NormalizeVideoId(videoId);
         return LoadAsync(
             normalizedSeriesId,
@@ -59,24 +59,24 @@ internal sealed class CommentService : PhoenixFeatureService
 
     internal Task<CommentReplyPage> GetDramaReviewRepliesAsync(
         string commentId,
-        string seriesId,
+        string dramaId,
         int count,
         string cursor,
         CancellationToken cancellationToken
-    ) => GetRepliesAsync(commentId, seriesId, string.Empty, count, cursor, cancellationToken);
+    ) => GetRepliesAsync(commentId, dramaId, string.Empty, count, cursor, cancellationToken);
 
     internal Task<CommentReplyPage> GetEpisodeCommentRepliesAsync(
         string commentId,
-        string seriesId,
+        string dramaId,
         string videoId,
         int count,
         string cursor,
         CancellationToken cancellationToken
-    ) => GetRepliesAsync(commentId, seriesId, videoId, count, cursor, cancellationToken);
+    ) => GetRepliesAsync(commentId, dramaId, videoId, count, cursor, cancellationToken);
 
     internal async Task<CommentReplyPage> GetRepliesAsync(
         string commentId,
-        string seriesId,
+        string dramaId,
         string videoId,
         int count,
         string cursor,
@@ -88,7 +88,7 @@ internal sealed class CommentService : PhoenixFeatureService
         ValidateReplyPage(count, cursor);
         AppReplyListData data = await LoadRepliesAsync(
                 commentId,
-                seriesId,
+                dramaId,
                 videoId,
                 count,
                 cursor,
@@ -112,7 +112,7 @@ internal sealed class CommentService : PhoenixFeatureService
 
     private async Task<AppReplyListData> LoadRepliesAsync(
         string commentId,
-        string seriesId,
+        string dramaId,
         string videoId,
         int count,
         string cursor,
@@ -121,10 +121,10 @@ internal sealed class CommentService : PhoenixFeatureService
     {
         bool isEpisode =
             !string.IsNullOrWhiteSpace(videoId)
-            && !string.Equals(seriesId, videoId, StringComparison.Ordinal);
-        string normalizedSeriesId = string.IsNullOrWhiteSpace(seriesId)
+            && !string.Equals(dramaId, videoId, StringComparison.Ordinal);
+        string normalizedSeriesId = string.IsNullOrWhiteSpace(dramaId)
             ? string.Empty
-            : NormalizeSeriesOrVideoId(seriesId);
+            : NormalizeSeriesOrVideoId(dramaId);
         string normalizedVideoId = isEpisode ? NormalizeSeriesOrVideoId(videoId) : string.Empty;
 
         int commentSource = isEpisode ? 504 : 501;
@@ -170,14 +170,14 @@ internal sealed class CommentService : PhoenixFeatureService
     }
 
     internal Task<PhoenixOperationResult> SendCommentAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         string text,
         CancellationToken cancellationToken
-    ) => AddCommentAsync(seriesId, videoId, text, isEpisode: true, score: 0, cancellationToken);
+    ) => AddCommentAsync(dramaId, videoId, text, isEpisode: true, score: 0, cancellationToken);
 
     internal Task<PhoenixOperationResult> SendReviewAsync(
-        string seriesId,
+        string dramaId,
         double rating,
         string text,
         CancellationToken cancellationToken
@@ -191,8 +191,8 @@ internal sealed class CommentService : PhoenixFeatureService
             );
         }
         return AddCommentAsync(
-            seriesId,
-            seriesId,
+            dramaId,
+            dramaId,
             text,
             isEpisode: false,
             ScoreFromRating(rating),
@@ -201,19 +201,19 @@ internal sealed class CommentService : PhoenixFeatureService
     }
 
     internal Task<PhoenixOperationResult> SendReviewAsync(
-        string seriesId,
+        string dramaId,
         string text,
         CancellationToken cancellationToken
-    ) => SendReviewAsync(seriesId, 5.0, text, cancellationToken);
+    ) => SendReviewAsync(dramaId, 5.0, text, cancellationToken);
 
     internal Task<PhoenixOperationResult> SendDanmakuAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         string text,
         CancellationToken cancellationToken
     ) =>
         AddCommentAsync(
-            seriesId,
+            dramaId,
             videoId,
             text,
             isEpisode: true,
@@ -296,7 +296,7 @@ internal sealed class CommentService : PhoenixFeatureService
 
     internal async Task<PhoenixOperationResult> SendReplyAsync(
         string commentId,
-        string seriesId,
+        string dramaId,
         string videoId,
         string text,
         string? replyToUserId,
@@ -304,14 +304,14 @@ internal sealed class CommentService : PhoenixFeatureService
     )
     {
         commentId = NormalizeCommentId(commentId);
-        seriesId = NormalizeSeriesId(seriesId);
+        dramaId = NormalizeSeriesId(dramaId);
         text = NormalizeText(text);
 
         bool isEpisode = !string.IsNullOrWhiteSpace(videoId)
-            && !string.Equals(seriesId, videoId, StringComparison.Ordinal);
+            && !string.Equals(dramaId, videoId, StringComparison.Ordinal);
         string normalizedVideoId = isEpisode ? NormalizeVideoId(videoId) : string.Empty;
 
-        string groupId = isEpisode ? normalizedVideoId : seriesId;
+        string groupId = isEpisode ? normalizedVideoId : dramaId;
         int commentSource = isEpisode ? 504 : 501;
         int serverChannel = isEpisode ? 18 : 34;
         int groupType = isEpisode ? 30 : 1;
@@ -335,7 +335,7 @@ internal sealed class CommentService : PhoenixFeatureService
                     ReplyToUserId = normalizedReplyUser,
                     BusinessParameter = new AppCommentAddBusinessParameter
                     {
-                        BookId = seriesId,
+                        BookId = dramaId,
                         VideoId = isEpisode ? normalizedVideoId : null,
                     },
                 },
@@ -356,11 +356,11 @@ internal sealed class CommentService : PhoenixFeatureService
 
     internal Task<PhoenixOperationResult> SendDramaReviewReplyAsync(
         string commentId,
-        string seriesId,
+        string dramaId,
         string text,
         string? replyToUserId,
         CancellationToken cancellationToken
-    ) => SendReplyAsync(commentId, seriesId, videoId: string.Empty, text, replyToUserId, cancellationToken);
+    ) => SendReplyAsync(commentId, dramaId, videoId: string.Empty, text, replyToUserId, cancellationToken);
 
     internal Task<PhoenixOperationResult> DeleteReplyAsync(
         string replyId,
@@ -376,7 +376,7 @@ internal sealed class CommentService : PhoenixFeatureService
         );
 
     private async Task<CommentPage> LoadAsync(
-        string seriesId,
+        string dramaId,
         string targetId,
         bool isEpisode,
         int count,
@@ -412,7 +412,7 @@ internal sealed class CommentService : PhoenixFeatureService
                 Sort = (int)sort,
                 BusinessParameter = new AppCommentListBusinessParameter
                 {
-                    BookId = seriesId,
+                    BookId = dramaId,
                     NeedCount = cursor.Length == 0,
                 },
             }
@@ -428,7 +428,7 @@ internal sealed class CommentService : PhoenixFeatureService
                 Sort = (int)sort,
                 BusinessParameter = new AppCommentListBusinessParameter
                 {
-                    BookId = seriesId,
+                    BookId = dramaId,
                     NeedCount = cursor.Length == 0,
                 },
             };
@@ -447,7 +447,7 @@ internal sealed class CommentService : PhoenixFeatureService
             response.Data
             ?? throw new PhoenixReadApiResponseException("评论接口未返回有效数据。", "comments");
 
-        List<DramaComment> items = [];
+        List<Comment> items = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (AppCommentRecord? record in data.Items ?? [])
         {
@@ -478,7 +478,7 @@ internal sealed class CommentService : PhoenixFeatureService
             string userAvatar = userInfo.AvatarUrl ?? string.Empty;
             AppCommentUserBaseInfo? baseInfo = userInfo.BaseInfo;
             items.Add(
-                new DramaComment
+                new Comment
                 {
                     Id = id,
                     Text = text.Length > 4000 ? string.Concat(text.AsSpan(0, 4000), "…") : text,
@@ -522,7 +522,7 @@ internal sealed class CommentService : PhoenixFeatureService
         ]).Trim();
 
     private async Task<PhoenixOperationResult> AddCommentAsync(
-        string seriesId,
+        string dramaId,
         string targetId,
         string text,
         bool isEpisode,
@@ -531,8 +531,8 @@ internal sealed class CommentService : PhoenixFeatureService
         bool danmaku = false
     )
     {
-        seriesId = NormalizeSeriesId(seriesId);
-        targetId = isEpisode ? NormalizeVideoId(targetId) : seriesId;
+        dramaId = NormalizeSeriesId(dramaId);
+        targetId = isEpisode ? NormalizeVideoId(targetId) : dramaId;
         text = NormalizeText(text);
         int reqCommentSource = isEpisode ? 504 : 501;
         int reqServerChannel = isEpisode ? 18 : 34;
@@ -558,7 +558,7 @@ internal sealed class CommentService : PhoenixFeatureService
                     Score = score,
                     BusinessParameter = new AppCommentAddBusinessParameter
                     {
-                        BookId = seriesId,
+                        BookId = dramaId,
                         Offset = 0,
                         Score = score,
                         VideoId = isEpisode ? targetId : string.Empty,

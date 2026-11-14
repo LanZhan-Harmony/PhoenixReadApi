@@ -117,7 +117,7 @@ public sealed class NewInteractionsAndUserTests
         await Assert.That(profile.CreatorRoles.Contains("男演员") || profile.CreatorRoles.Contains("导演")).IsTrue();
         await Assert.That(profile.FansCount >= 0).IsTrue();
         await Assert.That(profile.FollowCount >= 0).IsTrue();
-        await Assert.That(profile.LikedCount >= 0).IsTrue();
+        await Assert.That(profile.LikeCount >= 0).IsTrue();
         await Assert.That(profile.Works).IsNotNull();
         await Assert.That(profile.Works.Count > 0).IsTrue();
 

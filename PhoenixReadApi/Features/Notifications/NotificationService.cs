@@ -101,7 +101,7 @@ internal sealed class NotificationService : PhoenixFeatureService
                     DramaId = id,
                     Title = ValueNormalizer.First(common.Title, id),
                     CoverUrl = common.CoverUrl,
-                    TotalEpisodeCount = Math.Max(0, expand.EpisodeCount),
+                    EpisodeCount = Math.Max(0, expand.EpisodeCount),
                     LatestWatchedEpisodeIndex = Math.Max(0, expand.LatestWatchedIndex),
                     HasWatchedLatest = expand.HasWatchedLatest,
                     IsFinished = expand.SeriesStatus == 1,
@@ -142,7 +142,7 @@ internal sealed class NotificationService : PhoenixFeatureService
 
         foreach (FollowUpdateItem item in updates.Items)
         {
-            if (item.TotalEpisodeCount <= 0)
+            if (item.EpisodeCount <= 0)
             {
                 continue;
             }
@@ -151,9 +151,9 @@ internal sealed class NotificationService : PhoenixFeatureService
                 ? ep
                 : Math.Max(0, item.LatestWatchedEpisodeIndex);
 
-            if (item.TotalEpisodeCount > lastSeen)
+            if (item.EpisodeCount > lastSeen)
             {
-                string noticeId = "notice:follow:" + item.DramaId + ":" + item.TotalEpisodeCount;
+                string noticeId = "notice:follow:" + item.DramaId + ":" + item.EpisodeCount;
                 NoticeItem notice = new()
                 {
                     Id = noticeId,
@@ -162,7 +162,7 @@ internal sealed class NotificationService : PhoenixFeatureService
                     Title = item.Title,
                     CoverUrl = item.CoverUrl,
                     FromEpisode = lastSeen,
-                    EpisodeCount = item.TotalEpisodeCount,
+                    EpisodeCount = item.EpisodeCount,
                     CreatedAtUnixMilliseconds = item.LastReleasedAtUnixMilliseconds > 0
                         ? item.LastReleasedAtUnixMilliseconds
                         : now,
@@ -175,7 +175,7 @@ internal sealed class NotificationService : PhoenixFeatureService
                 }
             }
 
-            _lastKnownEpisodes[item.DramaId] = item.TotalEpisodeCount;
+            _lastKnownEpisodes[item.DramaId] = item.EpisodeCount;
         }
 
         return newNotices;
