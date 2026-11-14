@@ -111,7 +111,7 @@ internal sealed class ShortDramaFilterService : PhoenixFeatureService
 
         AppShortFilterData? data = response.Data;
         List<Drama> items = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (DramaDto dto in data?.VideoData ?? [])
         {
             Drama drama = DramaMapper.FromDto(dto, "短剧");

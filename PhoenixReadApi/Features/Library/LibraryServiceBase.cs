@@ -44,7 +44,7 @@ internal abstract class LibraryServiceBase(PhoenixReadClientRuntime runtime)
 
     protected static Dictionary<string, string> ParseQuery(string query)
     {
-        Dictionary<string, string> values = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> values = [with(StringComparer.OrdinalIgnoreCase)];
         foreach (
             string item in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
         )

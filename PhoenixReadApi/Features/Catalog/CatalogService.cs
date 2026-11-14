@@ -23,7 +23,7 @@ internal sealed class CatalogService : PhoenixFeatureService
     private static readonly TimeSpan CursorLifetime = TimeSpan.FromMinutes(30);
     private readonly Lock _stateLock = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly Dictionary<string, CatalogCursor> _cursors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CatalogCursor> _cursors = [with(StringComparer.Ordinal)];
 
     internal CatalogService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
@@ -147,7 +147,7 @@ internal sealed class CatalogService : PhoenixFeatureService
         }
 
         List<Drama> output = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         for (int page = 0; page < _options.MaxPagesPerCategory && !cursor.Exhausted; page++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -175,8 +175,7 @@ internal sealed class CatalogService : PhoenixFeatureService
                     cancellationToken
                 )
                 .ConfigureAwait(false);
-            AppCatalogData data =
-                result.Data
+            AppCatalogData data = result.Data
                 ?? throw new PhoenixReadApiResponseException("App 分类数据格式异常。", "catalog");
 
             List<Drama> pageItems = [];
@@ -375,7 +374,7 @@ internal sealed class CatalogService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         AppTagLandingData data = response.Data ?? new();
-        Dictionary<string, List<TagCategoryItem>> mergedGroups = new(StringComparer.Ordinal);
+        Dictionary<string, List<TagCategoryItem>> mergedGroups = [with(StringComparer.Ordinal)];
         IReadOnlyList<AppTagSelectorRowDto> rows = data.Selector?.Rows ?? [];
         foreach (AppTagSelectorRowDto row in rows)
         {
@@ -669,7 +668,7 @@ internal sealed class CatalogService : PhoenixFeatureService
 
         AppShortRankDataContainer data = response.Data ?? new();
         List<Drama> items = [];
-        HashSet<string> localSeen = new(StringComparer.Ordinal);
+        HashSet<string> localSeen = [with(StringComparer.Ordinal)];
 
         foreach (AppShortRankCellItemDto cell in data.CellView.CellData)
         {
@@ -704,7 +703,7 @@ internal sealed class CatalogService : PhoenixFeatureService
     )
     {
         int offset = 0;
-        HashSet<string> seenIds = new(StringComparer.Ordinal);
+        HashSet<string> seenIds = [with(StringComparer.Ordinal)];
         int pageCount = 0;
 
         while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
@@ -751,7 +750,7 @@ internal sealed class CatalogService : PhoenixFeatureService
     {
         int offset = 0;
         string? sessionId = null;
-        HashSet<string> seenIds = new(StringComparer.Ordinal);
+        HashSet<string> seenIds = [with(StringComparer.Ordinal)];
         int pageCount = 0;
 
         while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
@@ -798,7 +797,7 @@ internal sealed class CatalogService : PhoenixFeatureService
     {
         int offset = 0;
         string? sessionId = null;
-        HashSet<string> seenActorIds = new(StringComparer.Ordinal);
+        HashSet<string> seenActorIds = [with(StringComparer.Ordinal)];
         int pageCount = 0;
 
         while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
@@ -907,18 +906,24 @@ internal sealed class CatalogService : PhoenixFeatureService
         string mainTitle = string.Empty;
         string subTitle = string.Empty;
 
-        IReadOnlyList<AppShortRankSelectorItemDto> items =
-            data.CellView.CellSelector?.OuterRow?.Items ?? [];
+        IReadOnlyList<AppShortRankSelectorItemDto> items = data.CellView
+            .CellSelector
+            ?.OuterRow
+            ?.Items
+            ?? [];
 
-        AppShortRankSelectorItemDto? matchedBoard =
-            items.FirstOrDefault(i => i.SelectorItemId == selectedBoard)
-            ?? items.FirstOrDefault(i => i.IsSelected);
+        AppShortRankSelectorItemDto? matchedBoard = items.FirstOrDefault(i =>
+            i.SelectorItemId == selectedBoard
+        ) ?? items.FirstOrDefault(i => i.IsSelected);
 
         if (matchedBoard is not null)
         {
             mainTitle = matchedBoard.ShowName;
-            IReadOnlyList<AppShortRankSelectorItemDto> subItems =
-                matchedBoard.SubCellSelector?.OuterRow?.Items ?? [];
+            IReadOnlyList<AppShortRankSelectorItemDto> subItems = matchedBoard
+                .SubCellSelector
+                ?.OuterRow
+                ?.Items
+                ?? [];
 
             AppShortRankSelectorItemDto? matchedSub = null;
             if (!string.IsNullOrWhiteSpace(selectedSub))

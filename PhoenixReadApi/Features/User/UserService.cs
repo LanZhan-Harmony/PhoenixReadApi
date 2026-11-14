@@ -134,7 +134,7 @@ internal sealed class UserService : PhoenixFeatureService
 
         AppUserRelationListData? data = response.Data;
         List<UserRelationItem> items = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         foreach (AppUserRelationUgcUser? ugc in data?.Users ?? [])
         {
@@ -266,7 +266,10 @@ internal sealed class UserService : PhoenixFeatureService
 
     private async Task<UserProfile> LoadAsync(User user, CancellationToken cancellationToken)
     {
-        Task<AppResponse<AppUserProfileGetResponse>?> ugcTask = LoadUgcProfileAsync(user.Id, cancellationToken);
+        Task<AppResponse<AppUserProfileGetResponse>?> ugcTask = LoadUgcProfileAsync(
+            user.Id,
+            cancellationToken
+        );
 
         AppUserProfilePayload metadataPayload = new()
         {
@@ -274,23 +277,24 @@ internal sealed class UserService : PhoenixFeatureService
             TabType = 0,
             TargetUserId = user.Id,
         };
-        Task<AppResponse<AppUserProfileData>> metadataTask = _appTransport
-            .PostAsync<AppUserProfilePayload, AppUserProfileData>(
-                "/novel/commentapi/user/profile/" + user.Id + "/v1",
-                metadataPayload,
-                commentRequest: true,
-                cancellationToken,
-                commentSource: 1506,
-                serverChannel: null
-            );
+        Task<AppResponse<AppUserProfileData>> metadataTask = _appTransport.PostAsync<
+            AppUserProfilePayload,
+            AppUserProfileData
+        >(
+            "/novel/commentapi/user/profile/" + user.Id + "/v1",
+            metadataPayload,
+            commentRequest: true,
+            cancellationToken,
+            commentSource: 1506,
+            serverChannel: null
+        );
 
         await Task.WhenAll(ugcTask, metadataTask).ConfigureAwait(false);
 
         AppResponse<AppUserProfileGetResponse>? ugcResponse = await ugcTask.ConfigureAwait(false);
         AppResponse<AppUserProfileData> metadataResponse = await metadataTask.ConfigureAwait(false);
 
-        AppUserProfileData metadata =
-            metadataResponse.Data
+        AppUserProfileData metadata = metadataResponse.Data
             ?? throw new PhoenixReadApiResponseException(
                 "账号主页未返回有效数据。",
                 "user-profile"
@@ -307,9 +311,16 @@ internal sealed class UserService : PhoenixFeatureService
 
         // If tabs has 16 (Works - 短剧作品), load Tab 16; else if 8 (Related), load Tab 8
         int worksTabType = tabTypes.Contains(16) ? 16 : (tabTypes.Contains(8) ? 8 : 0);
-        Task<AppUserProfileData?> worksTask = worksTabType != 0
-            ? LoadProfileTabAsync(user.Id, worksTabType, PageSize, string.Empty, cancellationToken)
-            : Task.FromResult<AppUserProfileData?>(null);
+        Task<AppUserProfileData?> worksTask =
+            worksTabType != 0
+                ? LoadProfileTabAsync(
+                    user.Id,
+                    worksTabType,
+                    PageSize,
+                    string.Empty,
+                    cancellationToken
+                )
+                : Task.FromResult<AppUserProfileData?>(null);
 
         Task<AppUserProfileData?> activitiesTask = tabTypes.Contains(5)
             ? LoadProfileTabAsync(user.Id, 5, PageSize, string.Empty, cancellationToken)
@@ -351,27 +362,29 @@ internal sealed class UserService : PhoenixFeatureService
             userInfo?.BaseInfo?.Introduction
         );
 
-        IReadOnlyList<string> actorRoles = ugc?.UserTag?.SubTitleList?
-            .Select(static s => s.Text)
+        IReadOnlyList<string> actorRoles = ugc?.UserTag?.SubTitleList?.Select(static s => s.Text)
             .Where(static s => !string.IsNullOrWhiteSpace(s))
-            .ToList() ?? [];
+            .ToList()
+            ?? [];
 
-        IReadOnlyList<string> badges = ugc?.UserTag?.UserTitleInfo?
-            .Select(static t => t.ZhTitle)
+        IReadOnlyList<string> badges = ugc?.UserTag?.UserTitleInfo?.Select(static t => t.ZhTitle)
             .Where(static s => !string.IsNullOrWhiteSpace(s))
-            .ToList() ?? [];
+            .ToList()
+            ?? [];
 
-        IReadOnlyList<UserHonor> honors = ugc?.UserTag?.HonorTagBriefInfo?.HonorTagDetailList?
-            .Select(static h => new UserHonor
-            {
-                Name = h.Name,
-                IconUrl = h.ImgUrl,
-                SmallIconUrl = h.SmallImgUrl,
-            })
-            .ToList() ?? [];
+        IReadOnlyList<UserHonor> honors =
+            ugc?.UserTag?.HonorTagBriefInfo?.HonorTagDetailList?.Select(static h => new UserHonor
+                {
+                    Name = h.Name,
+                    IconUrl = h.ImgUrl,
+                    SmallIconUrl = h.SmallImgUrl,
+                })
+                .ToList()
+            ?? [];
 
         bool isBlueVip = ugc?.UserTag?.IsBlueVip ?? false;
-        bool isActor = isBlueVip
+        bool isActor =
+            isBlueVip
             || actorRoles.Any(static r => r.Contains("演员", StringComparison.OrdinalIgnoreCase))
             || tabTypes.Contains(16);
 
@@ -453,10 +466,7 @@ internal sealed class UserService : PhoenixFeatureService
             return await _appTransport
                 .GetAsync<AppUserProfileGetResponse>(
                     "/reading/user/profile/get/v1/",
-                    [
-                        new("user_id", userId),
-                        new("target_user_id", userId),
-                    ],
+                    [new("user_id", userId), new("target_user_id", userId)],
                     cancellationToken
                 )
                 .ConfigureAwait(false);
@@ -554,7 +564,7 @@ internal sealed class UserService : PhoenixFeatureService
         }
 
         List<Drama> result = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (AppUserWorkRecord? record in data.Items ?? [])
         {
             if (record?.Video is null)
@@ -569,10 +579,11 @@ internal sealed class UserService : PhoenixFeatureService
             }
 
             AppUserVideoCommon common = record.Video.Common;
-            IReadOnlyList<string> tags = record.Video.Expand?.SubTitleList?
-                .Select(static s => s.Text)
+            IReadOnlyList<string> tags = record
+                .Video.Expand?.SubTitleList?.Select(static s => s.Text)
                 .Where(static s => !string.IsNullOrWhiteSpace(s))
-                .ToList() ?? [];
+                .ToList()
+                ?? [];
 
             long hot = record.Video.Stat?.Hot ?? 0;
             long viewCount = record.Video.Stat?.ViewCount ?? 0;
@@ -606,7 +617,7 @@ internal sealed class UserService : PhoenixFeatureService
         }
 
         List<UserActivity> result = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (AppUserWorkRecord? record in data.Items ?? [])
         {
             if (record?.Video is null)
@@ -645,7 +656,7 @@ internal sealed class UserService : PhoenixFeatureService
         }
 
         List<Drama> result = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (AppUserShelfItem? item in data.Items ?? [])
         {
             if (item is null)
@@ -683,7 +694,7 @@ internal sealed class UserService : PhoenixFeatureService
         }
 
         List<Drama> result = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (AppUserActionRecord? record in data.Items ?? [])
         {
             if (record?.Video is null)
@@ -777,11 +788,7 @@ internal sealed class UserService : PhoenixFeatureService
     {
         if (offset < 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(offset),
-                offset,
-                "分页偏移量不能为负数。"
-            );
+            throw new ArgumentOutOfRangeException(nameof(offset), offset, "分页偏移量不能为负数。");
         }
     }
 

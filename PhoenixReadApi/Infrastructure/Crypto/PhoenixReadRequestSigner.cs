@@ -43,6 +43,82 @@ internal static class PhoenixReadRequestSigner
     private static readonly byte[] StaticEnvironment = ComputeStaticEnvironment();
     private static readonly byte[] StaticZero16Sm3 = Sm3(new byte[16]);
 
+    private const string PlaybackLicenseId = "1611921764";
+    private static readonly byte[] PlaybackArgusSignKey = Convert.FromHexString(
+        "fc78e0a9657a0c748ce51559903ccf03510e51d3cff232d71343e88a321c5304"
+    );
+    private static readonly byte[] PlaybackArgusAesKey = Convert.FromHexString(
+        "d31e3718288a1027baab59f146a09a9c"
+    );
+    private static readonly byte[] PlaybackArgusAesIv = Convert.FromHexString(
+        "ea180a0336ed352fcd24e4d50018ae54"
+    );
+    private static readonly byte[] PlaybackArgusMask =
+    [
+        0xf2,
+        0xf7,
+        0xfc,
+        0xff,
+        0xf2,
+        0xf7,
+        0xfc,
+        0xff,
+    ];
+    private static readonly byte[] PlaybackArgusTail =
+    [
+        0xea,
+        0xfb,
+        0x2c,
+        0xfe,
+        0x85,
+        0x68,
+        0x51,
+        0x91,
+        0x54,
+    ];
+    private static readonly ulong[] PlaybackArgusSimonRoundKeys =
+        PrecomputePlaybackSimonRoundKeys();
+    private static readonly byte[] PlaybackCounters = PrecomputePlaybackCounters();
+    private static readonly byte[] PlaybackDevice = PrecomputePlaybackDevice();
+
+    private static ulong[] PrecomputePlaybackSimonRoundKeys()
+    {
+        ulong[] k = new ulong[72];
+        for (int i = 0; i < 4; i++)
+        {
+            k[i] = BinaryPrimitives.ReadUInt64LittleEndian(PlaybackArgusSignKey.AsSpan(i * 8, 8));
+        }
+
+        const ulong z = 0x3dc94c3a046d678bUL;
+        for (int i = 4; i < 72; i++)
+        {
+            ulong x = BitOperations.RotateRight(k[i - 1], 3) ^ k[i - 3];
+            x ^= BitOperations.RotateRight(x, 1);
+            k[i] = ~k[i - 4] ^ x ^ ((z >> ((i - 4) % 62)) & 1UL) ^ 3UL;
+        }
+
+        return k;
+    }
+
+    private static byte[] PrecomputePlaybackCounters()
+    {
+        List<byte> list = [with(32)];
+        Varint(list, 1, 1);
+        Varint(list, 2, 1);
+        Varint(list, 3, 1);
+        Varint(list, 7, 0xc792ecccUL);
+        return [.. list];
+    }
+
+    private static byte[] PrecomputePlaybackDevice()
+    {
+        List<byte> list = [with(32)];
+        Bytes(list, 1, "NX551J"u8);
+        Varint(list, 2, 8196);
+        Varint(list, 4, 0x80e0d800UL);
+        return [.. list];
+    }
+
     private static byte[] ComputeDerivedArgusKey()
     {
         byte[] seed = new byte[CommentArgusKey.Length * 2 + 4];
@@ -57,7 +133,7 @@ internal static class PhoenixReadRequestSigner
 
     private static byte[] ComputeStaticCounters()
     {
-        List<byte> counters = new(32);
+        List<byte> counters = [with(32)];
         Varint(counters, 1uL, 1uL);
         Varint(counters, 2uL, 1uL);
         Varint(counters, 3uL, 1uL);
@@ -67,7 +143,7 @@ internal static class PhoenixReadRequestSigner
 
     private static byte[] ComputeStaticEnvironment()
     {
-        List<byte> environment = new(64);
+        List<byte> environment = [with(64)];
         Bytes(environment, 1uL, "25053RT47C"u8);
         Bytes(environment, 2uL, "16"u8);
         Bytes(environment, 3uL, "update_64"u8);
@@ -397,14 +473,9 @@ internal static class PhoenixReadRequestSigner
         request.Headers.TryAddWithoutValidation(name, value);
     }
 
-    private static string GetQueryValue(Uri? uri, string key)
+    private static string GetQueryValue(ReadOnlySpan<char> query, string key)
     {
-        if (uri is null)
-        {
-            return string.Empty;
-        }
-
-        ReadOnlySpan<char> query = uri.Query.AsSpan().TrimStart('?');
+        query = query.TrimStart('?');
         while (!query.IsEmpty)
         {
             int ampIndex = query.IndexOf('&');
@@ -428,6 +499,9 @@ internal static class PhoenixReadRequestSigner
 
         return string.Empty;
     }
+
+    private static string GetQueryValue(Uri? uri, string key) =>
+        uri is null ? string.Empty : GetQueryValue(uri.Query.AsSpan(), key);
 
     private static string CommentLadon(string aid, uint timestamp, ReadOnlySpan<byte> prefix)
     {
@@ -481,7 +555,7 @@ internal static class PhoenixReadRequestSigner
 
     private static string CommentArgus(string query, uint timestamp, ReadOnlySpan<byte> nonce)
     {
-        List<byte> list = new(128);
+        List<byte> list = [with(128)];
         Varint(list, 1uL, 1077940818uL);
         Varint(list, 2uL, 2uL);
         Varint(list, 3uL, BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(6, 4)));
@@ -519,7 +593,7 @@ internal static class PhoenixReadRequestSigner
         Bytes(list, 13uL, array[..6]);
         Bytes(list, 14uL, array2[..6]);
         const int num = 2;
-        List<byte> list2 = new(num);
+        List<byte> list2 = [with(num)];
         CollectionsMarshal.SetCount(list2, num);
         Span<byte> span = CollectionsMarshal.AsSpan(list2);
         span[0] = 8;
@@ -673,6 +747,343 @@ internal static class PhoenixReadRequestSigner
         SetHeader(request, "X-Ladon", PlayerLadon(aid, timestamp, nonce.AsSpan(2, 4)));
     }
 
+    internal static void SignPlayback(
+        HttpRequestMessage request,
+        ReadOnlySpan<byte> body,
+        string deviceId,
+        DateTimeOffset now
+    )
+    {
+        uint timestamp = checked((uint)now.ToUnixTimeSeconds());
+        string query = request.RequestUri?.Query.TrimStart('?') ?? string.Empty;
+        Span<byte> queryHash = stackalloc byte[16];
+        HashQuery(query, queryHash);
+        Span<byte> payload = stackalloc byte[20];
+        queryHash[..4].CopyTo(payload[..4]);
+
+        Span<byte> bodyMd5 = stackalloc byte[16];
+        if (!body.IsEmpty)
+        {
+            MD5.HashData(body, bodyMd5);
+            bodyMd5[..4].CopyTo(payload[4..8]);
+            SetHeader(request, "X-SS-STUB", Convert.ToHexString(bodyMd5));
+        }
+
+        payload[12] = 0;
+        payload[13] = 6;
+        payload[14] = 11;
+        payload[15] = 28;
+        BinaryPrimitives.WriteUInt32BigEndian(payload[16..], timestamp);
+
+        for (int i = 0; i < payload.Length; i++)
+        {
+            payload[i] ^= RequestKey[i];
+        }
+
+        for (int j = 0; j < payload.Length; j++)
+        {
+            int mixed = RotateLeft(payload[j], 4) ^ payload[(j + 1) % payload.Length];
+            payload[j] = (byte)(ReverseBits((byte)mixed) ^ 0xFF ^ payload.Length);
+        }
+
+        Span<byte> signature = stackalloc byte[26];
+        signature[0] = 0x84;
+        signature[1] = 0x04;
+        signature[2] = 0x40;
+        signature[3] = 0x1C;
+        signature[4] = 0;
+        signature[5] = 0;
+        payload.CopyTo(signature[6..]);
+
+        SetHeader(request, "X-Khronos", timestamp.ToString(CultureInfo.InvariantCulture));
+        SetHeader(request, "X-Gorgon", Convert.ToHexStringLower(signature));
+        SetHeader(
+            request,
+            "X-SS-Req-Ticket",
+            now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+        );
+
+        request.Headers.Remove("X-Medusa");
+
+        string effectiveDeviceId = !string.IsNullOrEmpty(deviceId)
+            ? deviceId
+            : GetQueryValue(query, "device_id");
+        string aid = GetQueryValue(query, "aid");
+        if (string.IsNullOrEmpty(aid))
+        {
+            aid = "1967";
+        }
+        string iid = GetQueryValue(query, "iid");
+
+        uint argusNonce = RandomUint32();
+        uint ladonNonce = RandomUint32();
+
+        SetHeader(
+            request,
+            "X-Argus",
+            PlaybackArgus(query, bodyMd5, timestamp, argusNonce, aid, effectiveDeviceId, iid)
+        );
+        SetHeader(request, "X-Ladon", PlaybackLadon(timestamp, ladonNonce, aid));
+    }
+
+    private static uint RandomUint32()
+    {
+        Span<byte> bytes = stackalloc byte[4];
+        RandomNumberGenerator.Fill(bytes);
+        return BinaryPrimitives.ReadUInt32LittleEndian(bytes);
+    }
+
+    internal static string PlaybackArgus(
+        string query,
+        ReadOnlySpan<byte> body,
+        uint timestamp,
+        uint nonce
+    )
+    {
+        Span<byte> bodyMd5 = stackalloc byte[16];
+        if (!body.IsEmpty)
+        {
+            MD5.HashData(body, bodyMd5);
+        }
+
+        string aid = GetQueryValue(query, "aid");
+        if (string.IsNullOrEmpty(aid))
+        {
+            aid = "1967";
+        }
+
+        string deviceId = GetQueryValue(query, "device_id");
+        string installId = GetQueryValue(query, "iid");
+
+        return PlaybackArgus(query, bodyMd5, timestamp, nonce, aid, deviceId, installId);
+    }
+
+    internal static string PlaybackArgus(
+        string query,
+        ReadOnlySpan<byte> bodyMd5,
+        uint timestamp,
+        uint nonce,
+        string aid,
+        string deviceId,
+        string installId
+    )
+    {
+        Span<byte> bodyHash = stackalloc byte[32];
+        if (bodyMd5.IsEmpty)
+        {
+            StaticZero16Sm3.CopyTo(bodyHash);
+        }
+        else
+        {
+            Sm3(bodyMd5, bodyHash);
+        }
+
+        Span<byte> queryHash = stackalloc byte[32];
+        if (string.IsNullOrEmpty(query))
+        {
+            Span<byte> zeros16 = stackalloc byte[16];
+            zeros16.Clear();
+            Sm3(zeros16, queryHash);
+        }
+        else
+        {
+            int maxQueryBytes = Encoding.UTF8.GetMaxByteCount(query.Length);
+            if (maxQueryBytes <= 512)
+            {
+                Span<byte> queryBytes = stackalloc byte[maxQueryBytes];
+                int written = Encoding.UTF8.GetBytes(query, queryBytes);
+                Sm3(queryBytes[..written], queryHash);
+            }
+            else
+            {
+                byte[] rented = ArrayPool<byte>.Shared.Rent(maxQueryBytes);
+                try
+                {
+                    int written = Encoding.UTF8.GetBytes(query, rented);
+                    Sm3(rented.AsSpan(0, written), queryHash);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(rented);
+                }
+            }
+        }
+
+        string versionName = GetQueryValue(query, "version_name");
+
+        List<byte> bean = [with(384)];
+        Varint(bean, 1, 1077940818UL);
+        Varint(bean, 2, 2UL);
+        Varint(bean, 3, nonce);
+        PbString(bean, 4, aid);
+        PbString(bean, 5, deviceId);
+        PbString(bean, 6, PlaybackLicenseId);
+        PbString(bean, 7, versionName);
+        Bytes(bean, 8, "v04.04.05-ov-android"u8);
+        Varint(bean, 9, 134744640UL);
+        Bytes(bean, 10, stackalloc byte[8]);
+        Varint(bean, 11, 0UL);
+        Varint(bean, 12, (ulong)(timestamp << 1));
+        Bytes(bean, 13, bodyHash[..6]);
+        Bytes(bean, 14, queryHash[..6]);
+        Bytes(bean, 15, PlaybackCounters);
+        PbString(bean, 16, installId);
+        Bytes(bean, 20, "none"u8);
+        Varint(bean, 21, 738UL);
+        Bytes(bean, 23, PlaybackDevice);
+        Varint(bean, 25, 2UL);
+
+        byte[] plain = Pad(CollectionsMarshal.AsSpan(bean));
+        SimonEncrypt(plain, PlaybackArgusSimonRoundKeys);
+
+        byte[] frame = new byte[PlaybackArgusMask.Length + plain.Length + PlaybackArgusTail.Length];
+        PlaybackArgusMask.CopyTo(frame, 0);
+        plain.CopyTo(frame, PlaybackArgusMask.Length);
+        PlaybackArgusTail.CopyTo(frame, PlaybackArgusMask.Length + plain.Length);
+
+        for (int i = PlaybackArgusMask.Length; i < frame.Length; i++)
+        {
+            frame[i] ^= PlaybackArgusMask[i % PlaybackArgusMask.Length];
+        }
+
+        Array.Reverse(frame);
+
+        byte[] frameWithMarker = new byte[frame.Length + 2];
+        frame.CopyTo(frameWithMarker, 0);
+        frameWithMarker[^2] = 0x61;
+        frameWithMarker[^1] = 0x6f;
+
+        byte[] paddedFrame = Pad(frameWithMarker);
+
+        using Aes aes = Aes.Create();
+        aes.Key = PlaybackArgusAesKey;
+        aes.IV = PlaybackArgusAesIv;
+        aes.Mode = CipherMode.CBC;
+        aes.Padding = PaddingMode.None;
+
+        byte[] encrypted = aes.CreateEncryptor()
+            .TransformFinalBlock(paddedFrame, 0, paddedFrame.Length);
+
+        byte[] result = new byte[2 + encrypted.Length];
+        result[0] = 0xf2;
+        result[1] = 0x81;
+        encrypted.CopyTo(result, 2);
+
+        return Convert.ToBase64String(result);
+    }
+
+    internal static string PlaybackLadon(uint timestamp, uint nonce, string aid)
+    {
+        Span<byte> seed = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(seed, nonce);
+
+        int aidByteCount = Encoding.UTF8.GetByteCount(aid);
+        Span<byte> digestInput = stackalloc byte[4 + aidByteCount];
+        seed.CopyTo(digestInput);
+        Encoding.UTF8.GetBytes(aid, digestInput[4..]);
+
+        Span<byte> md5Digest = stackalloc byte[16];
+        MD5.HashData(digestInput, md5Digest);
+
+        Span<byte> hexKey = stackalloc byte[32];
+        FormatHexBytesLower(md5Digest, hexKey);
+
+        Span<ulong> keys = stackalloc ulong[34];
+        ulong k = BinaryPrimitives.ReadUInt64LittleEndian(hexKey);
+        Span<ulong> pending =
+        [
+            BinaryPrimitives.ReadUInt64LittleEndian(hexKey[8..]),
+            BinaryPrimitives.ReadUInt64LittleEndian(hexKey[16..]),
+            BinaryPrimitives.ReadUInt64LittleEndian(hexKey[24..]),
+        ];
+
+        for (int i = 0; i < 34; i++)
+        {
+            keys[i] = k;
+            ulong x = (BitOperations.RotateRight(pending[0], 8) + k) ^ (ulong)i;
+            pending[0] = pending[1];
+            pending[1] = pending[2];
+            pending[2] = x;
+            k = x ^ BitOperations.RotateLeft(k, 3);
+        }
+
+        string rawText =
+            $"{timestamp.ToString(CultureInfo.InvariantCulture)}-{PlaybackLicenseId}-{aid}";
+        int rawByteCount = Encoding.UTF8.GetByteCount(rawText);
+        Span<byte> rawBytes = stackalloc byte[rawByteCount];
+        Encoding.UTF8.GetBytes(rawText, rawBytes);
+        byte[] plain = Pad(rawBytes);
+
+        for (int at = 0; at < plain.Length; at += 16)
+        {
+            ulong a = BinaryPrimitives.ReadUInt64LittleEndian(plain.AsSpan(at));
+            ulong b = BinaryPrimitives.ReadUInt64LittleEndian(plain.AsSpan(at + 8));
+            foreach (ulong rk in keys)
+            {
+                b = rk ^ (a + BitOperations.RotateRight(b, 8));
+                a = b ^ BitOperations.RotateLeft(a, 3);
+            }
+            BinaryPrimitives.WriteUInt64LittleEndian(plain.AsSpan(at), a);
+            BinaryPrimitives.WriteUInt64LittleEndian(plain.AsSpan(at + 8), b);
+        }
+
+        byte[] result = new byte[4 + plain.Length];
+        seed.CopyTo(result);
+        plain.CopyTo(result.AsSpan(4));
+        return Convert.ToBase64String(result);
+    }
+
+    private static void SimonEncrypt(Span<byte> plain, ReadOnlySpan<ulong> roundKeys)
+    {
+        for (int at = 0; at < plain.Length; at += 16)
+        {
+            ulong a = BinaryPrimitives.ReadUInt64LittleEndian(plain[at..]);
+            ulong b = BinaryPrimitives.ReadUInt64LittleEndian(plain[(at + 8)..]);
+            foreach (ulong rk in roundKeys)
+            {
+                ulong nextB =
+                    a
+                    ^ (BitOperations.RotateLeft(b, 1) & BitOperations.RotateLeft(b, 8))
+                    ^ BitOperations.RotateLeft(b, 2)
+                    ^ rk;
+                a = b;
+                b = nextB;
+            }
+            BinaryPrimitives.WriteUInt64LittleEndian(plain[at..], a);
+            BinaryPrimitives.WriteUInt64LittleEndian(plain[(at + 8)..], b);
+        }
+    }
+
+    private static void PbString(List<byte> target, ulong field, string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            Bytes(target, field, []);
+            return;
+        }
+
+        int maxBytes = Encoding.UTF8.GetMaxByteCount(value.Length);
+        if (maxBytes <= 256)
+        {
+            Span<byte> span = stackalloc byte[maxBytes];
+            int written = Encoding.UTF8.GetBytes(value, span);
+            Bytes(target, field, span[..written]);
+        }
+        else
+        {
+            byte[] rented = ArrayPool<byte>.Shared.Rent(maxBytes);
+            try
+            {
+                int written = Encoding.UTF8.GetBytes(value, rented);
+                Bytes(target, field, rented.AsSpan(0, written));
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+    }
+
     private static string PlayerLadon(string aid, uint timestamp, ReadOnlySpan<byte> prefix)
     {
         int aidBytesCount = Encoding.UTF8.GetByteCount(aid);
@@ -807,7 +1218,7 @@ internal static class PhoenixReadRequestSigner
             }
         }
 
-        List<byte> message = new(256);
+        List<byte> message = [with(256)];
         Varint(message, 1uL, 0x20200929uL * 2uL);
         Varint(message, 2uL, 2uL);
         Varint(
@@ -938,14 +1349,14 @@ internal static class PhoenixReadRequestSigner
         target.Add((byte)value);
     }
 
-    private static byte[] Sm3(ReadOnlySpan<byte> input)
+    internal static byte[] Sm3(ReadOnlySpan<byte> input)
     {
         byte[] array4 = new byte[32];
         Sm3(input, array4);
         return array4;
     }
 
-    private static void Sm3(ReadOnlySpan<byte> input, Span<byte> destination)
+    internal static void Sm3(ReadOnlySpan<byte> input, Span<byte> destination)
     {
         ulong value = (ulong)input.Length * 8uL;
         int i;

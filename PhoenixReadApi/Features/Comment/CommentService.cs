@@ -1,4 +1,4 @@
-﻿using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Http;
@@ -310,7 +310,8 @@ internal sealed class CommentService : PhoenixFeatureService
         dramaId = NormalizeSeriesId(dramaId);
         text = NormalizeText(text);
 
-        bool isEpisode = !string.IsNullOrWhiteSpace(videoId)
+        bool isEpisode =
+            !string.IsNullOrWhiteSpace(videoId)
             && !string.Equals(dramaId, videoId, StringComparison.Ordinal);
         string normalizedVideoId = isEpisode ? NormalizeVideoId(videoId) : string.Empty;
 
@@ -321,7 +322,9 @@ internal sealed class CommentService : PhoenixFeatureService
         int dataType = isEpisode ? 4 : 2;
         int commentType = isEpisode ? 4 : 2;
 
-        string? normalizedReplyUser = string.IsNullOrWhiteSpace(replyToUserId) ? null : replyToUserId.Trim();
+        string? normalizedReplyUser = string.IsNullOrWhiteSpace(replyToUserId)
+            ? null
+            : replyToUserId.Trim();
 
         AppResponse<AppReplyAddData> response = await _appTransport
             .PostAsync<AppCommentAddPayload, AppReplyAddData>(
@@ -363,7 +366,15 @@ internal sealed class CommentService : PhoenixFeatureService
         string text,
         string? replyToUserId,
         CancellationToken cancellationToken
-    ) => SendReplyAsync(commentId, dramaId, videoId: string.Empty, text, replyToUserId, cancellationToken);
+    ) =>
+        SendReplyAsync(
+            commentId,
+            dramaId,
+            videoId: string.Empty,
+            text,
+            replyToUserId,
+            cancellationToken
+        );
 
     internal Task<PhoenixOperationResult> DeleteReplyAsync(
         string replyId,
@@ -446,12 +457,11 @@ internal sealed class CommentService : PhoenixFeatureService
                 serverChannel: payload.ServerChannel
             )
             .ConfigureAwait(false);
-        AppCommentListData data =
-            response.Data
+        AppCommentListData data = response.Data
             ?? throw new PhoenixReadApiResponseException("评论接口未返回有效数据。", "comments");
 
         List<Comment> items = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (AppCommentRecord? record in data.Items ?? [])
         {
             if (record?.Comment?.Common?.Content is null)
@@ -469,7 +479,12 @@ internal sealed class CommentService : PhoenixFeatureService
             string id = (comment.Id ?? string.Empty).Trim();
             string text = SanitizeText(comment.Common.Content?.Text ?? string.Empty);
             IReadOnlyList<CommentImage> images = MapCommentImages(comment);
-            if (id.Length == 0 || id.Length > 120 || (text.Length == 0 && images.Count == 0) || !seen.Add(id))
+            if (
+                id.Length == 0
+                || id.Length > 120
+                || (text.Length == 0 && images.Count == 0)
+                || !seen.Add(id)
+            )
             {
                 continue;
             }
@@ -639,15 +654,19 @@ internal sealed class CommentService : PhoenixFeatureService
         }
 
         IReadOnlyList<AppCommentImageDto> source =
-            comment.ImageList is { Count: > 0 } ? comment.ImageList :
-            comment.Common?.ImageList is { Count: > 0 } ? comment.Common.ImageList :
-            comment.Common?.Content?.ImageList is { Count: > 0 } ? comment.Common.Content.ImageList :
-            comment.Expand?.ImageList ?? [];
+            comment.ImageList is { Count: > 0 } ? comment.ImageList
+            : comment.Common?.ImageList is { Count: > 0 } ? comment.Common.ImageList
+            : comment.Common?.Content?.ImageList is { Count: > 0 }
+                ? comment.Common.Content.ImageList
+            : comment.Expand?.ImageList ?? [];
 
         return MapImages(source);
     }
 
-    private static IReadOnlyList<CommentImage> MapReplyImages(AppReply? reply, AppReplyCommon? common)
+    private static IReadOnlyList<CommentImage> MapReplyImages(
+        AppReply? reply,
+        AppReplyCommon? common
+    )
     {
         var replyImages = reply?.Content?.ImageDataList?.ImageData;
         if (replyImages is { Count: > 0 })
@@ -662,16 +681,18 @@ internal sealed class CommentService : PhoenixFeatureService
         }
 
         IReadOnlyList<AppCommentImageDto> source =
-            reply?.ImageList is { Count: > 0 } ? reply.ImageList :
-            reply?.Content?.ImageList is { Count: > 0 } ? reply.Content.ImageList :
-            common?.Content?.ImageList ?? [];
+            reply?.ImageList is { Count: > 0 } ? reply.ImageList
+            : reply?.Content?.ImageList is { Count: > 0 } ? reply.Content.ImageList
+            : common?.Content?.ImageList ?? [];
 
         return MapImages(source);
     }
 
-    private static IReadOnlyList<CommentImage> MapImageData(IReadOnlyList<AppCommentImageDataDto> source)
+    private static IReadOnlyList<CommentImage> MapImageData(
+        IReadOnlyList<AppCommentImageDataDto> source
+    )
     {
-        List<CommentImage> images = new(source.Count);
+        List<CommentImage> images = [with(source.Count)];
         foreach (AppCommentImageDataDto raw in source)
         {
             if (raw is null)
@@ -679,7 +700,9 @@ internal sealed class CommentService : PhoenixFeatureService
                 continue;
             }
 
-            string primaryUrl = ValueNormalizer.First(raw.WebUrl, raw.ExpandWebUrl, raw.WebUri).Trim();
+            string primaryUrl = ValueNormalizer
+                .First(raw.WebUrl, raw.ExpandWebUrl, raw.WebUri)
+                .Trim();
             if (primaryUrl.Length == 0)
             {
                 continue;
@@ -734,14 +757,20 @@ internal sealed class CommentService : PhoenixFeatureService
             {
                 foreach (string candidate in raw.UrlList)
                 {
-                    if (!string.IsNullOrWhiteSpace(candidate) && !candidateUrls.Contains(candidate, StringComparer.Ordinal))
+                    if (
+                        !string.IsNullOrWhiteSpace(candidate)
+                        && !candidateUrls.Contains(candidate, StringComparer.Ordinal)
+                    )
                     {
                         candidateUrls.Add(candidate.Trim());
                     }
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(raw.Url) && !candidateUrls.Contains(raw.Url.Trim(), StringComparer.Ordinal))
+            if (
+                !string.IsNullOrWhiteSpace(raw.Url)
+                && !candidateUrls.Contains(raw.Url.Trim(), StringComparer.Ordinal)
+            )
             {
                 candidateUrls.Add(raw.Url.Trim());
             }
@@ -750,7 +779,10 @@ internal sealed class CommentService : PhoenixFeatureService
             {
                 foreach (string downloadUrl in raw.DownloadUrl)
                 {
-                    if (!string.IsNullOrWhiteSpace(downloadUrl) && !candidateUrls.Contains(downloadUrl.Trim(), StringComparer.Ordinal))
+                    if (
+                        !string.IsNullOrWhiteSpace(downloadUrl)
+                        && !candidateUrls.Contains(downloadUrl.Trim(), StringComparer.Ordinal)
+                    )
                     {
                         candidateUrls.Add(downloadUrl.Trim());
                     }
@@ -761,7 +793,10 @@ internal sealed class CommentService : PhoenixFeatureService
             {
                 foreach (string downloadUrl in raw.DownloadUrlList)
                 {
-                    if (!string.IsNullOrWhiteSpace(downloadUrl) && !candidateUrls.Contains(downloadUrl.Trim(), StringComparer.Ordinal))
+                    if (
+                        !string.IsNullOrWhiteSpace(downloadUrl)
+                        && !candidateUrls.Contains(downloadUrl.Trim(), StringComparer.Ordinal)
+                    )
                     {
                         candidateUrls.Add(downloadUrl.Trim());
                     }
@@ -774,9 +809,8 @@ internal sealed class CommentService : PhoenixFeatureService
                 continue;
             }
 
-            IReadOnlyList<string> backupUrls = candidateUrls.Count > 1
-                ? [.. candidateUrls.Skip(1)]
-                : [];
+            IReadOnlyList<string> backupUrls =
+                candidateUrls.Count > 1 ? [.. candidateUrls.Skip(1)] : [];
 
             images.Add(
                 new CommentImage

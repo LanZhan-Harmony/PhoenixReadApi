@@ -33,13 +33,15 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     private readonly Lock _stateLock = new();
 
-    private readonly Dictionary<string, CachedValue<SearchResult>> _searchCache = new(
-        StringComparer.Ordinal
-    );
+    private readonly Dictionary<string, CachedValue<SearchResult>> _searchCache =
+    [
+        with(StringComparer.Ordinal),
+    ];
 
-    private readonly Dictionary<string, CachedValue<List<SearchSuggestion>>> _suggestionCache = new(
-        StringComparer.Ordinal
-    );
+    private readonly Dictionary<string, CachedValue<List<SearchSuggestion>>> _suggestionCache =
+    [
+        with(StringComparer.Ordinal),
+    ];
 
     private readonly ConcurrentDictionary<string, Lazy<Task<SearchResult>>> _searchPending = new(
         StringComparer.Ordinal
@@ -254,7 +256,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         string? sessionId = null;
 
-        HashSet<string> seenIds = new(StringComparer.Ordinal);
+        HashSet<string> seenIds = [with(StringComparer.Ordinal)];
 
         int pageCount = 0;
 
@@ -318,7 +320,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         List<string> result = [];
 
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         foreach (AppSearchCueItemDto item in response.DataV1)
         {
@@ -709,15 +711,15 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 )
                 .ConfigureAwait(false);
 
-            IReadOnlyList<AppSearchTabItem> allTabs =
-                (
-                    (tabResponse?.SearchTabs?.Count ?? 0) > 0
-                        ? tabResponse!.SearchTabs
-                        : tabResponse?.Data?.SearchTabs
-                ) ?? [];
+            IReadOnlyList<AppSearchTabItem> allTabs = (
+                (tabResponse?.SearchTabs?.Count ?? 0) > 0
+                    ? tabResponse!.SearchTabs
+                    : tabResponse?.Data?.SearchTabs
+            ) ?? [];
 
-            AppSearchTabItem? tab =
-                allTabs.FirstOrDefault(static t => t.TabType == "11" && t.Data is { Count: > 0 })
+            AppSearchTabItem? tab = allTabs.FirstOrDefault(static t =>
+                t.TabType == "11" && t.Data is { Count: > 0 }
+            )
                 ?? allTabs.FirstOrDefault(static t => t.TabType == "29" && t.Data is { Count: > 0 })
                 ?? allTabs.FirstOrDefault(static t => t.Data is { Count: > 0 });
 
@@ -796,7 +798,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         List<Drama> output = [];
 
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         foreach (WebSearchRecordDto row in page.Items)
         {
@@ -885,16 +887,15 @@ internal sealed partial class SearchService : PhoenixFeatureService
             // App 搜索接口不可用时允许降级
         }
 
-        IReadOnlyList<AppSearchTabItem> allTabs =
-            (
-                (tabResponse?.SearchTabs?.Count ?? 0) > 0
-                    ? tabResponse!.SearchTabs
-                    : tabResponse?.Data?.SearchTabs
-            ) ?? [];
+        IReadOnlyList<AppSearchTabItem> allTabs = (
+            (tabResponse?.SearchTabs?.Count ?? 0) > 0
+                ? tabResponse!.SearchTabs
+                : tabResponse?.Data?.SearchTabs
+        ) ?? [];
 
-        AppSearchTabItem? tab =
-            allTabs.FirstOrDefault(t => t.TabType == tabType && t.Data is { Count: > 0 })
-            ?? allTabs.FirstOrDefault(static t => t.Data is { Count: > 0 });
+        AppSearchTabItem? tab = allTabs.FirstOrDefault(t =>
+            t.TabType == tabType && t.Data is { Count: > 0 }
+        ) ?? allTabs.FirstOrDefault(static t => t.Data is { Count: > 0 });
 
         (List<Drama>? dramas, List<Novel>? novels, List<User>? users) = ParseSearchTabCells(
             tab?.Data ?? []
@@ -972,9 +973,9 @@ internal sealed partial class SearchService : PhoenixFeatureService
             )
             .ConfigureAwait(false);
 
-        List<SearchSuggestion> output = new(maxResults);
+        List<SearchSuggestion> output = [with(maxResults)];
 
-        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> seen = [with(StringComparer.OrdinalIgnoreCase)];
 
         foreach (WebSuggestionDto record in records)
         {
@@ -1183,7 +1184,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        Dictionary<string, SeasonGroup> groups = new(StringComparer.Ordinal);
+        Dictionary<string, SeasonGroup> groups = [with(StringComparer.Ordinal)];
 
         foreach (Drama drama in dramas)
         {
@@ -1226,7 +1227,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         timeout.CancelAfter(TimeSpan.FromSeconds(25));
 
-        HashSet<string> attempted = new(StringComparer.OrdinalIgnoreCase) { keyword };
+        HashSet<string> attempted = [with(StringComparer.OrdinalIgnoreCase), keyword];
 
         int requestCount = 0;
 
@@ -1603,11 +1604,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         List<User> users = [];
 
-        HashSet<string> seenDramas = new(StringComparer.Ordinal);
+        HashSet<string> seenDramas = [with(StringComparer.Ordinal)];
 
-        HashSet<string> seenNovels = new(StringComparer.Ordinal);
+        HashSet<string> seenNovels = [with(StringComparer.Ordinal)];
 
-        HashSet<string> seenUsers = new(StringComparer.Ordinal);
+        HashSet<string> seenUsers = [with(StringComparer.Ordinal)];
 
         foreach (AppSearchTabCell cell in cells)
         {

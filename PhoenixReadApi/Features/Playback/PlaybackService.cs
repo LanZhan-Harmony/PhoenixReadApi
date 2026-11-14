@@ -92,10 +92,9 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         };
 
         AppResponse<AppPlaybackData> result = await _appTransport
-            .PostAsync<AppMediaPayload, AppPlaybackData>(
+            .PostPlaybackAsync<AppMediaPayload, AppPlaybackData>(
                 "/novel/player/video_model/v1/",
                 payload,
-                commentRequest: false,
                 cancellationToken
             )
             .ConfigureAwait(false);
@@ -375,7 +374,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
     private static List<string> MediaAddresses(AppMediaVariantDto info)
     {
         List<string> addresses = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (
             string raw in (info.MainUrls ?? [])
                 .Concat(info.BackupUrls ?? [])
