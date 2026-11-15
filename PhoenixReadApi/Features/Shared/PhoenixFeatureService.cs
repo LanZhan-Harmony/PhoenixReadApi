@@ -83,7 +83,7 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
         }
     }
 
-    protected static string NormalizeSeriesId(string value)
+    protected static string NormalizeDramaId(string value)
     {
         value = (value ?? string.Empty).Trim();
         if (value.StartsWith("hongguo:", StringComparison.Ordinal))

@@ -48,7 +48,7 @@
 
 - 🎬 **短剧发现与检索**
   - 分类剧库（真人短剧、漫剧、AI 短剧）及题材标签树（热门、情节、主题、角色等）多维筛选；
-  - 排行榜榜单（热播榜、好评榜、飙升榜、新剧榜）及新剧日历浏览；
+  - 排行榜榜单（推荐榜、热播榜、新剧榜、热搜榜）及新剧日历浏览；
   - 关键词精准/模糊搜索、智能搜索联想、短剧推荐流与缺失季数自动补齐。
 - 📺 **媒体播放解析**
   - 高画质视频播放直链解析与备选码率（720p / 1080p 等）列表；
@@ -81,18 +81,21 @@
 ## 安装指南
 
 ### .NET CLI
+
 ```bash
 dotnet add package PhoenixReadApi
 ```
 
 ### Package Manager
+
 ```powershell
 Install-Package PhoenixReadApi
 ```
 
 ### PackageReference
+
 ```xml
-<PackageReference Include="PhoenixReadApi" Version="1.0.0" />
+<PackageReference Include="PhoenixReadApi" Version="0.4.0" />
 ```
 
 ---
@@ -146,10 +149,11 @@ if (drama is not null)
 ### 1. 短剧分类、标签筛选与排行榜
 
 #### 分类剧库与标签筛选
+
 ```csharp
 // 浏览真人短剧剧库
 IReadOnlyList<Drama> shortDramas = await client.GetCatalogAsync(
-    PhoenixReadApiCategory.ShortDrama,
+    PhoenixReadApiCategory.RealDrama,
     cancellationToken: cts.Token
 );
 
@@ -167,7 +171,7 @@ foreach (TagCategoryGroup group in tagGroups)
 // 根据标签 ID 分页检索短剧（例如筛选“都市日常”）
 TagDramaPage page = await client.GetTagDramaPageAsync(
     tagItemId: "cate_261",
-    sortType: "new_sort_hot", // 排序方式：最热 "new_sort_hot"，最新 "new_sort_latest"
+    sort: TagDramaSortOrder.Hot, // 排序方式：最热 TagDramaSortOrder.Hot，最新 TagDramaSortOrder.Latest
     offset: 0,
     count: 12,
     cancellationToken: cts.Token
@@ -177,12 +181,13 @@ Console.WriteLine($"当前页返回 {page.Items.Count} 部短剧，是否还有�
 ```
 
 #### 榜单与上新日历
+
 ```csharp
 // 获取待播新剧日历与可预约列表
-ReservationPage upcoming = await client.GetUpcomingReservationsAsync(cts.Token);
-foreach (Reservation drama in upcoming.Items.Take(5))
+ReservationPage upcoming = await client.GetUpcomingReservationsAsync(cancellationToken: cts.Token);
+foreach (ReservationItem drama in upcoming.Items.Take(5))
 {
-    Console.WriteLine($"新剧: 《{drama.Title}》 (ID: {drama.SeriesId}), 预约状态: {drama.IsActive}");
+    Console.WriteLine($"新剧: 《{drama.Title}》 (ID: {drama.DramaId}), 预约状态: {drama.IsActive}");
 }
 
 // 演员排行榜（名次、人气值、代表作品、排名升降）
@@ -201,7 +206,7 @@ DiscoverPage discover = await client.GetDiscoverPageAsync(
 Console.WriteLine($"推荐频道短剧数: {discover.Dramas.Count}, 下一页游标: {discover.Cursor}");
 
 // 短剧动态多维筛选面板与组合矩阵筛选
-IReadOnlyList<ShortDramaFilterGroup> filterRows = await client.GetShortDramaFilterPanelAsync(ShortDramaGenre.ShortPlay, cts.Token);
+IReadOnlyList<ShortDramaFilterGroup> filterGroups = await client.GetShortDramaFilterPanelAsync(ShortDramaGenre.ShortPlay, cts.Token);
 ShortDramaFilterPage filterPage = await client.FilterShortDramasAsync(
     new ShortDramaFilterQuery
     {
@@ -371,7 +376,7 @@ foreach (DramaDetails item in batchWithEpisodes)
 ```csharp
 // 解析指定分集的可播放媒体列表（按画质综合得分从高到低排序）
 IReadOnlyList<PlaybackMedia> medias = await client.ResolveMediaAsync(
-    seriesId: details.Drama.Id,
+    dramaId: details.Drama.Id,
     videoId: details.Episodes[0].VideoId,
     cancellationToken: cts.Token
 );
@@ -404,13 +409,14 @@ if (!string.IsNullOrEmpty(media.DecryptionKey))
 ### 5. 弹幕抓取与评论互动
 
 #### 抓取分集弹幕
+
 ```csharp
-string seriesId = "74123456789";
+string dramaId = "74123456789";
 string videoId = "74987654321";
 
 // 抓取视频指定时间窗口内的弹幕（毫秒单位；例如获取前 10 分钟弹幕）
 DanmakuPage danmaku = await client.GetDanmakuAsync(
-    seriesId,
+    dramaId,
     videoId,
     startMs: 0,
     durationMs: 600_000,
@@ -425,10 +431,11 @@ foreach (DanmakuItem item in danmaku.Items.Take(5))
 ```
 
 #### 剧评与分集评论
+
 ```csharp
 // 分页获取剧评（支持最热/最新排序）
 CommentPage reviews = await client.GetDramaReviewsAsync(
-    seriesId,
+    dramaId,
     count: 10,
     sort: CommentSortOrder.Hot,
     cancellationToken: cts.Token
@@ -436,7 +443,7 @@ CommentPage reviews = await client.GetDramaReviewsAsync(
 
 // 获取分集评论
 CommentPage episodeComments = await client.GetEpisodeCommentsAsync(
-    seriesId,
+    dramaId,
     videoId,
     count: 10,
     sort: CommentSortOrder.Hot,
@@ -448,7 +455,7 @@ if (reviews.Items.FirstOrDefault() is { } topComment && topComment.ReplyCount > 
 {
     CommentReplyPage replies = await client.GetDramaReviewRepliesAsync(
         topComment.Id,
-        seriesId,
+        dramaId,
         count: 10,
         cancellationToken: cts.Token
     );
@@ -456,8 +463,12 @@ if (reviews.Items.FirstOrDefault() is { } topComment && topComment.ReplyCount > 
 }
 
 // 互动操作（需在登录状态下调用）
-await client.SendEpisodeCommentAsync(seriesId, videoId, "剧情太紧凑了！", cts.Token);
-await client.SetCommentLikeAsync(topComment.Id, seriesId, videoId, active: true, cts.Token);
+await client.SendEpisodeCommentAsync(dramaId, videoId, "剧情太紧凑了！", cts.Token);
+if (reviews.Items.FirstOrDefault() is { } topComment)
+{
+    // 对剧评点赞（亦可使用通用的 SetCommentLikeAsync(topComment.Id, dramaId, active: true, cts.Token)）
+    await client.SetReviewLikeAsync(topComment.Id, dramaId, active: true, cts.Token);
+}
 ```
 
 ---
@@ -471,15 +482,18 @@ ReadHistoryPage history = await client.GetHistoryAsync(cancellationToken: cts.To
 // 上报当前分集的播放进度（也会同步写入观看历史）
 await client.ReportProgressAsync(new ProgressUpdate
 {
-    SeriesId = seriesId,
+    DramaId = dramaId,
     VideoId = videoId,
     EpisodeNumber = 1,
     CurrentPositionMs = 45_000,
     DurationMs = 120_000
 }, cts.Token);
 
-// 收藏短剧
-await client.SetFavoriteAsync(seriesId, videoId, active: true, cts.Token);
+// 收藏短剧（亦可使用 RemoveFavoriteAsync 取消收藏）
+await client.SetFavoriteAsync(dramaId, videoId, active: true, cancellationToken: cts.Token);
+
+// 点赞当前分集
+await client.SetDramaEpisodeLikeAsync(dramaId, videoId, active: true, cancellationToken: cts.Token);
 
 // 查询收藏夹列表
 DramaPage favorites = await client.GetFavoritesAsync(cancellationToken: cts.Token);
@@ -528,7 +542,7 @@ IReadOnlyList<LoginRegion> regions = client.GetLoginRegions();
 
 // 1. 发送短信验证码
 VerificationCodeResult verifyResult = await client.SendVerificationCodeAsync("13800000000", cts.Token);
-Console.WriteLine($"验证码已发送至 {verifyResult.MaskedPhone}，重发等待: {verifyResult.RetryIntervalSeconds}s");
+Console.WriteLine($"验证码已发送至 {verifyResult.MaskedPhone}，重发等待: {verifyResult.RetryAfterSeconds}s");
 
 // 2. 使用收到的验证码登录
 AuthenticatedUser user = await client.LoginAsync("13800000000", "123456", cts.Token);
@@ -582,7 +596,7 @@ Console.WriteLine($"昵称: {profile.User.Name}");
 Console.WriteLine($"主创角色: {string.Join(" | ", profile.CreatorRoles)}"); // 如 "男演员 | 导演"
 Console.WriteLine($"红果号: {profile.HongguoId}");
 Console.WriteLine($"蓝V认证: {profile.IsVerified}");
-Console.WriteLine($"粉丝数: {profile.FansCount}, 获赞数: {profile.LikedCount}");
+Console.WriteLine($"粉丝数: {profile.FansCount}, 获赞数: {profile.LikeCount}");
 Console.WriteLine($"主页背景图: {profile.BackgroundCoverUrl}");
 
 // 演职人员专属作品列表（首屏已自动拉取）
@@ -627,13 +641,13 @@ foreach (UserRelationItem item in followings.Items)
 
 ```csharp
 // 开启某部短剧的追更提醒
-await client.SetFollowUpdateAsync(dramaId: "7699833115866303550", follow: true, cts.Token);
+await client.SetFollowUpdateAsync(dramaId: "7699833115866303550", follow: true, cancellationToken: cts.Token);
 
 // 检查是否已开启追更
 bool isFollowing = await client.IsFollowingUpdateAsync("7699833115866303550", cts.Token);
 
 // 分页拉取当前追更短剧列表（包含已更新总集数、观看进度与更新频例文案）
-FollowUpdatePage followPage = await client.GetFollowUpdatesAsync(cursor: "", count: 20, cts.Token);
+FollowUpdatePage followPage = await client.GetFollowUpdatesAsync(cursor: "", count: 20, cancellationToken: cts.Token);
 foreach (FollowUpdateItem item in followPage.Items)
 {
     Console.WriteLine($"追更剧: 《{item.Title}》, 总集数: {item.EpisodeCount}, 状态: {item.UpdateFrequency}");
@@ -657,7 +671,7 @@ await client.ClearNoticesAsync(cts.Token);
 
 ```csharp
 // 获取评论表情包列表（isCollected: false 为热门表情包，true 为用户已收藏表情包）
-EmoticonPage emoticons = await client.GetEmoticonsAsync(isCollected: false, offset: 0, count: 20, cts.Token);
+EmoticonPage emoticons = await client.GetEmoticonsAsync(isCollected: false, offset: 0, count: 20, cancellationToken: cts.Token);
 foreach (CommentImage emo in emoticons.Items)
 {
     Console.WriteLine($"表情 ID: {emo.Id}, 图片: {emo.Url} ({emo.Width}x{emo.Height})");
@@ -685,7 +699,7 @@ Console.WriteLine($"图片上传成功，ImageId: {uploaded.ImageId}, WebUri: {u
 
 ```csharp
 // 获取客户端负反馈长按选项卡（卡片类型 2 为短剧负反馈）
-DislikePanel panel = await client.GetDislikePanelAsync(cardType: 2, cts.Token);
+DislikePanel panel = await client.GetDislikePanelAsync(cardType: 2, cancellationToken: cts.Token);
 foreach (DislikeGroup group in panel.Groups)
 {
     Console.WriteLine($"分组: {group.Title}");
@@ -719,6 +733,12 @@ await foreach (Drama drama in client.EnumerateRecommendationsAsync(genre: Recomm
     Console.WriteLine($"流式接收: 《{drama.Title}》 (ID: {drama.Id})");
     // 处理达到数量或条件后直接 break 退出
 }
+
+// 客户端还提供以下流式遍历接口：
+// - client.EnumerateNewDramaRecommendationsAsync(...) // 流式遍历今日上新/新剧专区
+// - client.EnumerateTagDramasAsync(...)               // 流式遍历指定题材标签下的全部短剧
+// - client.EnumerateShortDramaLeaderboardAsync(...)   // 流式遍历排行榜（自动保持会话与已曝光去重）
+// - client.EnumerateActorLeaderboardAsync(...)        // 流式遍历演员排行榜
 ```
 
 ---
@@ -727,19 +747,22 @@ await foreach (Drama drama in client.EnumerateRecommendationsAsync(genre: Recomm
 
 ### PhoenixReadApiOptions 配置表
 
-| 配置项 | 类型 | 默认值 | 说明 |
-| :--- | :--- | :--- | :--- |
-| `RequestTimeout` | `TimeSpan` | `20s` | 单次 HTTP 请求的整体截止时间（包含响应体读取） |
-| `RetryCount` | `int` | `2` | 只读请求遇到临时错误时的最大尝试次数（非幂等写操作不自动重试） |
-| `MaxResponseBytes` | `int` | `8 MB` | 常规接口允许接收的最大响应体大小，避免异常数据占用过多内存 |
-| `EnableWebFallback` | `bool` | `true` | 当主要 App 接口请求异常时，是否自动尝试 Web 网页接口进行兜底 |
-| `CompleteSearchSeasons` | `bool` | `true` | 短剧搜索时是否自动分析并补齐缺失的季数数据 |
-| `MaxPagesPerCategory` | `int` | `50` | 单个分类剧库请求时最多检索的页数上限 |
-| `AuthenticationStateFilePath` | `string?` | `null` | 登录会话本地持久化快照路径（与匿名路径互斥） |
-| `AnonymousStateFilePath` | `string?` | `null` | 匿名设备会话本地持久化快照路径（与登录路径互斥） |
-| `DeviceId` | `string?` | 自动生成 | 自定义或固定设备标识（纯数字字符串） |
-| `InstallId` | `string?` | 自动生成 | 自定义或固定安装标识（纯数字字符串） |
-| `UserAgent` | `string` | 预设 Android UA | 发送请求时使用的 User-Agent 请求头 |
+| 配置项                        | 类型       | 默认值          | 说明                                                           |
+| :---------------------------- | :--------- | :-------------- | :------------------------------------------------------------- |
+| `WebBaseUri`                  | `Uri`      | `https://hongguoduanju.com/` | 网页端服务基础地址（用于 Web 兜底及扫码登录） |
+| `AppBaseUri`                  | `Uri`      | `https://api5-normal-sinfonlinea.fqnovel.com/` | 移动端主要数据接口服务基础地址 |
+| `AuthenticationBaseUri`       | `Uri`      | `https://api5-normal-hl.fqnovel.com/` | Passport 认证服务基础地址（仅用于短信验证码登录链路） |
+| `RequestTimeout`              | `TimeSpan` | `20s`           | 单次 HTTP 请求的整体截止时间（包含响应体读取）                 |
+| `RetryCount`                  | `int`      | `2`             | 只读请求遇到临时错误时的最大尝试次数（非幂等写操作不自动重试） |
+| `MaxResponseBytes`            | `int`      | `8 MB`          | 常规接口允许接收的最大响应体大小，避免异常数据占用过多内存     |
+| `EnableWebFallback`           | `bool`     | `true`          | 当主要 App 接口请求异常时，是否自动尝试 Web 网页接口进行兜底   |
+| `CompleteSearchSeasons`       | `bool`     | `true`          | 短剧搜索时是否自动分析并补齐缺失的季数数据                     |
+| `MaxPagesPerCategory`         | `int`      | `50`            | 单个分类剧库请求时最多检索的页数上限                           |
+| `AuthenticationStateFilePath` | `string?`  | `null`          | 登录会话本地持久化快照路径（与匿名路径互斥）                   |
+| `AnonymousStateFilePath`      | `string?`  | `null`          | 匿名设备会话本地持久化快照路径（与登录路径互斥）               |
+| `DeviceId`                    | `string?`  | 自动生成        | 自定义或固定设备标识（纯数字字符串）                           |
+| `InstallId`                   | `string?`  | 自动生成        | 自定义或固定安装标识（纯数字字符串）                           |
+| `UserAgent`                   | `string`   | 预设 Android UA | 发送请求时使用的 User-Agent 请求头                             |
 
 ### 与 IHttpClientFactory 集成
 

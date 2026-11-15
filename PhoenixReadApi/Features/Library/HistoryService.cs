@@ -60,7 +60,7 @@ internal sealed class HistoryService : LibraryServiceBase
     {
         ArgumentNullException.ThrowIfNull(update);
         string videoId = NormalizeVideoId(update.VideoId);
-        string dramaId = NormalizeSeriesId(update.DramaId);
+        string dramaId = NormalizeDramaId(update.DramaId);
         long timestamp =
             update.UpdatedAtUnixMilliseconds > 0
                 ? update.UpdatedAtUnixMilliseconds

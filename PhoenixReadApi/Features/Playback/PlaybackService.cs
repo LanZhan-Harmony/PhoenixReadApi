@@ -20,14 +20,14 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         : base(runtime) { }
 
     internal Task<IReadOnlyList<PlaybackMedia>> ResolveAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         CancellationToken cancellationToken
     ) =>
-        ResolveCoreAsync(NormalizeSeriesId(seriesId), NormalizeVideoId(videoId), cancellationToken);
+        ResolveCoreAsync(NormalizeDramaId(dramaId), NormalizeVideoId(videoId), cancellationToken);
 
     private async Task<IReadOnlyList<PlaybackMedia>> ResolveCoreAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         CancellationToken cancellationToken
     )
@@ -60,7 +60,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         {
             try
             {
-                return await ResolveWebMediaAsync(seriesId, videoId, cancellationToken)
+                return await ResolveWebMediaAsync(dramaId, videoId, cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (Exception exception) when (IsRecoverable(exception))
@@ -250,14 +250,14 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
     }
 
     private async Task<IReadOnlyList<PlaybackMedia>> ResolveWebMediaAsync(
-        string seriesId,
+        string dramaId,
         string videoId,
         CancellationToken cancellationToken
     )
     {
         Uri pageUri = new(
             _options.WebBaseUri,
-            $"player/{Uri.EscapeDataString(seriesId)}/{Uri.EscapeDataString(videoId)}"
+            $"player/{Uri.EscapeDataString(dramaId)}/{Uri.EscapeDataString(videoId)}"
         );
         string html = await GetTextAsync(pageUri, _options.WebBaseUri, "media", cancellationToken)
             .ConfigureAwait(false);
@@ -271,9 +271,9 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
             page is null
             || !page.IsSuccess
             || page.VideoId != videoId
-            || page.SeriesId != seriesId
+            || page.SeriesId != dramaId
             || !page.PublicVideoSeo.Available
-            || page.PublicVideoSeo.SeriesId != seriesId
+            || page.PublicVideoSeo.SeriesId != dramaId
             || page.PublicVideoSeo.ItemId != videoId
         )
         {

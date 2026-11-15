@@ -245,7 +245,7 @@ internal sealed class NotificationService : PhoenixFeatureService
         return Task.CompletedTask;
     }
 
-    private static string NormalizeDramaId(string dramaId)
+    private static new string NormalizeDramaId(string dramaId)
     {
         if (string.IsNullOrWhiteSpace(dramaId))
         {

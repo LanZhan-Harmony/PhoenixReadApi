@@ -15,8 +15,8 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Search;
 
-using Drama = global::PhoenixReadApi.Drama;
-using User = global::PhoenixReadApi.User;
+using Drama = PhoenixReadApi.Drama;
+using User = PhoenixReadApi.User;
 
 /// <summary>负责搜索、联想、季数补齐和推荐分页。</summary>
 internal sealed partial class SearchService : PhoenixFeatureService
@@ -85,11 +85,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
         ArgumentNullException.ThrowIfNull(query);
 
         string keyword = NormalizeKeyword(query.Keyword);
-
         int offset = Math.Max(0, query.Offset);
-
         int count = Math.Clamp(query.Count, 1, 50);
-
         string tabStr = ((int)query.Tab).ToString(CultureInfo.InvariantCulture);
 
         if (
@@ -161,7 +158,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
 
         int limit = Math.Min(maxResults, MaxSuggestionLimit);
-
         string cacheKey = SuggestionCacheKey(query, limit);
 
         if (
@@ -235,11 +231,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
         RecommendationQuery query = new()
         {
             Genre = genre,
-
             Offset = offset,
-
             SessionId = sessionId ?? string.Empty,
-
             Seen = [.. seen ?? []],
         };
 
@@ -253,11 +246,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
     )
     {
         int offset = 0;
-
         string? sessionId = null;
-
         HashSet<string> seenIds = [with(StringComparer.Ordinal)];
-
         int pageCount = 0;
 
         while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
@@ -290,9 +280,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             }
 
             offset = page.NextOffset;
-
             sessionId = page.SessionId;
-
             pageCount++;
         }
     }
@@ -319,7 +307,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         List<string> result = [];
-
         HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         foreach (AppSearchCueItemDto item in response.DataV1)
@@ -368,9 +355,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         List<HotSearchItem> guesses = [];
-
         List<HotSearchBoard> boards = [];
-
         IReadOnlyList<AppHotSearchPlanCellDto> cells = response.Data ?? [];
 
         foreach (AppHotSearchPlanCellDto planCell in cells)
@@ -408,17 +393,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
                             new HotSearchItem
                             {
                                 Id = video.SeriesId ?? string.Empty,
-
                                 Title = video.Title ?? string.Empty,
-
                                 CoverUrl = video.Cover ?? string.Empty,
-
                                 EpisodeCount = video.EpisodeCount,
-
                                 CardTips = video.CardTips ?? string.Empty,
-
                                 Heat = video.RecText ?? string.Empty,
-
                                 Tag = video.TagInfo?.Text ?? string.Empty,
                             }
                         );
@@ -433,11 +412,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
                             : boardCell.ShowType switch
                             {
                                 388 => "短剧热搜榜",
-
                                 591 => "漫剧热搜榜",
-
                                 619 => "热点话题榜",
-
                                 _ => "热搜榜",
                             };
 
@@ -449,17 +425,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
                                 new HotSearchItem
                                 {
                                     Id = video.SeriesId ?? string.Empty,
-
                                     Title = video.Title ?? string.Empty,
-
                                     CoverUrl = video.Cover ?? string.Empty,
-
                                     EpisodeCount = video.EpisodeCount,
-
                                     CardTips = video.CardTips ?? string.Empty,
-
                                     Heat = video.RecText ?? string.Empty,
-
                                     Tag = video.TagInfo?.Text ?? string.Empty,
                                 }
                             );
@@ -476,11 +446,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
                                 new HotSearchItem
                                 {
                                     Id = topic.TopicId ?? string.Empty,
-
                                     Title = topic.Title ?? string.Empty,
-
                                     Url = topic.Url ?? string.Empty,
-
                                     Heat = heatInfo,
                                 }
                             );
@@ -548,9 +515,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
 
         List<Drama> merged = MergeDramas([.. page.Dramas], names);
-
         bool limited = page.Limited || pageError is not null || namesError is not null;
-
         string warning = string.Empty;
 
         if (pageError is not null)
@@ -591,24 +556,16 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return new SearchResult
         {
             Dramas = merged,
-
             Novels = page.Novels,
-
             Users = page.Users,
-
             Total = Math.Max(page.Total, merged.Count + page.Novels.Count + page.Users.Count),
-
             NextOffset =
                 page.NextOffset > 0 ? page.NextOffset
                 : page.HasMore ? 20
                 : 0,
-
             HasMore = page.HasMore,
-
             SearchId = page.SearchId,
-
             Limited = limited,
-
             Warning = warning,
         };
     }
@@ -655,29 +612,17 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 drama = new Drama
                 {
                     Id = drama.Id,
-
                     Title = title,
-
                     Description = drama.Description,
-
                     CoverUrl = drama.CoverUrl,
-
                     Category = drama.Category,
-
                     Remark = drama.Remark,
-
                     Score = drama.Score,
-
                     Views = drama.Views,
-
                     Heat = drama.Heat,
-
                     OnlineDate = drama.OnlineDate,
-
                     EpisodeCount = drama.EpisodeCount,
-
                     ReleaseStatus = drama.ReleaseStatus,
-
                     Tags = drama.Tags,
                 };
             }
@@ -736,19 +681,12 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     return new SearchResult
                     {
                         Dramas = dramas,
-
                         Novels = novels,
-
                         Users = users,
-
                         Total = total,
-
                         NextOffset = tab.NextOffset > 0 ? tab.NextOffset : total,
-
                         HasMore = tab.HasMore,
-
                         SearchId = tab.SearchId,
-
                         Limited = tab.HasMore,
                     };
                 }
@@ -797,7 +735,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
 
         List<Drama> output = [];
-
         HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         foreach (WebSearchRecordDto row in page.Items)
@@ -821,17 +758,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return new SearchResult
         {
             Dramas = output,
-
             Novels = [],
-
             Users = [],
-
             Total = Math.Max(page.TotalCount, output.Count),
-
             NextOffset = page.HasMore ? pageNumber * 20 : 0,
-
             HasMore = page.HasMore,
-
             Limited = page.HasMore,
         };
     }
@@ -942,21 +873,13 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return new SearchResult
         {
             Dramas = dramas,
-
             Novels = novels,
-
             Users = users,
-
             Total = total,
-
             NextOffset = nextOffset,
-
             HasMore = tab?.HasMore ?? false,
-
             SearchId = tab?.SearchId ?? string.Empty,
-
             Limited = tab?.HasMore ?? total == 0,
-
             Warning = warning,
         };
     }
@@ -974,7 +897,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         List<SearchSuggestion> output = [with(maxResults)];
-
         HashSet<string> seen = [with(StringComparer.OrdinalIgnoreCase)];
 
         foreach (WebSuggestionDto record in records)
@@ -989,15 +911,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
             SearchSuggestionType type = record.WordType switch
             {
                 "short_play_name" => SearchSuggestionType.ShortPlayName,
-
                 "short_play_category" => SearchSuggestionType.ShortPlayCategory,
-
                 "common_query" => SearchSuggestionType.CommonQuery,
-
                 "actor_name" => SearchSuggestionType.ActorName,
-
                 "short_play_actor" => SearchSuggestionType.ShortPlayActor,
-
                 _ => SearchSuggestionType.Unknown,
             };
 
@@ -1079,15 +996,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
         AppCatalogPayload payload = new()
         {
             RequestScene = scene,
-
             Offset = query.Offset,
-
             ClientRequestType = query.Offset > 0 ? 2 : 3,
-
             SessionId = query.SessionId,
-
             FilterIds = string.Join(',', seen),
-
             SelectItems = new AppCatalogSelectItems { Genre = [genre] },
         };
 
@@ -1117,7 +1029,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
 
         List<Drama> output = [];
-
         HashSet<string> seenIds = [with(StringComparer.Ordinal), .. seen];
 
         int validDramaCount = 0;
@@ -1146,7 +1057,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
 
         bool hasMore = data.HasMore;
-
         int next = data.NextOffset;
 
         if (hasMore && (next <= query.Offset || next > 1_000_000))
@@ -1169,11 +1079,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return new RecommendationPage
         {
             Items = output,
-
             NextOffset = next,
-
             HasMore = hasMore,
-
             SessionId = session,
         };
     }
@@ -1198,12 +1105,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
             if (!groups.TryGetValue(key, out SeasonGroup? group))
             {
                 group = new SeasonGroup(baseTitle, SearchText(baseTitle), unit);
-
                 groups.Add(key, group);
             }
 
             group.Known.Add(season);
-
             group.Maximum = Math.Max(group.Maximum, season);
         }
 
@@ -1406,29 +1311,17 @@ internal sealed partial class SearchService : PhoenixFeatureService
         Dictionary<char, int> digits = new()
         {
             ['零'] = 0,
-
             ['〇'] = 0,
-
             ['一'] = 1,
-
             ['二'] = 2,
-
             ['两'] = 2,
-
             ['兩'] = 2,
-
             ['三'] = 3,
-
             ['四'] = 4,
-
             ['五'] = 5,
-
             ['六'] = 6,
-
             ['七'] = 7,
-
             ['八'] = 8,
-
             ['九'] = 9,
         };
 
@@ -1450,9 +1343,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         }
 
         int result = 0;
-
         int current = 0;
-
         int previousUnit = 1000;
 
         foreach (char c in value)
@@ -1460,7 +1351,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
             if (digits.TryGetValue(c, out int digit))
             {
                 current = current * 10 + digit;
-
                 continue;
             }
 
@@ -1472,9 +1362,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             }
 
             result += Math.Max(current, 1) * unit;
-
             current = 0;
-
             previousUnit = unit;
         }
 
@@ -1605,15 +1493,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
     )
     {
         List<Drama> dramas = [];
-
         List<Novel> novels = [];
-
         List<User> users = [];
-
         HashSet<string> seenDramas = [with(StringComparer.Ordinal)];
-
         HashSet<string> seenNovels = [with(StringComparer.Ordinal)];
-
         HashSet<string> seenUsers = [with(StringComparer.Ordinal)];
 
         foreach (AppSearchTabCell cell in cells)
@@ -1655,17 +1538,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
                         new Novel
                         {
                             Id = book.BookId,
-
                             Title = book.BookName,
-
                             Author = book.Author,
-
                             Description = book.Abstract,
-
                             CoverUrl = book.CoverUrl,
-
                             SerialCount = book.SerialCount,
-
                             ReadCount = book.ReadCount,
                         }
                     );
@@ -1692,11 +1569,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
                         new User
                         {
                             Id = userDto.UserId,
-
                             Name = userName,
-
                             Introduction = userDto.BaseInfo?.Description ?? string.Empty,
-
                             AvatarUrl = userDto.BaseInfo?.AvatarUrl ?? string.Empty,
                         }
                     );
@@ -1715,13 +1589,9 @@ internal sealed partial class SearchService : PhoenixFeatureService
     private sealed class SeasonGroup(string title, string key, string unit)
     {
         public string Title { get; } = title;
-
         public string Key { get; } = key;
-
         public string Unit { get; } = unit;
-
         public HashSet<int> Known { get; } = [];
-
         public int Maximum { get; set; }
     }
 }

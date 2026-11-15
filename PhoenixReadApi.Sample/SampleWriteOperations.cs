@@ -8,26 +8,26 @@ internal static partial class SampleSteps
 
         PhoenixReadApiClient client = context.Client;
         CancellationToken cancellationToken = context.CancellationToken;
-        string seriesId = context.SeriesId;
+        string dramaId = context.DramaId;
         string videoId = context.VideoId;
         Episode? episode = context.FirstEpisode;
         Comment? comment = context.SampleComment;
         string userId = context.CreditUserId;
 
-        HashSet<string> favoriteSeriesIds =
+        HashSet<string> favoriteDramaIds =
             context
                 .Favorites?.Items.Select(static item => item.Id)
                 .Where(static id => id.Length > 0)
                 .ToHashSet(StringComparer.Ordinal)
             ?? [];
-        HashSet<string> likedSeriesIds =
+        HashSet<string> likedDramaIds =
             context
                 .Likes?.Items.Select(static item => item.Id)
                 .Where(static id => id.Length > 0)
                 .ToHashSet(StringComparer.Ordinal)
             ?? [];
         ReadHistoryItem? existingHistory = context.History?.Items.FirstOrDefault(item =>
-            item.DramaId == seriesId && item.VideoId == videoId
+            item.DramaId == dramaId && item.VideoId == videoId
         );
         HashSet<string> existingReviewIds =
             context.Reviews?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal)
@@ -44,7 +44,7 @@ internal static partial class SampleSteps
             context.Replies?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal)
             ?? [];
 
-        if (seriesId.Length > 0 && videoId.Length > 0)
+        if (dramaId.Length > 0 && videoId.Length > 0)
         {
             await TryAsync(
                 "ReportProgressAsync",
@@ -52,7 +52,7 @@ internal static partial class SampleSteps
                     client.ReportProgressAsync(
                         new ProgressUpdate
                         {
-                            DramaId = seriesId,
+                            DramaId = dramaId,
                             VideoId = videoId,
                             EpisodeNumber = episode?.Number ?? 0,
                             CurrentPositionMs = 1_000,
@@ -69,20 +69,20 @@ internal static partial class SampleSteps
             PrintCount("  历史记录数", history?.Items.Count);
             await TryAsync(
                 "SetFavoriteAsync",
-                () => client.SetFavoriteAsync(seriesId, videoId, true, cancellationToken)
+                () => client.SetFavoriteAsync(dramaId, videoId, true, cancellationToken)
             );
             await TryAsync(
                 "RemoveFavoriteAsync",
-                () => client.RemoveFavoriteAsync(seriesId, videoId, cancellationToken)
+                () => client.RemoveFavoriteAsync(dramaId, videoId, cancellationToken)
             );
 
             await TryAsync(
                 "SetDramaEpisodeLikeAsync",
-                () => client.SetDramaEpisodeLikeAsync(seriesId, videoId, true, cancellationToken)
+                () => client.SetDramaEpisodeLikeAsync(dramaId, videoId, true, cancellationToken)
             );
             await TryAsync(
                 "SetDramaEpisodeLikeAsync(false)",
-                () => client.SetDramaEpisodeLikeAsync(seriesId, videoId, false, cancellationToken)
+                () => client.SetDramaEpisodeLikeAsync(dramaId, videoId, false, cancellationToken)
             );
 
             // 1. 发表分集评论
@@ -91,7 +91,7 @@ internal static partial class SampleSteps
                 "SendEpisodeCommentAsync",
                 () =>
                     client.SendEpisodeCommentAsync(
-                        seriesId,
+                        dramaId,
                         videoId,
                         commentText,
                         cancellationToken
@@ -111,7 +111,7 @@ internal static partial class SampleSteps
                     () =>
                         client.SendEpisodeCommentReplyAsync(
                             createdCommentId,
-                            seriesId,
+                            dramaId,
                             videoId,
                             replyText,
                             "",
@@ -149,7 +149,7 @@ internal static partial class SampleSteps
             string danmakuText = $"弹幕_{marker}";
             PhoenixOperationResult? danmakuResult = await TryAsync(
                 "SendDanmakuAsync",
-                () => client.SendDanmakuAsync(seriesId, videoId, danmakuText, cancellationToken)
+                () => client.SendDanmakuAsync(dramaId, videoId, danmakuText, cancellationToken)
             );
             string createdDanmakuId = danmakuResult?.Id ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(createdDanmakuId))
@@ -162,16 +162,16 @@ internal static partial class SampleSteps
             }
         }
 
-        if (seriesId.Length > 0)
+        if (dramaId.Length > 0)
         {
             // 8. 剧评：发表与删除生命周期测试
-            string reviewSeriesId = seriesId;
+            string reviewDramaId = dramaId;
             string reviewText = $"剧评_{marker}_{Guid.NewGuid().ToString("N")[..6]}";
             PhoenixOperationResult? reviewResult = null;
             try
             {
                 reviewResult = await client.SendDramaReviewAsync(
-                    reviewSeriesId,
+                    reviewDramaId,
                     5.0,
                     reviewText,
                     cancellationToken
@@ -180,20 +180,20 @@ internal static partial class SampleSteps
             catch (PhoenixReadApiProviderException ex) when (ex.ProviderCode == "103009")
             {
                 Console.WriteLine(
-                    $"  [提示] 剧集 {reviewSeriesId} 历史已评过 (103009)，选用备选剧集测试剧评发表与删除生命周期..."
+                    $"  [提示] 剧集 {reviewDramaId} 历史已评过 (103009)，选用备选剧集测试剧评发表与删除生命周期..."
                 );
-                string? alternativeSeriesId =
+                string? alternativeDramaId =
                     context.Catalog?.ElementAtOrDefault(10)?.Id
                     ?? context.Catalog?.LastOrDefault()?.Id;
-                if (!string.IsNullOrEmpty(alternativeSeriesId))
+                if (!string.IsNullOrEmpty(alternativeDramaId))
                 {
-                    reviewSeriesId = alternativeSeriesId;
+                    reviewDramaId = alternativeDramaId;
                     string altReviewText = $"剧评_{marker}_{Guid.NewGuid().ToString("N")[..6]}";
                     Console.WriteLine(
-                        $"  [切换] 使用未评价短剧 {reviewSeriesId} 测试剧评发布与删除..."
+                        $"  [切换] 使用未评价短剧 {reviewDramaId} 测试剧评发布与删除..."
                     );
                     reviewResult = await client.SendDramaReviewAsync(
-                        reviewSeriesId,
+                        reviewDramaId,
                         5.0,
                         altReviewText,
                         cancellationToken
@@ -218,23 +218,23 @@ internal static partial class SampleSteps
                     () =>
                         client.DeleteDramaReviewAsync(
                             createdReviewId,
-                            reviewSeriesId,
+                            reviewDramaId,
                             cancellationToken
                         )
                 );
             }
 
-            string reservationSeriesId =
-                context.UpcomingReservations?.Items.FirstOrDefault()?.DramaId ?? seriesId;
-            if (reservationSeriesId.Length > 0)
+            string reservationDramaId =
+                context.UpcomingReservations?.Items.FirstOrDefault()?.DramaId ?? dramaId;
+            if (reservationDramaId.Length > 0)
             {
                 await TryAsync(
                     "SetReservationAsync",
-                    () => client.SetReservationAsync(reservationSeriesId, true, cancellationToken)
+                    () => client.SetReservationAsync(reservationDramaId, true, cancellationToken)
                 );
                 await TryAsync(
                     "DeleteReservationAsync",
-                    () => client.DeleteReservationAsync(reservationSeriesId, cancellationToken)
+                    () => client.DeleteReservationAsync(reservationDramaId, cancellationToken)
                 );
             }
         }
@@ -243,19 +243,19 @@ internal static partial class SampleSteps
         {
             await TryAsync(
                 "SetCommentLikeAsync",
-                () => client.SetCommentLikeAsync(comment.Id, seriesId, true, cancellationToken)
+                () => client.SetCommentLikeAsync(comment.Id, dramaId, true, cancellationToken)
             );
             await TryAsync(
                 "SetCommentLikeAsync(false)",
-                () => client.SetCommentLikeAsync(comment.Id, seriesId, false, cancellationToken)
+                () => client.SetCommentLikeAsync(comment.Id, dramaId, false, cancellationToken)
             );
             await TryAsync(
                 "SetReviewLikeAsync",
-                () => client.SetReviewLikeAsync(comment.Id, seriesId, true, cancellationToken)
+                () => client.SetReviewLikeAsync(comment.Id, dramaId, true, cancellationToken)
             );
             await TryAsync(
                 "SetReviewLikeAsync(false)",
-                () => client.SetReviewLikeAsync(comment.Id, seriesId, false, cancellationToken)
+                () => client.SetReviewLikeAsync(comment.Id, dramaId, false, cancellationToken)
             );
             string? sampleDanmakuId = context.Danmaku?.Items.FirstOrDefault()?.Id;
             if (!string.IsNullOrEmpty(sampleDanmakuId))
@@ -295,11 +295,11 @@ internal static partial class SampleSteps
             );
         }
 
-        if (episode is not null && seriesId.Length > 0 && videoId.Length > 0)
+        if (episode is not null && dramaId.Length > 0 && videoId.Length > 0)
         {
             await TryAsync(
                 "DeleteHistoryAsync",
-                () => client.DeleteHistoryAsync(seriesId, videoId, cancellationToken)
+                () => client.DeleteHistoryAsync(dramaId, videoId, cancellationToken)
             );
         }
     }
