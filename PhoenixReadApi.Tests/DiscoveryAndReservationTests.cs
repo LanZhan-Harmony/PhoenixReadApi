@@ -111,7 +111,7 @@ public sealed class DiscoveryAndReservationTests
 
         // 1. 预约短剧
         PhoenixOperationResult setRes = await authClient.SetReservationAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             true,
             timeout.Token
         );
@@ -120,7 +120,7 @@ public sealed class DiscoveryAndReservationTests
 
         // 2. 取消预约短剧
         PhoenixOperationResult delRes = await authClient.DeleteReservationAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             timeout.Token
         );
         await Assert.That(delRes).IsNotNull();

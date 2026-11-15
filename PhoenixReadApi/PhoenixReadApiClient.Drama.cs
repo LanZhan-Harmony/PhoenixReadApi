@@ -61,10 +61,4 @@ public sealed partial class PhoenixReadApiClient
         string dramaId,
         CancellationToken cancellationToken = default
     ) => _drama.GetDramaRecommendationsAsync(dramaId, cancellationToken);
-
-    /// <summary>获取指定短剧的专属关联推荐好剧（向后兼容重命名别名）。</summary>
-    public Task<DramaRecommendations> GetSeriesRecommendationsAsync(
-        string dramaId,
-        CancellationToken cancellationToken = default
-    ) => GetDramaRecommendationsAsync(dramaId, cancellationToken);
 }

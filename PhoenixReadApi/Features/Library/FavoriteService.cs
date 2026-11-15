@@ -22,7 +22,7 @@ internal sealed class FavoriteService : LibraryServiceBase
         CancellationToken cancellationToken
     )
     {
-        dramaId = NormalizeSeriesId(dramaId);
+        dramaId = NormalizeDramaId(dramaId);
         videoId = NormalizeVideoId(videoId);
         AppShelfUpdatePayload payload = new()
         {

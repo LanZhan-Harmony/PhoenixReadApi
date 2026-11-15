@@ -243,20 +243,20 @@ internal static partial class SampleSteps
                 () => client.GetDramaDetailsAsync(selectedDrama.Id, cancellationToken)
             );
 
-        context.SeriesId = context.Details?.Drama.Id ?? selectedDrama?.Id ?? string.Empty;
+        context.DramaId = context.Details?.Drama.Id ?? selectedDrama?.Id ?? string.Empty;
         context.FirstEpisode = context.Details?.Episodes.FirstOrDefault(episode =>
             episode.VideoId.Length > 0
         );
         context.VideoId = context.FirstEpisode?.VideoId ?? string.Empty;
         Console.WriteLine(
-            $"剧集：{context.SeriesId}，分集：{context.Details?.Episodes.Count ?? 0}，首集：{context.VideoId}，评分：{context.Details?.Drama.Score}"
+            $"剧集：{context.DramaId}，分集：{context.Details?.Episodes.Count ?? 0}，首集：{context.VideoId}，评分：{context.Details?.Drama.Score}"
         );
 
         context.Medias = await TryWhenIdsAsync(
             "ResolveMediaAsync(ids)",
-            context.SeriesId,
+            context.DramaId,
             context.VideoId,
-            (series, video) => client.ResolveMediaAsync(series, video, cancellationToken)
+            (drama, video) => client.ResolveMediaAsync(drama, video, cancellationToken)
         );
         PrintMedia(context.Medias);
 
@@ -266,10 +266,10 @@ internal static partial class SampleSteps
                 : 600_000L;
         context.Danmaku = await TryWhenIdsAsync(
             "GetDanmakuAsync",
-            context.SeriesId,
+            context.DramaId,
             context.VideoId,
-            (series, video) =>
-                client.GetDanmakuAsync(series, video, 0, durationMs, cancellationToken)
+            (drama, video) =>
+                client.GetDanmakuAsync(drama, video, 0, durationMs, cancellationToken)
         );
         if (context.Danmaku is not null)
         {
@@ -280,18 +280,18 @@ internal static partial class SampleSteps
 
         context.Reviews = await TryWhenIdAsync(
             "GetDramaReviewsAsync",
-            context.SeriesId,
+            context.DramaId,
             id => client.GetDramaReviewsAsync(id, 10, cancellationToken: cancellationToken)
         );
         PrintComments("  剧评", context.Reviews);
 
         context.EpisodeComments = await TryWhenIdsAsync(
             "GetEpisodeCommentsAsync(ids)",
-            context.SeriesId,
+            context.DramaId,
             context.VideoId,
-            (series, video) =>
+            (drama, video) =>
                 client.GetEpisodeCommentsAsync(
-                    series,
+                    drama,
                     video,
                     10,
                     cancellationToken: cancellationToken
@@ -317,13 +317,13 @@ internal static partial class SampleSteps
                     isEpisodeComment
                         ? client.GetEpisodeCommentRepliesAsync(
                             context.SampleComment.Id,
-                            context.SeriesId,
+                            context.DramaId,
                             context.VideoId,
                             cancellationToken: cancellationToken
                         )
                         : client.GetDramaReviewRepliesAsync(
                             context.SampleComment.Id,
-                            context.SeriesId,
+                            context.DramaId,
                             cancellationToken: cancellationToken
                         )
             );
@@ -485,9 +485,9 @@ internal static partial class SampleSteps
 
         ShareLink? share = await TryWhenIdsAsync(
             "CreateShareLinkAsync",
-            context.SeriesId,
+            context.DramaId,
             context.VideoId,
-            (series, video) => client.CreateShareLinkAsync(series, video, cancellationToken)
+            (drama, video) => client.CreateShareLinkAsync(drama, video, cancellationToken)
         );
         if (share is not null)
         {
@@ -500,7 +500,7 @@ internal static partial class SampleSteps
                 client.ResolveShareLink(
                     share is { Url.Length: > 0 }
                         ? share.Url
-                        : $"https://hongguoduanju.com/?series_id={context.SeriesId}&video_id={context.VideoId}"
+                        : $"https://hongguoduanju.com/?series_id={context.DramaId}&video_id={context.VideoId}"
                 )
         );
         if (parsedShare is not null)

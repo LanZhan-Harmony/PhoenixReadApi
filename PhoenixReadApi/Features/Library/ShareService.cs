@@ -18,7 +18,7 @@ internal sealed class ShareService : LibraryServiceBase
         CancellationToken cancellationToken
     )
     {
-        dramaId = NormalizeSeriesId(dramaId);
+        dramaId = NormalizeDramaId(dramaId);
         videoId = NormalizeVideoId(videoId);
         string fallbackUrl =
             videoId.Length > 0

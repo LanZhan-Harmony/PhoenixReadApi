@@ -26,10 +26,10 @@ internal sealed class CommentService : PhoenixFeatureService
         CommentSortOrder sort = CommentSortOrder.Hot
     )
     {
-        string normalizedSeriesId = NormalizeSeriesId(dramaId);
+        string normalizedDramaId = NormalizeDramaId(dramaId);
         return LoadAsync(
-            normalizedSeriesId,
-            normalizedSeriesId,
+            normalizedDramaId,
+            normalizedDramaId,
             isEpisode: false,
             count,
             cursor,
@@ -47,10 +47,10 @@ internal sealed class CommentService : PhoenixFeatureService
         CommentSortOrder sort = CommentSortOrder.Hot
     )
     {
-        string normalizedSeriesId = NormalizeSeriesId(dramaId);
+        string normalizedDramaId = NormalizeDramaId(dramaId);
         string normalizedVideoId = NormalizeVideoId(videoId);
         return LoadAsync(
-            normalizedSeriesId,
+            normalizedDramaId,
             normalizedVideoId,
             isEpisode: true,
             count,
@@ -125,16 +125,16 @@ internal sealed class CommentService : PhoenixFeatureService
         bool isEpisode =
             !string.IsNullOrWhiteSpace(videoId)
             && !string.Equals(dramaId, videoId, StringComparison.Ordinal);
-        string normalizedSeriesId = string.IsNullOrWhiteSpace(dramaId)
+        string normalizedDramaId = string.IsNullOrWhiteSpace(dramaId)
             ? string.Empty
-            : NormalizeSeriesOrVideoId(dramaId);
-        string normalizedVideoId = isEpisode ? NormalizeSeriesOrVideoId(videoId) : string.Empty;
+            : NormalizeDramaOrVideoId(dramaId);
+        string normalizedVideoId = isEpisode ? NormalizeDramaOrVideoId(videoId) : string.Empty;
 
         int commentSource = isEpisode ? 504 : 501;
         int serverChannel = isEpisode ? 18 : 34;
         int commentType = isEpisode ? 4 : 2;
         int groupType = isEpisode ? 30 : 1;
-        string groupId = isEpisode ? normalizedVideoId : normalizedSeriesId;
+        string groupId = isEpisode ? normalizedVideoId : normalizedDramaId;
         string path = isEpisode
             ? "/novel/commentapi/reply/list/" + commentId + "/v1/"
             : "/novel/commentapi/reply/list/" + commentId + "/v1";
@@ -153,7 +153,7 @@ internal sealed class CommentService : PhoenixFeatureService
             ComplianceStatus = 0,
             BusinessParameter = new AppReplyBusinessParameter
             {
-                BookId = normalizedSeriesId.Length > 0 ? normalizedSeriesId : groupId,
+                BookId = normalizedDramaId.Length > 0 ? normalizedDramaId : groupId,
                 NeedCount = cursor.Length == 0,
                 RealLevel = isEpisode ? 0 : 2,
             },
@@ -235,7 +235,7 @@ internal sealed class CommentService : PhoenixFeatureService
     )
     {
         commentId = NormalizeCommentId(commentId);
-        groupId = NormalizeSeriesOrVideoId(groupId);
+        groupId = NormalizeDramaOrVideoId(groupId);
         bool isReview = commentType == 2;
         int likeCommentSource = isReview ? 501 : 504;
         int likeServerChannel = isReview ? 34 : 18;
@@ -271,7 +271,7 @@ internal sealed class CommentService : PhoenixFeatureService
     )
     {
         commentId = NormalizeCommentId(commentId);
-        groupId = NormalizeSeriesOrVideoId(groupId);
+        groupId = NormalizeDramaOrVideoId(groupId);
         bool isReview = groupType == 1;
         int delCommentSource = isReview ? 501 : 504;
         int delServerChannel = isReview ? 34 : 18;
@@ -307,7 +307,7 @@ internal sealed class CommentService : PhoenixFeatureService
     )
     {
         commentId = NormalizeCommentId(commentId);
-        dramaId = NormalizeSeriesId(dramaId);
+        dramaId = NormalizeDramaId(dramaId);
         text = NormalizeText(text);
 
         bool isEpisode =
@@ -549,7 +549,7 @@ internal sealed class CommentService : PhoenixFeatureService
         bool danmaku = false
     )
     {
-        dramaId = NormalizeSeriesId(dramaId);
+        dramaId = NormalizeDramaId(dramaId);
         targetId = isEpisode ? NormalizeVideoId(targetId) : dramaId;
         text = NormalizeText(text);
         int reqCommentSource = isEpisode ? 504 : 501;
@@ -863,7 +863,7 @@ internal sealed class CommentService : PhoenixFeatureService
         return value;
     }
 
-    private static string NormalizeSeriesOrVideoId(string value)
+    private static string NormalizeDramaOrVideoId(string value)
     {
         value = (value ?? string.Empty).Trim();
         return ValueNormalizer.IsNumericId(value)

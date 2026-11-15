@@ -73,11 +73,7 @@ internal sealed class InteractionService : PhoenixFeatureService
             );
         }
 
-        return new DislikePanel
-        {
-            CardType = matchedCard.CardType,
-            Groups = groups,
-        };
+        return new DislikePanel { CardType = matchedCard.CardType, Groups = groups };
     }
 
     internal async Task<bool> SubmitDislikeAsync(
@@ -118,7 +114,7 @@ internal sealed class InteractionService : PhoenixFeatureService
         return response.Code is "0" or "";
     }
 
-    private static string NormalizeDramaId(string dramaId)
+    private static new string NormalizeDramaId(string dramaId)
     {
         if (string.IsNullOrWhiteSpace(dramaId))
         {

@@ -20,7 +20,7 @@ internal sealed class ReservationService : LibraryServiceBase
         CancellationToken cancellationToken
     )
     {
-        dramaId = NormalizeSeriesId(dramaId);
+        dramaId = NormalizeDramaId(dramaId);
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppReservationActionPayload, AppOperationResponse>(
                 "/reading/bookapi/search/uncover_subscribe/v",

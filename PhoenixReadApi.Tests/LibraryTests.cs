@@ -161,7 +161,7 @@ public sealed class LibraryTests
         try
         {
             PhoenixOperationResult likeResult = await authClient.SetDramaEpisodeLikeAsync(
-                scenario.SeriesId,
+                scenario.DramaId,
                 scenario.Episode.VideoId,
                 true,
                 timeout.Token
@@ -171,7 +171,7 @@ public sealed class LibraryTests
 
             // 2. 取消点赞分集，必须成功返回并断言
             PhoenixOperationResult cancelLikeResult = await authClient.SetDramaEpisodeLikeAsync(
-                scenario.SeriesId,
+                scenario.DramaId,
                 scenario.Episode.VideoId,
                 false,
                 timeout.Token
@@ -205,7 +205,7 @@ public sealed class LibraryTests
 
         // 1. 收藏短剧
         PhoenixOperationResult favResult = await authClient.SetFavoriteAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             true,
             timeout.Token
@@ -215,7 +215,7 @@ public sealed class LibraryTests
 
         // 2. 移除收藏
         PhoenixOperationResult removeResult = await authClient.RemoveFavoriteAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             timeout.Token
         );
@@ -280,7 +280,7 @@ public sealed class LibraryTests
         PhoenixOperationResult reportResult = await authClient.ReportProgressAsync(
             new ProgressUpdate
             {
-                DramaId = scenario.SeriesId,
+                DramaId = scenario.DramaId,
                 VideoId = scenario.Episode.VideoId,
                 EpisodeNumber = scenario.Episode.Number,
                 CurrentPositionMs = 5000,
@@ -300,7 +300,7 @@ public sealed class LibraryTests
 
         // 3. 删除历史记录
         PhoenixOperationResult delHistory = await authClient.DeleteHistoryAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             timeout.Token
         );

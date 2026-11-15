@@ -16,7 +16,7 @@ public sealed class CommentsAndDanmakuTests
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
         DanmakuPage danmaku = await SharedScenario.Client.GetDanmakuAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             startMs: 0,
             durationMs: 60_000,
@@ -48,14 +48,14 @@ public sealed class CommentsAndDanmakuTests
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
         CommentPage reviews = await SharedScenario.Client.GetDramaReviewsAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             count: 5,
             sort: CommentSortOrder.Hot,
             cancellationToken: timeout.Token
         );
 
         await Assert.That(reviews).IsNotNull();
-        await Assert.That(reviews.TargetId).IsEqualTo(scenario.SeriesId);
+        await Assert.That(reviews.TargetId).IsEqualTo(scenario.DramaId);
         await Assert.That(reviews.Items).IsNotNull();
         await Assert.That(reviews.Items.Count <= 5).IsTrue();
         await Assert.That(reviews.Total >= reviews.Items.Count).IsTrue();
@@ -69,14 +69,14 @@ public sealed class CommentsAndDanmakuTests
         if (reviews is { HasMore: true, Cursor.Length: > 0 })
         {
             CommentPage nextPage = await SharedScenario.Client.GetDramaReviewsAsync(
-                scenario.SeriesId,
+                scenario.DramaId,
                 count: 5,
                 cursor: reviews.Cursor,
                 sort: CommentSortOrder.Hot,
                 cancellationToken: timeout.Token
             );
             await Assert.That(nextPage).IsNotNull();
-            await Assert.That(nextPage.TargetId).IsEqualTo(scenario.SeriesId);
+            await Assert.That(nextPage.TargetId).IsEqualTo(scenario.DramaId);
             await Assert.That(nextPage.Cursor).IsNotNull();
         }
     }
@@ -88,14 +88,14 @@ public sealed class CommentsAndDanmakuTests
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
         CommentPage reviews = await SharedScenario.Client.GetDramaReviewsAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             count: 5,
             sort: CommentSortOrder.Latest,
             cancellationToken: timeout.Token
         );
 
         await Assert.That(reviews).IsNotNull();
-        await Assert.That(reviews.TargetId).IsEqualTo(scenario.SeriesId);
+        await Assert.That(reviews.TargetId).IsEqualTo(scenario.DramaId);
         await Assert.That(reviews.Items).IsNotNull();
         await Assert.That(reviews.Cursor).IsNotNull();
 
@@ -112,7 +112,7 @@ public sealed class CommentsAndDanmakuTests
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
         CommentPage comments = await SharedScenario.Client.GetEpisodeCommentsAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             count: 5,
             sort: CommentSortOrder.Hot,
@@ -134,7 +134,7 @@ public sealed class CommentsAndDanmakuTests
         if (comments is { HasMore: true, Cursor.Length: > 0 })
         {
             CommentPage nextPage = await SharedScenario.Client.GetEpisodeCommentsAsync(
-                scenario.SeriesId,
+                scenario.DramaId,
                 scenario.Episode.VideoId,
                 count: 5,
                 cursor: comments.Cursor,
@@ -154,7 +154,7 @@ public sealed class CommentsAndDanmakuTests
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
         CommentPage comments = await SharedScenario.Client.GetEpisodeCommentsAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             count: 5,
             sort: CommentSortOrder.Latest,
@@ -180,7 +180,7 @@ public sealed class CommentsAndDanmakuTests
 
         // 尝试从分集评论或剧评中找到一条带有回复的评论
         CommentPage comments = await SharedScenario.Client.GetEpisodeCommentsAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             count: 10,
             cancellationToken: timeout.Token
@@ -192,14 +192,14 @@ public sealed class CommentsAndDanmakuTests
         if (targetComment is null)
         {
             CommentPage reviews = await SharedScenario.Client.GetDramaReviewsAsync(
-                scenario.SeriesId,
+                scenario.DramaId,
                 count: 10,
                 cancellationToken: timeout.Token
             );
             targetComment =
                 reviews.Items.FirstOrDefault(c => c.ReplyCount > 0)
                 ?? reviews.Items.FirstOrDefault();
-            groupId = scenario.SeriesId;
+            groupId = scenario.DramaId;
         }
 
         targetComment ??= comments.Items.FirstOrDefault();
@@ -211,14 +211,14 @@ public sealed class CommentsAndDanmakuTests
             CommentReplyPage repliesWithGroup = isEpisode
                 ? await SharedScenario.Client.GetEpisodeCommentRepliesAsync(
                     targetComment.Id,
-                    scenario.SeriesId,
+                    scenario.DramaId,
                     scenario.Episode.VideoId,
                     count: 5,
                     cancellationToken: timeout.Token
                 )
                 : await SharedScenario.Client.GetDramaReviewRepliesAsync(
                     targetComment.Id,
-                    scenario.SeriesId,
+                    scenario.DramaId,
                     count: 5,
                     cancellationToken: timeout.Token
                 );
@@ -236,7 +236,7 @@ public sealed class CommentsAndDanmakuTests
             // 2. 通用 GetCommentRepliesAsync 重载
             CommentReplyPage replies = await SharedScenario.Client.GetCommentRepliesAsync(
                 targetComment.Id,
-                scenario.SeriesId,
+                scenario.DramaId,
                 isEpisode ? scenario.Episode.VideoId : string.Empty,
                 count: 5,
                 cancellationToken: timeout.Token
@@ -323,7 +323,7 @@ public sealed class CommentsAndDanmakuTests
 
         // 1. 发送分集评论并获取返回的 Comment ID
         PhoenixOperationResult comment = await authClient.SendEpisodeCommentAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             marker,
             timeout.Token
@@ -335,7 +335,7 @@ public sealed class CommentsAndDanmakuTests
         // 2. 在自己刚刚发布的评论中发表回复并获取返回的 Reply ID
         PhoenixOperationResult reply = await authClient.SendEpisodeCommentReplyAsync(
             comment.Id,
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             $"回复_{marker}",
             "",
@@ -364,7 +364,7 @@ public sealed class CommentsAndDanmakuTests
 
         // 5. 弹幕生命周期：发送并删除
         PhoenixOperationResult danmaku = await authClient.SendDanmakuAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             marker,
             timeout.Token
@@ -397,7 +397,7 @@ public sealed class CommentsAndDanmakuTests
             $"测试剧评_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Guid.NewGuid().ToString("N")[..6]}";
 
         PhoenixOperationResult review = await authClient.SendDramaReviewAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             5.0,
             reviewText,
             timeout.Token
@@ -409,7 +409,7 @@ public sealed class CommentsAndDanmakuTests
         // 删除剧评！删除失败纳入测试失败范畴
         PhoenixOperationResult delReview = await authClient.DeleteDramaReviewAsync(
             review.Id,
-            scenario.SeriesId,
+            scenario.DramaId,
             timeout.Token
         );
         await Assert.That(delReview).IsNotNull();

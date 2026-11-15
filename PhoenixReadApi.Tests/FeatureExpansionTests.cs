@@ -145,7 +145,7 @@ public sealed class FeatureExpansionTests
         string[] targetIds = [.. search.Dramas.Select(d => d.Id).Where(id => id.Length > 0).Take(2)];
         if (targetIds.Length < 2)
         {
-            targetIds = [scenario.SeriesId];
+            targetIds = [scenario.DramaId];
         }
 
         IReadOnlyList<DramaDetails> details = await SharedScenario.Client.GetBatchDramaDetailsWithEpisodesAsync(

@@ -283,7 +283,7 @@ public static class SharedScenario
 /// 共享剧集测试场景模型。
 /// </summary>
 public sealed record TestDramaScenario(
-    string SeriesId,
+    string DramaId,
     Episode Episode,
     DramaCredit Credit,
     string UserId

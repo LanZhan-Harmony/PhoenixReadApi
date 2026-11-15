@@ -25,7 +25,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        string series = NormalizeSeriesId(dramaId);
+        string drama = NormalizeDramaId(dramaId);
         string video = NormalizeVideoId(videoId);
         if (
             startMs < 0
@@ -40,7 +40,7 @@ internal sealed class DanmakuService : PhoenixFeatureService
             );
         }
 
-        return LoadAsync(series, video, startMs, durationMs, cancellationToken);
+        return LoadAsync(drama, video, startMs, durationMs, cancellationToken);
     }
 
     private async Task<DanmakuPage> LoadAsync(

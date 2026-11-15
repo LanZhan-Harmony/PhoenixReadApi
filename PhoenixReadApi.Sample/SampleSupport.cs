@@ -12,7 +12,7 @@ internal sealed class SampleContext
     public IReadOnlyList<Drama>? Catalog { get; set; }
     public SearchResult? Search { get; set; }
 
-    public string SeriesId { get; set; } = string.Empty;
+    public string DramaId { get; set; } = string.Empty;
     public string VideoId { get; set; } = string.Empty;
     public Episode? FirstEpisode { get; set; }
     public string CreditUserId { get; set; } = string.Empty;

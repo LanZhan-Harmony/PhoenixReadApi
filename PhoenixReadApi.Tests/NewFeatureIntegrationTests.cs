@@ -32,7 +32,7 @@ public sealed class NewFeatureIntegrationTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        DramaAlbum album = await SharedScenario.Client.GetDramaSeasonsAsync(scenario.SeriesId, timeout.Token);
+        DramaAlbum album = await SharedScenario.Client.GetDramaSeasonsAsync(scenario.DramaId, timeout.Token);
         await Assert.That(album).IsNotNull();
         await Assert.That(album.Seasons).IsNotNull();
         await Assert.That(album.SeasonCount > 0).IsTrue();
@@ -40,7 +40,7 @@ public sealed class NewFeatureIntegrationTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetSeriesRecommendationsAsync()
+    public async Task TestGetDramaRecommendationsAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
@@ -48,7 +48,7 @@ public sealed class NewFeatureIntegrationTests
         try
         {
             DramaRecommendations rec = await SharedScenario.Client.GetDramaRecommendationsAsync(
-                scenario.SeriesId,
+                scenario.DramaId,
                 timeout.Token
             );
 

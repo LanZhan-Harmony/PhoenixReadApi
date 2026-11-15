@@ -24,7 +24,7 @@ internal sealed class LikeService : LibraryServiceBase
         CancellationToken cancellationToken
     )
     {
-        dramaId = NormalizeSeriesId(dramaId);
+        dramaId = NormalizeDramaId(dramaId);
         videoId = NormalizeVideoId(videoId);
         _ = long.TryParse(dramaId, CultureInfo.InvariantCulture, out long bookId);
         AppResponse<AppOperationResponse> response = await _appTransport
@@ -92,16 +92,16 @@ internal sealed class LikeService : LibraryServiceBase
     private static Drama MapLike(AppUserActionRecord item)
     {
         AppUserActionVideoData video = item.Video ?? new();
-        AppUserActionSeriesDetail series = video.Series ?? new();
-        string id = ValueNormalizer.First(series.SeriesId, video.SeriesId);
+        AppUserActionSeriesDetail drama = video.Series ?? new();
+        string id = ValueNormalizer.First(drama.SeriesId, video.SeriesId);
         return DramaMapper.FromAction(
             id,
-            series.Title,
-            ValueNormalizer.First(series.Introduction, video.Description),
-            ValueNormalizer.First(series.CoverUrl, video.CoverUrl),
-            Math.Max(series.EpisodeCount, video.EpisodeCount),
-            series.Status,
-            series.Tags
+            drama.Title,
+            ValueNormalizer.First(drama.Introduction, video.Description),
+            ValueNormalizer.First(drama.CoverUrl, video.CoverUrl),
+            Math.Max(drama.EpisodeCount, video.EpisodeCount),
+            drama.Status,
+            drama.Tags
         );
     }
 }

@@ -710,8 +710,8 @@ internal sealed class UserService : PhoenixFeatureService
             }
 
             AppUserActionVideoData video = record.Video;
-            AppUserActionSeriesDetail series = video.Series;
-            string id = ValueNormalizer.First(series.SeriesId, video.SeriesId).Trim();
+            AppUserActionSeriesDetail drama = video.Series;
+            string id = ValueNormalizer.First(drama.SeriesId, video.SeriesId).Trim();
             if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
             {
                 continue;
@@ -720,12 +720,12 @@ internal sealed class UserService : PhoenixFeatureService
             result.Add(
                 DramaMapper.FromAction(
                     id,
-                    series.Title,
-                    series.Introduction.Length > 0 ? series.Introduction : video.Description,
-                    series.CoverUrl.Length > 0 ? series.CoverUrl : video.CoverUrl,
-                    Math.Max(series.EpisodeCount, video.EpisodeCount),
-                    series.Status,
-                    series.Tags
+                    drama.Title,
+                    drama.Introduction.Length > 0 ? drama.Introduction : video.Description,
+                    drama.CoverUrl.Length > 0 ? drama.CoverUrl : video.CoverUrl,
+                    Math.Max(drama.EpisodeCount, video.EpisodeCount),
+                    drama.Status,
+                    drama.Tags
                 )
             );
         }

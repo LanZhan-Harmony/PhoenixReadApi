@@ -31,9 +31,9 @@ internal sealed partial class DramaService : PhoenixFeatureService
     internal DramaService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
-    internal async Task<DramaDetails> GetAsync(string seriesId, CancellationToken cancellationToken)
+    internal async Task<DramaDetails> GetAsync(string dramaId, CancellationToken cancellationToken)
     {
-        string normalizedId = NormalizeSeriesId(seriesId);
+        string normalizedId = NormalizeDramaId(dramaId);
         if (TryGetCache(normalizedId, out DramaDetails? cached) && cached is not null)
         {
             return cached;
@@ -71,22 +71,22 @@ internal sealed partial class DramaService : PhoenixFeatureService
         }
     }
 
-    private async Task<DramaDetails> LoadAsync(string seriesId)
+    private async Task<DramaDetails> LoadAsync(string dramaId)
     {
-        Task<string> scoreTask = TryFetchScoreAsync(seriesId, CancellationToken.None);
+        Task<string> scoreTask = TryFetchScoreAsync(dramaId, CancellationToken.None);
         Exception? appError;
         try
         {
             AppResponse<AppDetailsData> result = await _appTransport
                 .PostAsync<AppDetailPayload, AppDetailsData>(
                     "/novel/player/video_detail/v1/",
-                    new AppDetailPayload { SeriesId = seriesId },
+                    new AppDetailPayload { SeriesId = dramaId },
                     commentRequest: false,
                     CancellationToken.None
                 )
                 .ConfigureAwait(false);
             string score = await scoreTask.ConfigureAwait(false);
-            return ParseAppDetails(result.Data, seriesId, score);
+            return ParseAppDetails(result.Data, dramaId, score);
         }
         catch (Exception exception) when (IsRecoverable(exception))
         {
@@ -101,7 +101,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
         try
         {
             string score = await scoreTask.ConfigureAwait(false);
-            return await FetchWebDetailsAsync(seriesId, CancellationToken.None, score)
+            return await FetchWebDetailsAsync(dramaId, CancellationToken.None, score)
                 .ConfigureAwait(false);
         }
         catch (Exception webException) when (IsRecoverable(webException))
@@ -116,12 +116,12 @@ internal sealed partial class DramaService : PhoenixFeatureService
 
     private static DramaDetails ParseAppDetails(
         AppDetailsData? data,
-        string seriesId,
+        string dramaId,
         string extraScore = ""
     )
     {
         DramaDto detail = data?.VideoData ?? new();
-        if (ValueNormalizer.First(detail.SeriesId, detail.SeriesIdNumber) != seriesId)
+        if (ValueNormalizer.First(detail.SeriesId, detail.SeriesIdNumber) != dramaId)
         {
             throw new PhoenixReadApiResponseException("App 未返回所请求的剧集。", "detail");
         }
@@ -144,8 +144,8 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 throw new PhoenixReadApiResponseException("App 分集编号或视频 ID 无效。", "detail");
             }
 
-            string returnedSeriesId = item.SeriesId.Trim();
-            if (returnedSeriesId.Length > 0 && returnedSeriesId != seriesId)
+            string returnedDramaId = item.SeriesId.Trim();
+            if (returnedDramaId.Length > 0 && returnedDramaId != dramaId)
             {
                 throw new PhoenixReadApiResponseException("App 返回了其他剧集的分集。", "detail");
             }
@@ -180,12 +180,12 @@ internal sealed partial class DramaService : PhoenixFeatureService
     }
 
     private async Task<DramaDetails> FetchWebDetailsAsync(
-        string seriesId,
+        string dramaId,
         CancellationToken cancellationToken,
         string extraScore = ""
     )
     {
-        Uri uri = new(_options.WebBaseUri, "detail?series_id=" + Uri.EscapeDataString(seriesId));
+        Uri uri = new(_options.WebBaseUri, "detail?series_id=" + Uri.EscapeDataString(dramaId));
         using JsonDocument? document = RouterDataExtractor.Parse(
             await GetTextAsync(uri, _options.WebBaseUri, "detail", cancellationToken)
                 .ConfigureAwait(false)
@@ -201,7 +201,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
             detail.SeriesName,
             detail.SeriesTitle,
             detail.Name,
-            seriesId
+            dramaId
         );
         List<Episode> episodes = [];
         int index = 1;
@@ -225,7 +225,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
         {
             Drama = new Drama
             {
-                Id = seriesId,
+                Id = dramaId,
                 Title = title,
                 Score = extraScore,
             },
@@ -278,15 +278,15 @@ internal sealed partial class DramaService : PhoenixFeatureService
         };
 
     internal async Task<IReadOnlyList<DramaDetails>> GetBatchDramaDetailsWithEpisodesAsync(
-        IEnumerable<string> seriesIds,
+        IEnumerable<string> dramaIds,
         CancellationToken cancellationToken
     )
     {
-        ArgumentNullException.ThrowIfNull(seriesIds);
+        ArgumentNullException.ThrowIfNull(dramaIds);
         List<string> ids =
         [
-            .. seriesIds
-                .Select(NormalizeSeriesId)
+            .. dramaIds
+                .Select(NormalizeDramaId)
                 .Where(static id => id.Length > 0)
                 .Distinct(StringComparer.Ordinal)
                 .Take(50),
@@ -380,28 +380,28 @@ internal sealed partial class DramaService : PhoenixFeatureService
     }
 
     private async Task<string> TryFetchScoreAsync(
-        string seriesId,
+        string dramaId,
         CancellationToken cancellationToken
     )
     {
         Dictionary<string, string> scores = await TryFetchBatchScoresAsync(
-                [seriesId],
+                [dramaId],
                 cancellationToken
             )
             .ConfigureAwait(false);
-        return scores.GetValueOrDefault(seriesId, string.Empty);
+        return scores.GetValueOrDefault(dramaId, string.Empty);
     }
 
     private async Task<Dictionary<string, string>> TryFetchBatchScoresAsync(
-        IReadOnlyList<string> seriesIds,
+        IReadOnlyList<string> dramaIds,
         CancellationToken cancellationToken
     )
     {
         Dictionary<string, string> result = [with(StringComparer.Ordinal)];
         List<string> ids =
         [
-            .. seriesIds
-                .Select(NormalizeSeriesId)
+            .. dramaIds
+                .Select(NormalizeDramaId)
                 .Where(static id => id.Length > 0)
                 .Distinct(StringComparer.Ordinal)
                 .Take(50),
@@ -455,15 +455,15 @@ internal sealed partial class DramaService : PhoenixFeatureService
     }
 
     internal async Task<IReadOnlyList<Drama>> GetBatchDramaDetailsAsync(
-        IEnumerable<string> seriesIds,
+        IEnumerable<string> dramaIds,
         CancellationToken cancellationToken
     )
     {
-        ArgumentNullException.ThrowIfNull(seriesIds);
+        ArgumentNullException.ThrowIfNull(dramaIds);
         List<string> ids =
         [
-            .. seriesIds
-                .Select(NormalizeSeriesId)
+            .. dramaIds
+                .Select(NormalizeDramaId)
                 .Where(static id => id.Length > 0)
                 .Distinct(StringComparer.Ordinal)
                 .Take(50),
@@ -630,11 +630,11 @@ internal sealed partial class DramaService : PhoenixFeatureService
     }
 
     internal async Task<DramaAlbum> GetDramaSeasonsAsync(
-        string seriesId,
+        string dramaId,
         CancellationToken cancellationToken
     )
     {
-        DramaDetails details = await GetAsync(seriesId, cancellationToken).ConfigureAwait(false);
+        DramaDetails details = await GetAsync(dramaId, cancellationToken).ConfigureAwait(false);
 
         // 1. 优先尝试从 plan feed 中获取系列剧行 (show_type 547)
         try
@@ -643,11 +643,11 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 .GetRootAsync<AppPlanResponse>(
                     "/reading/bookapi/plan/v1/",
                     [
-                        new("book_id", seriesId),
+                        new("book_id", dramaId),
                         new("from", "single_col_same_ip_series"),
                         new("scene", "10"),
                         new("session_uuid", Guid.NewGuid().ToString("N")),
-                        new("filter_ids", seriesId),
+                        new("filter_ids", dramaId),
                         new("user_is_login", "0"),
                     ],
                     cancellationToken
@@ -681,7 +681,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                             CoverUrl = ValueNormalizer.First(item.Cover, item.SeriesCover),
                             EpisodeCount = item.EpisodeCount,
                             Status =
-                                sid == seriesId
+                                sid == dramaId
                                     ? details.Drama.ReleaseStatus
                                     : DramaReleaseStatus.Unknown,
                         }
@@ -737,7 +737,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
             [
                 new DramaSeason
                 {
-                    DramaId = seriesId,
+                    DramaId = dramaId,
                     Title = details.Drama.Title,
                     Index = details.SeasonIndex > 0 ? details.SeasonIndex : 1,
                     CoverUrl = details.Drama.CoverUrl,
@@ -749,16 +749,16 @@ internal sealed partial class DramaService : PhoenixFeatureService
     }
 
     internal async Task<DramaRecommendations> GetDramaRecommendationsAsync(
-        string seriesId,
+        string dramaId,
         CancellationToken cancellationToken
     )
     {
-        seriesId = NormalizeSeriesId(seriesId);
+        dramaId = NormalizeDramaId(dramaId);
         AppPlanResponse plan = await _appTransport
             .GetRootAsync<AppPlanResponse>(
                 "/reading/bookapi/plan/v1/",
                 [
-                    new("book_id", seriesId),
+                    new("book_id", dramaId),
                     new("from", "select_panel_recommend"),
                     new("scene", "10"),
                     new("session_uuid", Guid.NewGuid().ToString("N")),

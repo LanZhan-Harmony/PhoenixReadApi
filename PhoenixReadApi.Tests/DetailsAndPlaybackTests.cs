@@ -14,13 +14,13 @@ public sealed class DetailsAndPlaybackTests
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
         DramaDetails details = await SharedScenario.Client.GetDramaDetailsAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             timeout.Token
         );
         await Assert.That(details.Drama.Score).IsNotEmpty();
 
         await Assert.That(details).IsNotNull();
-        await Assert.That(details.Drama.Id).IsEqualTo(scenario.SeriesId);
+        await Assert.That(details.Drama.Id).IsEqualTo(scenario.DramaId);
         await SharedScenario.AssertValidDrama(details.Drama);
 
         await Assert.That(details.Episodes).IsNotNull();
@@ -47,12 +47,12 @@ public sealed class DetailsAndPlaybackTests
 
         // 1. 批量传入单剧集 ID，严格断言返回数量与 ID 对应
         IReadOnlyList<Drama> dramas = await SharedScenario.Client.GetBatchDramaDetailsAsync(
-            [scenario.SeriesId],
+            [scenario.DramaId],
             timeout.Token
         );
         await Assert.That(dramas).IsNotNull();
         await Assert.That(dramas.Count).IsEqualTo(1);
-        await Assert.That(dramas[0].Id).IsEqualTo(scenario.SeriesId);
+        await Assert.That(dramas[0].Id).IsEqualTo(scenario.DramaId);
         await SharedScenario.AssertValidDrama(dramas[0]);
 
         // 2. 批量传入多个剧集 ID（2 部），严格断言返回数量严格等于 2 且对应
@@ -88,7 +88,7 @@ public sealed class DetailsAndPlaybackTests
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
         IReadOnlyList<PlaybackMedia> medias = await SharedScenario.Client.ResolveMediaAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             timeout.Token
         );
@@ -109,13 +109,13 @@ public sealed class DetailsAndPlaybackTests
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
         ShareLink link = await SharedScenario.Client.CreateShareLinkAsync(
-            scenario.SeriesId,
+            scenario.DramaId,
             scenario.Episode.VideoId,
             timeout.Token
         );
 
         await Assert.That(link).IsNotNull();
-        await Assert.That(link.DramaId).IsEqualTo(scenario.SeriesId);
+        await Assert.That(link.DramaId).IsEqualTo(scenario.DramaId);
         await Assert.That(link.VideoId).IsEqualTo(scenario.Episode.VideoId);
         await Assert.That(link.Url).IsNotNull();
         await Assert.That(link.ShortUrl).IsNotNull();
