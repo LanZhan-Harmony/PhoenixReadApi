@@ -68,6 +68,7 @@ public sealed partial class PhoenixReadApiClient : IDisposable
                 PooledConnectionLifetime = TimeSpan.FromMinutes(15),
                 PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
                 EnableMultipleHttp2Connections = true,
+                UseCookies = false,
             }
         );
 

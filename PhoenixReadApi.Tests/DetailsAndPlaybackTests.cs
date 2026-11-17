@@ -8,6 +8,23 @@ namespace PhoenixReadApi.Tests;
 public sealed class DetailsAndPlaybackTests
 {
     [Test, NotInParallel("phoenix-read-api")]
+    public async Task TestCheckDrama7543()
+    {
+        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
+        DramaDetails details = await SharedScenario.Client.GetDramaDetailsAsync(
+            "7543196048185887806",
+            timeout.Token
+        );
+        IReadOnlyList<PlaybackMedia> medias = await SharedScenario.Client.ResolveMediaAsync(
+            "7543196048185887806",
+            details.Episodes[0].VideoId,
+            timeout.Token
+        );
+        Console.WriteLine($"[7543 MEDIA] count={medias.Count}, first: url={medias[0].Url}, height={medias[0].Height}, def={medias[0].Definition}");
+        await Assert.That(medias[0].Height).IsGreaterThanOrEqualTo(1080);
+    }
+
+    [Test, NotInParallel("phoenix-read-api")]
     public async Task TestGetDramaDetailsAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();

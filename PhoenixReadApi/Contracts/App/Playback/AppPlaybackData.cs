@@ -9,6 +9,15 @@ internal sealed class AppPlaybackData
     [JsonConverter(typeof(VideoModelDtoConverter))]
     public AppPlaybackModel VideoModel { get; init; } = new();
 
+    [JsonPropertyName("video_model_data")]
+    public Dictionary<string, AppMultiPlaybackEntry>? VideoModelData { get; init; }
+
+    [JsonPropertyName("1004")]
+    public Dictionary<string, AppMultiPlaybackEntry>? Group1004 { get; init; }
+
+    [JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? AdditionalData { get; init; }
+
     [JsonPropertyName("video_list")]
     public IReadOnlyList<AppMediaVariantDto> VideoList { get; init; } = [];
 

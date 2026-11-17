@@ -66,10 +66,7 @@ internal sealed class PhoenixReadPassportTransport
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
         );
         using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
-        request.Headers.TryAddWithoutValidation(
-            "User-Agent",
-            "com.phoenix.read/69132 (Linux; U; Android 17; zh_CN_#Hans; WKL-AN20; Build/CP2A.260605.012;tt-ok/3.12.13.20)"
-        );
+        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
@@ -115,9 +112,9 @@ internal sealed class PhoenixReadPassportTransport
 
         try
         {
-            AppResponse<TResponse> result =
-                JsonAotSerializer.Deserialize<AppResponse<TResponse>>(bytes)
-                ?? throw new JsonException("The App response was null.");
+            AppResponse<TResponse> result = JsonAotSerializer.Deserialize<AppResponse<TResponse>>(
+                bytes
+            ) ?? throw new JsonException("The App response was null.");
             string providerCode = result.Code;
             if (string.IsNullOrWhiteSpace(providerCode))
             {
@@ -155,11 +152,11 @@ internal sealed class PhoenixReadPassportTransport
             new("iid", _deviceManager.InstallId),
             new("device_id", _deviceManager.DeviceId),
             new("ac", "wifi"),
-            new("channel", "69310258"),
+            new("channel", "update_64"),
             new("aid", "8662"),
             new("app_name", "novelread"),
-            new("version_code", "69132"),
-            new("version_name", "6.9.1.32"),
+            new("version_code", "73932"),
+            new("version_name", "7.3.9.32"),
             new("device_platform", "android"),
             new("os", "android"),
             new("ssmix", "a"),
@@ -168,14 +165,14 @@ internal sealed class PhoenixReadPassportTransport
             new("language", "zh"),
             new("os_api", "37"),
             new("os_version", "17"),
-            new("manifest_version_code", "69132"),
+            new("manifest_version_code", "73932"),
             new("resolution", "1320*2868"),
             new("dpi", "360"),
-            new("update_version_code", "69132"),
+            new("update_version_code", "73932"),
             new("_rticket", ticket.ToString(CultureInfo.InvariantCulture)),
             new("host_abi", "arm64-v8a"),
-            new("dragon_device_type", "pad"),
-            new("pv_player", "69132"),
+            new("dragon_device_type", "phone"),
+            new("pv_player", "73932"),
             new("compliance_status", "0"),
             new("need_personal_recommend", "1"),
             new("player_so_load", "1"),
@@ -202,11 +199,11 @@ internal sealed class PhoenixReadPassportTransport
         Add("iid", _deviceManager.InstallId);
         Add("device_id", _deviceManager.DeviceId);
         Add("ac", "wifi");
-        Add("channel", "69310258");
+        Add("channel", "update_64");
         Add("aid", "8662");
         Add("app_name", "novelread");
-        Add("version_code", "69132");
-        Add("version_name", "6.9.1.32");
+        Add("version_code", "73932");
+        Add("version_name", "7.3.9.32");
         Add("device_platform", "android");
         Add("os", "android");
         Add("ssmix", "a");
@@ -215,18 +212,18 @@ internal sealed class PhoenixReadPassportTransport
         Add("language", "zh");
         Add("os_api", "37");
         Add("os_version", "17");
-        Add("manifest_version_code", "69132");
+        Add("manifest_version_code", "73932");
         Add("resolution", "1320*2868");
         Add("dpi", "360");
-        Add("update_version_code", "69132");
+        Add("update_version_code", "73932");
         Add("_rticket", ticket.ToString(CultureInfo.InvariantCulture));
         Add("normal_session_cnt_in_day", "1");
         Add("gender", "0");
         Add("cold_start_session_cnt_in_day", "1");
         Add("host_abi", "arm64-v8a");
-        Add("dragon_device_type", "pad");
+        Add("dragon_device_type", "phone");
         Add("sys_mini_window", "0");
-        Add("pv_player", "69132");
+        Add("pv_player", "73932");
         Add("app_mini_window", "0");
         Add("normal_session_id", _deviceManager.Cdid + "#1");
         Add("compliance_status", "0");
@@ -308,9 +305,9 @@ internal sealed class PhoenixReadPassportTransport
 
         try
         {
-            WebPassportResponse<TResponse> result =
-                JsonAotSerializer.Deserialize<WebPassportResponse<TResponse>>(bytes)
-                ?? throw new JsonException("The Web passport response was null.");
+            WebPassportResponse<TResponse> result = JsonAotSerializer.Deserialize<
+                WebPassportResponse<TResponse>
+            >(bytes) ?? throw new JsonException("The Web passport response was null.");
             return result;
         }
         catch (JsonException exception)
@@ -335,7 +332,10 @@ internal sealed class PhoenixReadPassportTransport
         {
             if (
                 currentUri.Scheme != "https"
-                || !currentUri.Host.EndsWith("hongguoduanju.com", StringComparison.OrdinalIgnoreCase)
+                || !currentUri.Host.EndsWith(
+                    "hongguoduanju.com",
+                    StringComparison.OrdinalIgnoreCase
+                )
             )
             {
                 break;

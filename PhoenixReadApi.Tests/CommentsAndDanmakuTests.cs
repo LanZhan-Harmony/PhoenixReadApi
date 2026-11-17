@@ -196,8 +196,7 @@ public sealed class CommentsAndDanmakuTests
                 count: 10,
                 cancellationToken: timeout.Token
             );
-            targetComment =
-                reviews.Items.FirstOrDefault(c => c.ReplyCount > 0)
+            targetComment = reviews.Items.FirstOrDefault(c => c.ReplyCount > 0)
                 ?? reviews.Items.FirstOrDefault();
             groupId = scenario.DramaId;
         }
@@ -420,9 +419,16 @@ public sealed class CommentsAndDanmakuTests
     public async Task TestCommentWithImagesAndSortOrder()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-        SearchResult search = await SharedScenario.Client.SearchAsync("我的系统不对劲，女帝心动我开挂", timeout.Token);
-        var drama = search.Dramas.FirstOrDefault(d => d.Title.Contains("我的系统不对劲")) ?? search.Dramas.First();
-        DramaDetails details = await SharedScenario.Client.GetDramaDetailsAsync(drama.Id, timeout.Token);
+        SearchResult search = await SharedScenario.Client.SearchAsync(
+            "我的系统不对劲，女帝心动我开挂",
+            timeout.Token
+        );
+        Drama drama = search.Dramas.FirstOrDefault(d => d.Title.Contains("我的系统不对劲"))
+            ?? search.Dramas.First();
+        DramaDetails details = await SharedScenario.Client.GetDramaDetailsAsync(
+            drama.Id,
+            timeout.Token
+        );
         string videoId = details.Episodes[0].VideoId;
 
         // 1. 测试按时间最新排序 (CommentSortOrder.Latest)
@@ -440,11 +446,18 @@ public sealed class CommentsAndDanmakuTests
         // 验证按日期排序：时间戳必须是非递增的 (降序)
         for (int i = 0; i < latestPage.Items.Count - 1; i++)
         {
-            await Assert.That(latestPage.Items[i].CreatedAtUnixSeconds >= latestPage.Items[i + 1].CreatedAtUnixSeconds).IsTrue();
+            await Assert
+                .That(
+                    latestPage.Items[i].CreatedAtUnixSeconds
+                        >= latestPage.Items[i + 1].CreatedAtUnixSeconds
+                )
+                .IsTrue();
         }
 
         // 2. 验证指定带图评论 7693917255795131198 能够成功解析附图
-        Comment? targetComment = latestPage.Items.FirstOrDefault(c => c.Id == "7693917255795131198");
+        Comment? targetComment = latestPage.Items.FirstOrDefault(c =>
+            c.Id == "7693917255795131198"
+        );
         if (targetComment is null)
         {
             // 如果在最新一页未包含，则从最热（count: 90）获取
@@ -472,13 +485,15 @@ public sealed class CommentsAndDanmakuTests
     {
         // 1. 测试空对象 {}
         string emptyJson = "{}";
-        AppCommentImageDataListDto? emptyDto = JsonAotSerializer.Deserialize<AppCommentImageDataListDto>(emptyJson);
+        AppCommentImageDataListDto? emptyDto =
+            JsonAotSerializer.Deserialize<AppCommentImageDataListDto>(emptyJson);
         await Assert.That(emptyDto).IsNotNull();
         await Assert.That(emptyDto!.ImageData.Count).IsEqualTo(0);
 
         // 2. 测试空数组 []
         string arrayJson = "[]";
-        AppCommentImageDataListDto? arrayDto = JsonAotSerializer.Deserialize<AppCommentImageDataListDto>(arrayJson);
+        AppCommentImageDataListDto? arrayDto =
+            JsonAotSerializer.Deserialize<AppCommentImageDataListDto>(arrayJson);
         await Assert.That(arrayDto).IsNotNull();
         await Assert.That(arrayDto!.ImageData.Count).IsEqualTo(0);
 
@@ -499,7 +514,8 @@ public sealed class CommentsAndDanmakuTests
                 ]
             }
             """;
-        AppCommentImageDataListDto? validDto = JsonAotSerializer.Deserialize<AppCommentImageDataListDto>(validJson);
+        AppCommentImageDataListDto? validDto =
+            JsonAotSerializer.Deserialize<AppCommentImageDataListDto>(validJson);
         await Assert.That(validDto).IsNotNull();
         await Assert.That(validDto!.ImageData.Count).IsEqualTo(1);
         AppCommentImageDataDto img = validDto.ImageData[0];

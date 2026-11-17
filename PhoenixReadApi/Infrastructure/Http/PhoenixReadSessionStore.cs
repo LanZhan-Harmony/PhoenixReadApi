@@ -42,6 +42,7 @@ internal sealed class PhoenixReadSessionStore
     internal string UserMaskedPhone { get; set; } = string.Empty;
     internal string DeviceId { get; set; } = string.Empty;
     internal string InstallId { get; set; } = string.Empty;
+    internal string OpenUdid { get; set; } = string.Empty;
     internal string KlinkEgdi { get; set; } = string.Empty;
     internal bool IsRegistered { get; set; }
 
@@ -55,6 +56,10 @@ internal sealed class PhoenixReadSessionStore
         if (string.IsNullOrWhiteSpace(Cdid))
         {
             Cdid = Guid.NewGuid().ToString();
+        }
+        if (string.IsNullOrWhiteSpace(OpenUdid))
+        {
+            OpenUdid = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
         }
         if (string.IsNullOrWhiteSpace(TtReq))
         {
@@ -77,6 +82,30 @@ internal sealed class PhoenixReadSessionStore
             Description = UserDescription,
             MaskedPhone = UserMaskedPhone,
         };
+
+    internal void ResetAnonymousDevice()
+    {
+        DeviceId = string.Empty;
+        InstallId = string.Empty;
+        IsRegistered = false;
+        KlinkEgdi = string.Empty;
+        Cdid = Guid.NewGuid().ToString();
+        OpenUdid = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+        Span<byte> value = stackalloc byte[16];
+        RandomNumberGenerator.Fill(value);
+        TtReq = "1$" + Convert.ToHexStringLower(value);
+
+        _cookies.TryRemove("store-region", out _);
+        _cookies.TryRemove("store-region-src", out _);
+        _cookies.TryRemove("install_id", out _);
+        _cookies.TryRemove("ttreq", out _);
+        _cachedCookieHeader = null;
+
+        if (!HasSession)
+        {
+            DeleteSessionSnapshot();
+        }
+    }
 
     internal void SaveAuthenticatedUser(AuthenticatedUser user)
     {
@@ -152,7 +181,8 @@ internal sealed class PhoenixReadSessionStore
         bool changed = false;
         if (response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values))
         {
-            var lookup = _cookies.GetAlternateLookup<ReadOnlySpan<char>>();
+            ConcurrentDictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> lookup =
+                _cookies.GetAlternateLookup<ReadOnlySpan<char>>();
             foreach (string value in values)
             {
                 int semiIndex = value.IndexOf(';');
@@ -231,12 +261,30 @@ internal sealed class PhoenixReadSessionStore
         SaveSessionSnapshot();
     }
 
+    internal void EnsureAnonymousSession()
+    {
+        if (DeviceIdGenerator.IsValid(InstallId))
+        {
+            _cookies.TryAdd("install_id", InstallId);
+        }
+        _cookies.TryAdd("store-region", "cn");
+        _cookies.TryAdd("store-region-src", "did");
+        if (!string.IsNullOrWhiteSpace(TtReq))
+        {
+            _cookies.TryAdd("ttreq", TtReq);
+        }
+        _cookies.TryAdd("passport_csrf_token", string.Empty);
+        _cookies.TryAdd("passport_csrf_token_default", string.Empty);
+        _cachedCookieHeader = null;
+    }
+
     internal void UpdateDeviceIdentity(
         string deviceId,
         string installId,
         string cdid,
         string klinkEgdi,
-        bool registered
+        bool registered,
+        string? openUdid = null
     )
     {
         DeviceId = deviceId;
@@ -246,7 +294,16 @@ internal sealed class PhoenixReadSessionStore
         {
             KlinkEgdi = klinkEgdi;
         }
+        if (!string.IsNullOrWhiteSpace(openUdid))
+        {
+            OpenUdid = openUdid;
+        }
         IsRegistered = registered;
+        if (DeviceIdGenerator.IsValid(installId))
+        {
+            _cookies["install_id"] = installId;
+            _cachedCookieHeader = null;
+        }
         SaveSessionSnapshot();
     }
 

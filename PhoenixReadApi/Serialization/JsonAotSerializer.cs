@@ -24,7 +24,6 @@ using PhoenixReadApi.Internal.Contracts.Web.Search;
 namespace PhoenixReadApi.Internal.Serialization;
 
 [JsonSourceGenerationOptions(
-    GenerationMode = JsonSourceGenerationMode.Metadata,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
 )]
@@ -65,6 +64,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppDailyReleaseSubscribeDataDto))]
 [JsonSerializable(typeof(AppDetailPayload))]
 [JsonSerializable(typeof(AppDeviceRegisterPayload))]
+[JsonSerializable(typeof(AppDeviceRegisterOaid))]
 [JsonSerializable(typeof(AppDeviceRegisterResponse))]
 [JsonSerializable(typeof(AppDislikeCardDto))]
 [JsonSerializable(typeof(AppDislikeGroupDto))]
@@ -92,10 +92,11 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppHotSearchTopicDto))]
 [JsonSerializable(typeof(AppHotSearchTopicInfoDto))]
 [JsonSerializable(typeof(AppHotSearchVideoDto))]
-[JsonSerializable(typeof(AppMediaPayload))]
+[JsonSerializable(typeof(AppPlaybackPayload))]
 [JsonSerializable(typeof(AppMediaVariantDto))]
 [JsonSerializable(typeof(AppMultiDetailItem))]
 [JsonSerializable(typeof(AppMultiMediaPayload))]
+[JsonSerializable(typeof(AppMultiPlaybackEntry))]
 [JsonSerializable(typeof(AppNovelBookDto))]
 [JsonSerializable(typeof(AppNovelCategoryFrontData))]
 [JsonSerializable(typeof(AppNovelCategoryFrontResponse))]
@@ -207,6 +208,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppResponse<AppUserProfileGetResponse>))]
 [JsonSerializable(typeof(AppResponse<AppUserRelationListData>))]
 [JsonSerializable(typeof(AppResponse<AppUserShelfData>))]
+[JsonSerializable(typeof(Dictionary<string, AppMultiPlaybackEntry>))]
 [JsonSerializable(typeof(AppResponse<Dictionary<string, AppMultiPlaybackEntry>>))]
 [JsonSerializable(typeof(AppResponse<Dictionary<string, AppPlayerSeriesEntry>>))]
 [JsonSerializable(typeof(AppResponse<IReadOnlyList<AppHotSearchPlanCellDto>>))]

@@ -57,7 +57,7 @@ public sealed class PhoenixReadApiOptions
 
     /// <summary>发送请求时使用的应用 User-Agent。</summary>
     public string UserAgent { get; init; } =
-        "com.phoenix.read/73532 (Linux; U; Android 16; zh_CN; 25053RT47C; Build/BP2A.250605.031.A3; Cronet/TTNetVersion:04657795 2026-01-23 QuicVersion:c67e9834 2025-09-08)";
+        "com.phoenix.read/73932 (Linux; U; Android 17; zh_CN; WKL-AN20; Build/CP2A.260605.012; Cronet/TTNetVersion:8d40f833 2026-03-03 QuicVersion:21ac1950 2025-11-18)";
 
     internal PhoenixReadApiOptions Normalize()
     {
@@ -73,7 +73,10 @@ public sealed class PhoenixReadApiOptions
         {
             WebBaseUri = NormalizeBase(WebBaseUri, "https://hongguoduanju.com/"),
             AppBaseUri = NormalizeBase(AppBaseUri, "https://api5-normal-sinfonlinea.fqnovel.com/"),
-            AuthenticationBaseUri = NormalizeBase(AuthenticationBaseUri, "https://api5-normal-hl.fqnovel.com/"),
+            AuthenticationBaseUri = NormalizeBase(
+                AuthenticationBaseUri,
+                "https://api5-normal-hl.fqnovel.com/"
+            ),
             AuthenticationStateFilePath = authenticationPath,
             AnonymousStateFilePath = anonymousPath,
             MaxPagesPerCategory = Math.Clamp(MaxPagesPerCategory, 1, 500),
@@ -90,7 +93,7 @@ public sealed class PhoenixReadApiOptions
             DeviceId = NormalizeNumericId(DeviceId) ?? DeviceIdGenerator.Create(),
             InstallId = NormalizeNumericId(InstallId) ?? DeviceIdGenerator.Create(),
             UserAgent = string.IsNullOrWhiteSpace(UserAgent)
-                ? "com.phoenix.read/73532 (Linux; U; Android 16; zh_CN; 25053RT47C; Build/BP2A.250605.031.A3; Cronet/TTNetVersion:04657795 2026-01-23 QuicVersion:c67e9834 2025-09-08)"
+                ? "com.phoenix.read/73932 (Linux; U; Android 17; zh_CN; WKL-AN20; Build/UKQ1.230804.001; Cronet/TTNetVersion:8d40f833 2026-03-03 QuicVersion:21ac1950 2025-11-18)"
                 : UserAgent.Trim(),
         };
     }

@@ -15,50 +15,49 @@ internal sealed class PhoenixReadDeviceManager
     private readonly string _userAgent;
     private readonly PhoenixReadSessionStore _sessionStore;
     private readonly SemaphoreSlim _deviceLock = new(1, 1);
-
     private DateTimeOffset _registerPausedUntil = DateTimeOffset.MinValue;
-
-    private string _deviceId = string.Empty;
-    private string _installId = string.Empty;
-    private string _cdid = string.Empty;
-    private string _klinkEgdi = string.Empty;
     private volatile string? _cachedAppQuery;
 
     internal string DeviceId
     {
-        get => _deviceId;
+        get;
         set
         {
-            _deviceId = value;
+            field = value;
             _cachedAppQuery = null;
         }
     }
     internal string InstallId
     {
-        get => _installId;
+        get;
         set
         {
-            _installId = value;
+            field = value;
             _cachedAppQuery = null;
         }
     }
     internal string Cdid
     {
-        get => _cdid;
+        get;
         set
         {
-            _cdid = value;
+            field = value;
             _cachedAppQuery = null;
         }
     }
     internal string KlinkEgdi
     {
-        get => _klinkEgdi;
+        get;
         set
         {
-            _klinkEgdi = value;
+            field = value;
             _cachedAppQuery = null;
         }
+    }
+    internal string OpenUdid
+    {
+        get => _sessionStore.OpenUdid;
+        set => _sessionStore.OpenUdid = value;
     }
     internal bool IsRegistered { get; set; }
 
@@ -79,7 +78,7 @@ internal sealed class PhoenixReadDeviceManager
     }
 
     internal const string StaticAppQueryPrefix =
-        "aid=8662&app_name=novelread&version_code=69132&version_name=6.9.1.32&manifest_version_code=69132&update_version_code=69132&channel=update_64&device_platform=android&os=android&ssmix=a&device_type=WKL-AN20&device_brand=HONOR&language=zh&os_api=37&os_version=17&resolution=1320*2868&dpi=360&compliance_status=0&need_personal_recommend=1&player_so_load=1&is_android_pad_screen=0&rom_version=V417IR%20release-keys&dragon_device_type=phone&host_abi=arm64-v8a&pv_player=69132";
+        "aid=8662&app_name=novelread&version_code=73932&version_name=7.3.9.32&manifest_version_code=73932&update_version_code=73932&channel=update_64&device_platform=android&os=android&ssmix=a&device_type=WKL-AN20&device_brand=HONOR&language=zh&os_api=37&os_version=17&resolution=1320*2868&dpi=360&compliance_status=0&need_personal_recommend=1&player_so_load=1&is_android_pad_screen=0&rom_version=CP2A.260605.012&dragon_device_type=phone&host_abi=arm64-v8a&pv_player=73932&ac=wifi";
 
     internal void AppendAppQuery(StringBuilder sb)
     {
@@ -97,16 +96,16 @@ internal sealed class PhoenixReadDeviceManager
         StringBuilder sb = new(512);
         sb.Append(StaticAppQueryPrefix);
         sb.Append("&device_id=")
-            .Append(DeviceIdGenerator.IsValid(_deviceId) ? _deviceId : "1589262967141403");
+            .Append(DeviceIdGenerator.IsValid(DeviceId) ? DeviceId : "1589262967141403");
         sb.Append("&iid=")
-            .Append(DeviceIdGenerator.IsValid(_installId) ? _installId : "2380912043756905");
-        string cdid = string.IsNullOrWhiteSpace(_cdid)
+            .Append(DeviceIdGenerator.IsValid(InstallId) ? InstallId : "2380912043756905");
+        string cdid = string.IsNullOrWhiteSpace(Cdid)
             ? "c179f4ce-dbbe-4c3e-ae27-8d462e63782b"
-            : _cdid;
+            : Cdid;
         sb.Append("&cdid=").Append(Uri.EscapeDataString(cdid));
-        string klink = string.IsNullOrWhiteSpace(_klinkEgdi)
+        string klink = string.IsNullOrWhiteSpace(KlinkEgdi)
             ? "AAJgUhu9EVIH0a1aMHvCy177wq-bhqHT3XS5vNNgeIgolcgOrGQOGZwL"
-            : _klinkEgdi;
+            : KlinkEgdi;
         sb.Append("&klink_egdi=").Append(Uri.EscapeDataString(klink));
 
         cached = sb.ToString();
@@ -157,12 +156,12 @@ internal sealed class PhoenixReadDeviceManager
         await _deviceLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            _registerPausedUntil = DateTimeOffset.MinValue;
+            _cachedAppQuery = null;
+            _sessionStore.ResetAnonymousDevice();
             DeviceId = string.Empty;
             InstallId = string.Empty;
-            Cdid = string.Empty;
-            KlinkEgdi = string.Empty;
             IsRegistered = false;
-            _registerPausedUntil = DateTimeOffset.MinValue;
             await RegisterDeviceCoreAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -181,6 +180,8 @@ internal sealed class PhoenixReadDeviceManager
             string openUdid = Convert
                 .ToHexString(RandomNumberGenerator.GetBytes(8))
                 .ToLowerInvariant();
+            string reqId = Guid.NewGuid().ToString();
+            string oaid = Guid.NewGuid().ToString();
 
             AppDeviceRegisterPayload payload = new()
             {
@@ -188,9 +189,16 @@ internal sealed class PhoenixReadDeviceManager
                 GenTime = nowMs,
                 Header = new AppDeviceRegisterHeader
                 {
+                    Cdid = newCdid,
                     OpenUdid = openUdid,
                     ClientUdid = clientUdid,
-                    Cdid = newCdid,
+                    ReqId = reqId,
+                    Oaid = new AppDeviceRegisterOaid
+                    {
+                        ReqId = oaid,
+                        Id = oaid,
+                        Time = (nowMs - 200).ToString(CultureInfo.InvariantCulture),
+                    },
                 },
             };
 
@@ -198,17 +206,16 @@ internal sealed class PhoenixReadDeviceManager
             byte[] encryptedBody = TtEncrypt.GzipAndEncrypt(jsonBytes);
             string bodyStub = Convert.ToHexString(MD5.HashData(encryptedBody));
 
-            string reqId = Guid.NewGuid().ToString();
             KeyValuePair<string, string>[] registerQuery =
             [
                 new("req_id", reqId),
                 new("tt_data", "a"),
                 new("aid", "8662"),
                 new("app_name", "novelread"),
-                new("version_code", "69132"),
-                new("version_name", "6.9.1.32"),
-                new("manifest_version_code", "69132"),
-                new("update_version_code", "69132"),
+                new("version_code", "73932"),
+                new("version_name", "7.3.9.32"),
+                new("manifest_version_code", "73932"),
+                new("update_version_code", "73932"),
                 new("channel", "update_64"),
                 new("device_platform", "android"),
                 new("os", "android"),
@@ -255,6 +262,8 @@ internal sealed class PhoenixReadDeviceManager
                 return;
             }
 
+            _sessionStore.CaptureSession(response);
+
             byte[] bytes = await _http
                 .ReadBodyAsync(response, cancellationToken)
                 .ConfigureAwait(false);
@@ -280,12 +289,14 @@ internal sealed class PhoenixReadDeviceManager
                         KlinkEgdi = reg.KlinkEgdi;
                     }
                     IsRegistered = true;
+                    _registerPausedUntil = DateTimeOffset.MinValue;
                     _sessionStore.UpdateDeviceIdentity(
                         DeviceId,
                         InstallId,
                         Cdid,
                         KlinkEgdi,
-                        IsRegistered
+                        IsRegistered,
+                        openUdid
                     );
                 }
             }
