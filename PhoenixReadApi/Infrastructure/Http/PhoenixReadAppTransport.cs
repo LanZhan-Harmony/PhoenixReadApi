@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
@@ -110,6 +111,7 @@ internal sealed class PhoenixReadAppTransport
 
         byte[] jsonBytes = JsonAotSerializer.SerializeToUtf8Bytes(payload);
         byte[] gzipBody = PhoenixReadPlaybackSigner.CompressJavaGzip(jsonBytes);
+        string stub = Convert.ToHexString(MD5.HashData(gzipBody));
 
         const string targetHost =
             "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1";
@@ -125,6 +127,13 @@ internal sealed class PhoenixReadAppTransport
                 ? Guid.NewGuid().ToString()
                 : _deviceManager.Cdid;
 
+            string urlPrefix = PhoenixReadPlaybackSigner.BuildPlaybackUrlPrefix(
+                targetHost,
+                deviceId,
+                installId,
+                cdid
+            );
+
             long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + _http.ServerClockOffsetMs;
             long baseSec = nowMs / 1000;
 
@@ -134,19 +143,14 @@ internal sealed class PhoenixReadAppTransport
             foreach (int delta in tsDeltas)
             {
                 uint ts = (uint)(baseSec + delta);
+                string khronos = ts.ToString(CultureInfo.InvariantCulture);
+                string helios = PhoenixReadPlaybackSigner.GenerateHelios(ts);
+
                 for (int off = 0; off < 64; off++)
                 {
                     long ticket = (long)ts * 1000 + off;
-                    string fullUrl = PhoenixReadPlaybackSigner.BuildPlaybackUrl(
-                        targetHost,
-                        deviceId,
-                        installId,
-                        cdid,
-                        ticket
-                    );
-
-                    (string? khronos, string? helios, string? medusa, string? stub) =
-                        PhoenixReadPlaybackSigner.SignV5(fullUrl, gzipBody, ts, deviceId);
+                    string fullUrl = $"{urlPrefix}{ticket}";
+                    string medusa = PhoenixReadPlaybackSigner.GenerateMedusa(fullUrl, gzipBody, ts, deviceId);
 
                     using HttpRequestMessage request = new(HttpMethod.Post, fullUrl);
                     request.Headers.TryAddWithoutValidation("User-Agent", playbackUa);
@@ -786,6 +790,21 @@ internal sealed class PhoenixReadAppTransport
     )
     {
         StringBuilder sb = new(512);
+        string baseUri = _options.AppBaseUri.AbsoluteUri;
+        sb.Append(baseUri);
+        if (!baseUri.EndsWith('/') && !path.StartsWith('/'))
+        {
+            sb.Append('/');
+        }
+        else if (baseUri.EndsWith('/') && path.StartsWith('/'))
+        {
+            sb.Append(path.AsSpan(1));
+            goto AppendQuery;
+        }
+        sb.Append(path);
+
+    AppendQuery:
+        sb.Append('?');
         _deviceManager.AppendAppQuery(sb);
 
         if (extraQuery is not null)
@@ -799,15 +818,11 @@ internal sealed class PhoenixReadAppTransport
             }
         }
 
-        string rticket = DateTimeOffset
-            .UtcNow.ToUnixTimeMilliseconds()
-            .ToString(CultureInfo.InvariantCulture);
+        long rticket = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         sb.Append("&_rticket=");
         sb.Append(rticket);
 
-        string queryString = sb.ToString();
-        Uri baseUri = new(_options.AppBaseUri, path.TrimStart('/'));
-        return new Uri($"{baseUri.AbsoluteUri}?{queryString}", UriKind.Absolute);
+        return new Uri(sb.ToString(), UriKind.Absolute);
     }
 
     private void EnsureSuccess(

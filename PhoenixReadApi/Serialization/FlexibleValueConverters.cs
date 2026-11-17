@@ -244,9 +244,9 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<D
     {
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
         JsonElement root = document.RootElement;
-        List<DramaEpisodeDto> result = [];
         if (root.ValueKind == JsonValueKind.Array)
         {
+            List<DramaEpisodeDto> result = new(root.GetArrayLength());
             foreach (JsonElement value in root.EnumerateArray())
             {
                 DramaEpisodeDto? item = JsonAotSerializer.Deserialize<DramaEpisodeDto>(value);
@@ -255,9 +255,11 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<D
                     result.Add(item);
                 }
             }
+            return result;
         }
         else if (root.ValueKind == JsonValueKind.Object)
         {
+            List<DramaEpisodeDto> result = [];
             foreach (JsonProperty item in root.EnumerateObject())
             {
                 DramaEpisodeDto? ep = JsonAotSerializer.Deserialize<DramaEpisodeDto>(item.Value);
@@ -266,8 +268,9 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<D
                     result.Add(ep);
                 }
             }
+            return result;
         }
-        return result;
+        return [];
     }
 
     public override void Write(
@@ -298,9 +301,9 @@ internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<D
     {
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
         JsonElement root = document.RootElement;
-        List<DramaDto> result = [];
         if (root.ValueKind == JsonValueKind.Array)
         {
+            List<DramaDto> result = new(root.GetArrayLength());
             foreach (JsonElement value in root.EnumerateArray())
             {
                 DramaDto? item = JsonAotSerializer.Deserialize<DramaDto>(value);
@@ -309,9 +312,11 @@ internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<D
                     result.Add(item);
                 }
             }
+            return result;
         }
         else if (root.ValueKind == JsonValueKind.Object)
         {
+            List<DramaDto> result = [];
             foreach (JsonProperty item in root.EnumerateObject())
             {
                 DramaDto? itemVal = JsonAotSerializer.Deserialize<DramaDto>(item.Value);
@@ -320,8 +325,9 @@ internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<D
                     result.Add(itemVal);
                 }
             }
+            return result;
         }
-        return result;
+        return [];
     }
 
     public override void Write(
@@ -382,7 +388,7 @@ internal sealed class FlexibleStringListConverter : JsonConverter<IReadOnlyList<
             return [];
         }
 
-        List<string> result = [];
+        List<string> result = new(root.GetArrayLength());
         foreach (JsonElement item in root.EnumerateArray())
         {
             if (item.ValueKind == JsonValueKind.String)
@@ -523,9 +529,9 @@ internal sealed class FlexibleMediaVariantListConverter
     {
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
         JsonElement root = document.RootElement;
-        List<AppMediaVariantDto> result = [];
         if (root.ValueKind == JsonValueKind.Array)
         {
+            List<AppMediaVariantDto> result = new(root.GetArrayLength());
             foreach (JsonElement value in root.EnumerateArray())
             {
                 AppMediaVariantDto? item = JsonAotSerializer.Deserialize<AppMediaVariantDto>(value);
@@ -534,9 +540,11 @@ internal sealed class FlexibleMediaVariantListConverter
                     result.Add(item);
                 }
             }
+            return result;
         }
         else if (root.ValueKind == JsonValueKind.Object)
         {
+            List<AppMediaVariantDto> result = [];
             foreach (JsonProperty item in root.EnumerateObject())
             {
                 AppMediaVariantDto? itemVal = JsonAotSerializer.Deserialize<AppMediaVariantDto>(
@@ -547,8 +555,9 @@ internal sealed class FlexibleMediaVariantListConverter
                     result.Add(itemVal);
                 }
             }
+            return result;
         }
-        return result;
+        return [];
     }
 
     public override void Write(
@@ -659,7 +668,7 @@ internal sealed class FlexibleCommentImageDataListConverter
 
         if (reader.TokenType == JsonTokenType.StartArray)
         {
-            using JsonDocument arrayDoc = JsonDocument.ParseValue(ref reader);
+            reader.Skip();
             return new AppCommentImageDataListDto();
         }
 
@@ -669,7 +678,7 @@ internal sealed class FlexibleCommentImageDataListConverter
             && array.ValueKind == JsonValueKind.Array
         )
         {
-            List<AppCommentImageDataDto> items = [];
+            List<AppCommentImageDataDto> items = new(array.GetArrayLength());
             foreach (JsonElement item in array.EnumerateArray())
             {
                 if (item.ValueKind != JsonValueKind.Object)
