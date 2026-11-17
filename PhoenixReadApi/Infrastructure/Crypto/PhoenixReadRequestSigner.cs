@@ -778,7 +778,7 @@ internal static class PhoenixReadRequestSigner
             }
             else
             {
-                uint inner = (value >> 7) ^ value ^ ((uint)b | (value << 12));
+                uint inner = (value >> 7) ^ value ^ (b | (value << 12));
                 value = ~inner;
             }
         }

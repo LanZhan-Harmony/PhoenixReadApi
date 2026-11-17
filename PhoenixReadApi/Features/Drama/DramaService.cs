@@ -297,11 +297,10 @@ internal sealed partial class DramaService : PhoenixFeatureService
             return [];
         }
 
-        Dictionary<string, string> batchScores = await TryFetchBatchScoresAsync(
-                ids,
-                cancellationToken
-            )
-            .ConfigureAwait(false);
+        Task<Dictionary<string, string>> batchScoresTask = TryFetchBatchScoresAsync(
+            ids,
+            cancellationToken
+        );
 
         Dictionary<string, DramaDetails> found = [with(StringComparer.Ordinal)];
         const int batchSize = 10;
@@ -334,6 +333,8 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 tasks
             )
             .ConfigureAwait(false);
+
+        Dictionary<string, string> batchScores = await batchScoresTask.ConfigureAwait(false);
 
         foreach (AppResponse<Dictionary<string, AppPlayerSeriesEntry>> response in responses)
         {

@@ -464,40 +464,51 @@ internal static class DramaMapper
     private static List<string> DtoTags(DramaDto data)
     {
         List<string> tags = [];
-        HashSet<string> seen = [with(StringComparer.Ordinal)];
-        foreach (DramaTagDto item in data.Tags ?? [])
+        if (data.Tags is not null)
         {
-            if (!string.IsNullOrWhiteSpace(item.Name))
+            foreach (DramaTagDto item in data.Tags)
             {
-                string tag = item.Name.Trim();
-                if (seen.Add(tag))
+                if (!string.IsNullOrWhiteSpace(item.Name))
                 {
-                    tags.Add(tag);
+                    string tag = item.Name.Trim();
+                    if (!tags.Contains(tag, StringComparer.Ordinal))
+                    {
+                        tags.Add(tag);
+                    }
                 }
             }
         }
-        foreach (DramaCategoryDto item in data.CategoryList ?? [])
+
+        if (data.CategoryList is not null)
         {
-            if (item is not null && !string.IsNullOrWhiteSpace(item.Name))
+            foreach (DramaCategoryDto item in data.CategoryList)
             {
-                string tag = item.Name.Trim();
-                if (seen.Add(tag))
+                if (item is not null && !string.IsNullOrWhiteSpace(item.Name))
                 {
-                    tags.Add(tag);
+                    string tag = item.Name.Trim();
+                    if (!tags.Contains(tag, StringComparer.Ordinal))
+                    {
+                        tags.Add(tag);
+                    }
                 }
             }
         }
-        foreach (string item in data.CategorySchema ?? [])
+
+        if (data.CategorySchema is not null)
         {
-            if (!string.IsNullOrWhiteSpace(item))
+            foreach (string item in data.CategorySchema)
             {
-                string tag = item.Trim();
-                if (seen.Add(tag))
+                if (!string.IsNullOrWhiteSpace(item))
                 {
-                    tags.Add(tag);
+                    string tag = item.Trim();
+                    if (!tags.Contains(tag, StringComparer.Ordinal))
+                    {
+                        tags.Add(tag);
+                    }
                 }
             }
         }
+
         return tags;
     }
 

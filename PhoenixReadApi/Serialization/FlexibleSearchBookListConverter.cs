@@ -18,9 +18,9 @@ internal sealed class FlexibleSearchBookListConverter
     {
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
         JsonElement root = document.RootElement;
-        List<AppSearchBookDto> result = [];
         if (root.ValueKind == JsonValueKind.Array)
         {
+            List<AppSearchBookDto> result = new(root.GetArrayLength());
             foreach (JsonElement value in root.EnumerateArray())
             {
                 AppSearchBookDto? item = JsonAotSerializer.Deserialize<AppSearchBookDto>(value);
@@ -29,16 +29,14 @@ internal sealed class FlexibleSearchBookListConverter
                     result.Add(item);
                 }
             }
+            return result;
         }
         else if (root.ValueKind == JsonValueKind.Object)
         {
             AppSearchBookDto? item = JsonAotSerializer.Deserialize<AppSearchBookDto>(root);
-            if (item is not null)
-            {
-                result.Add(item);
-            }
+            return item is not null ? [item] : [];
         }
-        return result;
+        return [];
     }
 
     public override void Write(

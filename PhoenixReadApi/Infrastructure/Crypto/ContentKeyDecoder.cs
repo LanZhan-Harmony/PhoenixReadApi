@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Text;
 
 namespace PhoenixReadApi.Internal.Infrastructure.Crypto;
 
@@ -82,26 +81,31 @@ internal static class ContentKeyDecoder
         {
             throw new PhoenixReadApiMediaException("媒体密钥内容无效。", "media");
         }
-        string s = Encoding.ASCII.GetString(array3, 1, 32);
-        byte[] array4;
-        try
+        byte[] array4 = new byte[16];
+        for (int i = 0; i < 16; i++)
         {
-            array4 = Convert.FromHexString(s);
-        }
-        catch (FormatException innerException2)
-        {
-            throw new PhoenixReadApiMediaException(
-                "媒体密钥不是有效的 AES-128 密钥。",
-                "media",
-                innerException2
-            );
-        }
-        if (array4.Length != 16)
-        {
-            throw new PhoenixReadApiMediaException("媒体密钥不是有效的 AES-128 密钥。", "media");
+            int hi = HexVal(array3[1 + i * 2]);
+            int lo = HexVal(array3[2 + i * 2]);
+            if ((hi | lo) < 0)
+            {
+                throw new PhoenixReadApiMediaException(
+                    "媒体密钥不是有效的 AES-128 密钥。",
+                    "media"
+                );
+            }
+            array4[i] = (byte)((hi << 4) | lo);
         }
         return array4;
     }
+
+    private static int HexVal(byte c) =>
+        c switch
+        {
+            >= (byte)'0' and <= (byte)'9' => c - '0',
+            >= (byte)'a' and <= (byte)'f' => c - 'a' + 10,
+            >= (byte)'A' and <= (byte)'F' => c - 'A' + 10,
+            _ => -1,
+        };
 
     private static int ParseBase36(byte value)
     {
