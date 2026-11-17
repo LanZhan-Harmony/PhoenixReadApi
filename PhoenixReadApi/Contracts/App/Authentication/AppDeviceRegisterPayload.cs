@@ -15,26 +15,48 @@ internal sealed class AppDeviceRegisterPayload
     public long GenTime { get; init; }
 }
 
+/// <summary>设备注册 OAID 标识载荷。</summary>
+internal sealed class AppDeviceRegisterOaid
+{
+    [JsonPropertyName("req_id")]
+    public string ReqId { get; init; } = string.Empty;
+
+    [JsonPropertyName("hw_id_version_code")]
+    public string HwIdVersionCode { get; init; } = "0";
+
+    [JsonPropertyName("take_ms")]
+    public string TakeMs { get; init; } = "6";
+
+    [JsonPropertyName("is_track_limited")]
+    public string IsTrackLimited { get; init; } = "false";
+
+    [JsonPropertyName("query_times")]
+    public string QueryTimes { get; init; } = "1";
+
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = string.Empty;
+
+    [JsonPropertyName("time")]
+    public string Time { get; init; } = string.Empty;
+}
+
 /// <summary>设备注册请求头信息。</summary>
 internal sealed class AppDeviceRegisterHeader
 {
     [JsonPropertyName("display_name")]
     public string DisplayName { get; init; } = "红果免费短剧";
 
-    [JsonPropertyName("aid")]
-    public int Aid { get; init; } = 8662;
-
-    [JsonPropertyName("app_version")]
-    public string AppVersion { get; init; } = "6.9.1.32";
-
-    [JsonPropertyName("version_code")]
-    public int VersionCode { get; init; } = 69132;
+    [JsonPropertyName("update_version_code")]
+    public int UpdateVersionCode { get; init; } = 73932;
 
     [JsonPropertyName("manifest_version_code")]
-    public int ManifestVersionCode { get; init; } = 69132;
+    public int ManifestVersionCode { get; init; } = 73932;
 
-    [JsonPropertyName("update_version_code")]
-    public int UpdateVersionCode { get; init; } = 69132;
+    [JsonPropertyName("app_version_minor")]
+    public string AppVersionMinor { get; init; } = "7.3.9.32";
+
+    [JsonPropertyName("aid")]
+    public int Aid { get; init; } = 8662;
 
     [JsonPropertyName("channel")]
     public string Channel { get; init; } = "update_64";
@@ -42,8 +64,11 @@ internal sealed class AppDeviceRegisterHeader
     [JsonPropertyName("package")]
     public string Package { get; init; } = "com.phoenix.read";
 
-    [JsonPropertyName("app_language")]
-    public string AppLanguage { get; init; } = "zh";
+    [JsonPropertyName("app_version")]
+    public string AppVersion { get; init; } = "7.3.9.32";
+
+    [JsonPropertyName("version_code")]
+    public int VersionCode { get; init; } = 73932;
 
     [JsonPropertyName("os")]
     public string Os { get; init; } = "Android";
@@ -66,15 +91,6 @@ internal sealed class AppDeviceRegisterHeader
     [JsonPropertyName("cpu_abi")]
     public string CpuAbi { get; init; } = "arm64-v8a";
 
-    [JsonPropertyName("density_dpi")]
-    public int DensityDpi { get; init; } = 360;
-
-    [JsonPropertyName("display_density")]
-    public string DisplayDensity { get; init; } = "xxhdpi";
-
-    [JsonPropertyName("resolution")]
-    public string Resolution { get; init; } = "1320x2868";
-
     [JsonPropertyName("language")]
     public string Language { get; init; } = "zh";
 
@@ -83,15 +99,6 @@ internal sealed class AppDeviceRegisterHeader
 
     [JsonPropertyName("access")]
     public string Access { get; init; } = "wifi";
-
-    [JsonPropertyName("openudid")]
-    public string OpenUdid { get; init; } = string.Empty;
-
-    [JsonPropertyName("clientudid")]
-    public string ClientUdid { get; init; } = string.Empty;
-
-    [JsonPropertyName("cdid")]
-    public string Cdid { get; init; } = string.Empty;
 
     [JsonPropertyName("region")]
     public string Region { get; init; } = "CN";
@@ -102,14 +109,35 @@ internal sealed class AppDeviceRegisterHeader
     [JsonPropertyName("tz_offset")]
     public int TzOffset { get; init; } = 28800;
 
-    [JsonPropertyName("sim_region")]
-    public string SimRegion { get; init; } = "cn";
+    [JsonPropertyName("cdid")]
+    public string Cdid { get; init; } = string.Empty;
+
+    [JsonPropertyName("openudid")]
+    public string OpenUdid { get; init; } = string.Empty;
+
+    [JsonPropertyName("clientudid")]
+    public string ClientUdid { get; init; } = string.Empty;
+
+    [JsonPropertyName("ipv6_list")]
+    public IReadOnlyList<string> Ipv6List { get; init; } = [];
+
+    [JsonPropertyName("sim_serial_number")]
+    public IReadOnlyList<string> SimSerialNumber { get; init; } = [];
+
+    [JsonPropertyName("oaid")]
+    public AppDeviceRegisterOaid Oaid { get; init; } = new();
+
+    [JsonPropertyName("oaid_may_support")]
+    public bool OaidMaySupport { get; init; } = true;
+
+    [JsonPropertyName("req_id")]
+    public string ReqId { get; init; } = string.Empty;
 
     [JsonPropertyName("device_platform")]
     public string DevicePlatform { get; init; } = "android";
 
-    [JsonPropertyName("not_request_sender")]
-    public int NotRequestSender { get; init; }
+    [JsonPropertyName("guest_mode")]
+    public int GuestMode { get; init; }
 
     [JsonPropertyName("is_system_app")]
     public int IsSystemApp { get; init; }
@@ -117,9 +145,9 @@ internal sealed class AppDeviceRegisterHeader
     [JsonPropertyName("sdk_flavor")]
     public string SdkFlavor { get; init; } = "china";
 
-    [JsonPropertyName("rom")]
-    public string Rom { get; init; } = "Android17";
+    [JsonPropertyName("device_id")]
+    public string DeviceId { get; init; } = "0";
 
-    [JsonPropertyName("rom_version")]
-    public string RomVersion { get; init; } = "CP2A.260605.012";
+    [JsonPropertyName("install_id")]
+    public string InstallId { get; init; } = "0";
 }

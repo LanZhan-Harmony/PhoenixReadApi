@@ -21,6 +21,14 @@ internal sealed class AppPlaybackModel
     [JsonConverter(typeof(FlexibleLongConverter))]
     public long UrlExpire { get; init; }
 
+    [JsonPropertyName("expire_time")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long ExpireTime { get; init; }
+
+    [JsonPropertyName("key_seed")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string KeySeed { get; init; } = string.Empty;
+
     [JsonPropertyName("dynamic_video")]
     public AppDynamicVideoDto DynamicVideo { get; init; } = new();
 }

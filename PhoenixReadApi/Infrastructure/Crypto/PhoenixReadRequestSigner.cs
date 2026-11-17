@@ -766,6 +766,36 @@ internal static class PhoenixReadRequestSigner
         SetHeader(request, "X-Ladon", PlayerLadon(aid, timestamp, nonce.Slice(2, 4)));
     }
 
+    internal static uint GetIv(uint iv, ReadOnlySpan<byte> data)
+    {
+        uint value = iv;
+        for (int i = 0; i < data.Length; i++)
+        {
+            byte b = data[i];
+            if ((i & 1) == 0)
+            {
+                value = (value >> 4) ^ value ^ (value << 6) ^ b;
+            }
+            else
+            {
+                uint inner = (value >> 7) ^ value ^ ((uint)b | (value << 12));
+                value = ~inner;
+            }
+        }
+        return value;
+    }
+
+    internal static uint BranchOf(
+        ReadOnlySpan<byte> querySm3,
+        ReadOnlySpan<byte> bodyMd5,
+        ReadOnlySpan<byte> tsLe32
+    )
+    {
+        uint iv = GetIv(GetIv(GetIv(0x20230928u, querySm3), bodyMd5), tsLe32);
+        uint low = iv & 15;
+        return low - (((low * 171) >> 9) * 3);
+    }
+
     internal static void SignPlayback(
         HttpRequestMessage request,
         ReadOnlySpan<byte> body,
@@ -773,54 +803,36 @@ internal static class PhoenixReadRequestSigner
         DateTimeOffset now
     )
     {
-        uint timestamp = checked((uint)now.ToUnixTimeSeconds());
         string query = request.RequestUri?.Query.TrimStart('?') ?? string.Empty;
-        Span<byte> queryHash = stackalloc byte[16];
-        HashQuery(query, queryHash);
-        Span<byte> payload = stackalloc byte[20];
-        queryHash[..4].CopyTo(payload[..4]);
+        string tsStr = GetQueryValue(query, "ts");
+        uint timestamp = uint.TryParse(tsStr, CultureInfo.InvariantCulture, out uint parsedTs)
+            ? parsedTs
+            : checked((uint)now.ToUnixTimeSeconds());
+        string ticketStr = GetQueryValue(query, "_rticket");
+        long ticketMs = long.TryParse(
+            ticketStr,
+            CultureInfo.InvariantCulture,
+            out long parsedTicket
+        )
+            ? parsedTicket
+            : now.ToUnixTimeMilliseconds();
 
         Span<byte> bodyMd5 = stackalloc byte[16];
         if (!body.IsEmpty)
         {
             MD5.HashData(body, bodyMd5);
-            bodyMd5[..4].CopyTo(payload[4..8]);
             SetHeader(request, "X-SS-STUB", Convert.ToHexString(bodyMd5));
         }
 
-        payload[12] = 0;
-        payload[13] = 6;
-        payload[14] = 11;
-        payload[15] = 28;
-        BinaryPrimitives.WriteUInt32BigEndian(payload[16..], timestamp);
-
-        for (int i = 0; i < payload.Length; i++)
-        {
-            payload[i] ^= RequestKey[i];
-        }
-
-        for (int j = 0; j < payload.Length; j++)
-        {
-            int mixed = RotateLeft(payload[j], 4) ^ payload[(j + 1) % payload.Length];
-            payload[j] = (byte)(ReverseBits((byte)mixed) ^ 0xFF ^ payload.Length);
-        }
-
-        Span<byte> signature = stackalloc byte[26];
-        signature[0] = 0x84;
-        signature[1] = 0x04;
-        signature[2] = 0x40;
-        signature[3] = 0x1C;
-        signature[4] = 0;
-        signature[5] = 0;
-        payload.CopyTo(signature[6..]);
+        uint gorgonRandom = RandomUint32();
+        uint heliosRandom = RandomUint32();
+        uint argusNonce = RandomUint32();
+        uint ladonNonce = RandomUint32();
 
         SetHeader(request, "X-Khronos", timestamp.ToString(CultureInfo.InvariantCulture));
-        SetHeader(request, "X-Gorgon", Convert.ToHexStringLower(signature));
-        SetHeader(
-            request,
-            "X-SS-Req-Ticket",
-            now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
-        );
+        SetHeader(request, "X-SS-Req-Ticket", ticketMs.ToString(CultureInfo.InvariantCulture));
+        SetHeader(request, "X-Gorgon", PlaybackGorgon(query, body, timestamp, gorgonRandom));
+        SetHeader(request, "X-Helios", PlaybackHelios(timestamp, heliosRandom));
 
         request.Headers.Remove("X-Medusa");
 
@@ -834,15 +846,178 @@ internal static class PhoenixReadRequestSigner
         }
         string iid = GetQueryValue(query, "iid");
 
-        uint argusNonce = RandomUint32();
-        uint ladonNonce = RandomUint32();
-
         SetHeader(
             request,
             "X-Argus",
             PlaybackArgus(query, bodyMd5, timestamp, argusNonce, aid, effectiveDeviceId, iid)
         );
         SetHeader(request, "X-Ladon", PlaybackLadon(timestamp, ladonNonce, aid));
+    }
+
+    internal static string PlaybackGorgon(
+        string query,
+        ReadOnlySpan<byte> body,
+        uint timestamp,
+        uint random
+    )
+    {
+        Span<byte> queryMd5 = stackalloc byte[16];
+        int maxQueryBytes = Encoding.UTF8.GetMaxByteCount(query.Length);
+        if (maxQueryBytes <= 512)
+        {
+            Span<byte> queryBytes = stackalloc byte[maxQueryBytes];
+            int written = Encoding.UTF8.GetBytes(query, queryBytes);
+            MD5.HashData(queryBytes[..written], queryMd5);
+        }
+        else
+        {
+            byte[] rented = ArrayPool<byte>.Shared.Rent(maxQueryBytes);
+            try
+            {
+                int written = Encoding.UTF8.GetBytes(query, rented);
+                MD5.HashData(rented.AsSpan(0, written), queryMd5);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+
+        Span<byte> bodyMd5 = stackalloc byte[16];
+        bodyMd5.Clear();
+        if (!body.IsEmpty)
+        {
+            MD5.HashData(body, bodyMd5);
+        }
+
+        Span<byte> input = stackalloc byte[20];
+        queryMd5[..4].CopyTo(input[..4]);
+        bodyMd5[..4].CopyTo(input[4..8]);
+        input[8..12].Clear();
+        BinaryPrimitives.WriteUInt32LittleEndian(input[12..16], 67503104);
+        BinaryPrimitives.WriteUInt32BigEndian(input[16..20], timestamp);
+
+        Span<byte> key =
+        [
+            0x4A,
+            0x40,
+            0x16,
+            (byte)((random >> 8) & 0xFF),
+            0x47,
+            0x6C,
+            0x01,
+            (byte)(random & 0xFF),
+        ];
+        Span<byte> s = stackalloc byte[256];
+        for (int i = 0; i < 256; i++)
+        {
+            s[i] = (byte)i;
+        }
+        int j = 0;
+        for (int i = 0; i < 256; i++)
+        {
+            j = (j + s[i] + key[i % 8]) & 0xFF;
+            s[i] = s[j];
+        }
+
+        Span<byte> output = stackalloc byte[20];
+        int si = 0,
+            sj = 0;
+        for (int k = 0; k < input.Length; k++)
+        {
+            si = (si + 1) & 0xFF;
+            int x = s[si];
+            sj = (sj + x) & 0xFF;
+            int y = s[sj];
+            s[si] = (byte)y;
+            output[k] = (byte)(input[k] ^ s[(y + y) & 0xFF]);
+        }
+
+        for (int i = 0; i < output.Length; i++)
+        {
+            byte val = output[i];
+            byte swapped = (byte)((val >> 4) | (val << 4));
+            byte next = (i + 1 < output.Length) ? output[i + 1] : output[0];
+            output[i] = (byte)(~(ReverseBits((byte)(next ^ swapped)) ^ 20));
+        }
+
+        Span<byte> signature = stackalloc byte[26];
+        signature[0] = 0x84;
+        signature[1] = 0x04;
+        signature[2] = (byte)(random & 0xFF);
+        signature[3] = (byte)((random >> 8) & 0xFF);
+        signature[4] = 0x40;
+        signature[5] = 0x01;
+        output.CopyTo(signature[6..]);
+        return Convert.ToHexStringLower(signature);
+    }
+
+    internal static string PlaybackHelios(uint khronos, uint random)
+    {
+        Span<byte> seed = stackalloc byte[8];
+        BinaryPrimitives.WriteUInt32LittleEndian(seed[..4], random);
+        seed[4] = (byte)'8';
+        seed[5] = (byte)'6';
+        seed[6] = (byte)'6';
+        seed[7] = (byte)'2';
+
+        Span<byte> digest = stackalloc byte[16];
+        MD5.HashData(seed, digest);
+
+        Span<byte> ascii = stackalloc byte[32];
+        Encoding.ASCII.GetBytes(Convert.ToHexStringLower(digest), ascii);
+
+        Span<ulong> words = stackalloc ulong[4];
+        for (int i = 0; i < 4; i++)
+        {
+            words[i] = BinaryPrimitives.ReadUInt64LittleEndian(ascii[(i * 8)..]);
+        }
+
+        Span<ulong> table = stackalloc ulong[35];
+        table[0] = words[0];
+        ulong b0 = words[0];
+        ulong b8 = words[1];
+        Span<ulong> queue = stackalloc ulong[36];
+        queue[0] = words[2];
+        queue[1] = words[3];
+        int queueHead = 0;
+        int queueTail = 2;
+
+        for (ulong i = 0; i < 34; i++)
+        {
+            ulong x8 = BitOperations.RotateRight(b8, 8) + b0;
+            x8 ^= i;
+            queue[queueTail++] = x8;
+            x8 ^= BitOperations.RotateRight(b0, 61);
+            table[(int)(i + 1)] = x8;
+            b0 = x8;
+            b8 = queue[queueHead++];
+        }
+
+        string text = $"{khronos}-1588093228-8662";
+        byte fill = (byte)(16 - (text.Length % 16));
+        int size = ((text.Length + 1 + 15) / 16) * 16;
+        Span<byte> padded = stackalloc byte[size];
+        padded.Fill(fill);
+        Encoding.UTF8.GetBytes(text, padded);
+
+        byte[] result = new byte[4 + size];
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(0, 4), random);
+
+        for (int off = 0; off < size; off += 16)
+        {
+            ulong a = BinaryPrimitives.ReadUInt64LittleEndian(padded[off..]);
+            ulong b = BinaryPrimitives.ReadUInt64LittleEndian(padded[(off + 8)..]);
+            for (int t = 0; t < 34; t++)
+            {
+                b = table[t] ^ (a + BitOperations.RotateRight(b, 8));
+                a = b ^ BitOperations.RotateRight(a, 61);
+            }
+            BinaryPrimitives.WriteUInt64LittleEndian(result.AsSpan(4 + off, 8), a);
+            BinaryPrimitives.WriteUInt64LittleEndian(result.AsSpan(4 + off + 8, 8), b);
+        }
+
+        return Convert.ToBase64String(result);
     }
 
     private static uint RandomUint32()
@@ -1250,7 +1425,7 @@ internal static class PhoenixReadRequestSigner
         int devLen = Encoding.UTF8.GetBytes(deviceId, devBytes);
         Bytes(message, 5uL, devBytes[..devLen]);
         Bytes(message, 6uL, "1611921764"u8);
-        Bytes(message, 7uL, "7.3.5.32"u8);
+        Bytes(message, 7uL, "7.3.9.32"u8);
         Bytes(message, 8uL, "v04.07.01-ml-android"u8);
         Varint(message, 9uL, 135135744uL);
         Bytes(message, 10uL, stackalloc byte[8]);

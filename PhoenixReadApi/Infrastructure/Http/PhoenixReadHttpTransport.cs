@@ -5,6 +5,42 @@ internal sealed class PhoenixReadHttpTransport
 {
     private readonly HttpClient _httpClient;
     private readonly PhoenixReadApiOptions _options;
+    private long _serverClockOffsetMs;
+
+    internal long ServerClockOffsetMs => Interlocked.Read(ref _serverClockOffsetMs);
+
+    internal void UpdateServerClock(DateTimeOffset serverDate)
+    {
+        long offset =
+            serverDate.ToUnixTimeMilliseconds() - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        Interlocked.Exchange(ref _serverClockOffsetMs, offset);
+    }
+
+    internal async Task EnsureClockSyncedAsync(CancellationToken cancellationToken)
+    {
+        if (ServerClockOffsetMs != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            using HttpRequestMessage probe = new(
+                HttpMethod.Get,
+                "https://api5-normal-sinfonlinea.fqnovel.com/"
+            );
+            using HttpResponseMessage res = await SendAsync(probe, cancellationToken)
+                .ConfigureAwait(false);
+            if (res.Headers.Date is { } serverDate)
+            {
+                UpdateServerClock(serverDate);
+            }
+        }
+        catch
+        {
+            // probe fallback
+        }
+    }
 
     internal PhoenixReadHttpTransport(HttpClient httpClient, PhoenixReadApiOptions options)
     {
@@ -52,6 +88,11 @@ internal sealed class PhoenixReadHttpTransport
             );
         }
 
+        if (response.Headers.Date is { } serverDate)
+        {
+            UpdateServerClock(serverDate);
+        }
+
         onHeadersReceived?.Invoke(response);
 
         byte[] body;
@@ -87,9 +128,14 @@ internal sealed class PhoenixReadHttpTransport
         timeout.CancelAfter(_options.RequestTimeout);
         try
         {
-            return await _httpClient
+            HttpResponseMessage response = await _httpClient
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
                 .ConfigureAwait(false);
+            if (response.Headers.Date is { } serverDate)
+            {
+                UpdateServerClock(serverDate);
+            }
+            return response;
         }
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested)

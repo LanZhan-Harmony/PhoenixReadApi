@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.App.Search;
 using PhoenixReadApi.Internal.Contracts.Web.Authentication;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
@@ -75,42 +76,171 @@ internal sealed class PhoenixReadAppTransport
         );
     }
 
-    /// <summary>发送需要 Argus 551 和 Ladon 签名的播放请求。</summary>
-    internal Task<AppResponse<TResponse>> PostPlaybackAsync<TRequest, TResponse>(
-        string path,
-        TRequest payload,
+    /// <summary>使用 V5 协议获取分集的播放模型（/novel/player/multi_video_model/player/v1）。</summary>
+    internal async Task<AppResponse<AppPlaybackData>> PostPlaybackAsync(
+        string videoId,
         CancellationToken cancellationToken
     )
     {
-        byte[] body = JsonAotSerializer.SerializeToUtf8Bytes(payload);
-        if (_options.RetryCount <= 1)
+        await _deviceManager
+            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        await _http.EnsureClockSyncedAsync(cancellationToken).ConfigureAwait(false);
+
+        await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
+
+        AppPlaybackPayload payload = new()
         {
-            return SendOnceAsync<TResponse>(
-                path,
-                body,
-                commentRequest: false,
-                commentSource: 601,
-                serverChannel: 1000,
-                cancellationToken: cancellationToken,
-                playbackRequest: true
+            BizParam = new AppPlaybackBizParam
+            {
+                DetailPageVersion = 0,
+                DeviceLevel = 1,
+                DisableDiggStat = false,
+                DisableVideoRelateBook = false,
+                NeedAllVideoDefinition = true,
+                NeedMp4Align = false,
+                UseOsPlayer = false,
+                UseServerDns = false,
+                VideoPlatform = 1024,
+            },
+            MixedVideoIdMap = new Dictionary<string, List<string>> { ["1004"] = [videoId] },
+            DrScene = "player",
+        };
+
+        byte[] jsonBytes = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+        byte[] gzipBody = PhoenixReadPlaybackSigner.CompressJavaGzip(jsonBytes);
+
+        const string targetHost =
+            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1";
+        const string playbackUa =
+            "com.phoenix.read/73932 (Linux; U; Android 12; zh_CN_#Hans; PGT-AN10; Build/V417IR;tt-ok/3.12.13.20)";
+
+        int rotations = 0;
+        while (true)
+        {
+            string deviceId = _deviceManager.DeviceId;
+            string installId = _deviceManager.InstallId;
+            string cdid = string.IsNullOrWhiteSpace(_deviceManager.Cdid)
+                ? Guid.NewGuid().ToString()
+                : _deviceManager.Cdid;
+
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + _http.ServerClockOffsetMs;
+            long baseSec = nowMs / 1000;
+
+            int[] tsDeltas = [0, 1, -1, 2];
+            AppResponse<AppPlaybackData>? successResult = null;
+
+            foreach (int delta in tsDeltas)
+            {
+                uint ts = (uint)(baseSec + delta);
+                for (int off = 0; off < 64; off++)
+                {
+                    long ticket = (long)ts * 1000 + off;
+                    string fullUrl = PhoenixReadPlaybackSigner.BuildPlaybackUrl(
+                        targetHost,
+                        deviceId,
+                        installId,
+                        cdid,
+                        ticket
+                    );
+
+                    (string? khronos, string? helios, string? medusa, string? stub) =
+                        PhoenixReadPlaybackSigner.SignV5(fullUrl, gzipBody, ts, deviceId);
+
+                    using HttpRequestMessage request = new(HttpMethod.Post, fullUrl);
+                    request.Headers.TryAddWithoutValidation("User-Agent", playbackUa);
+                    request.Headers.TryAddWithoutValidation("Accept", "application/json");
+                    request.Headers.TryAddWithoutValidation("x-ss-stub", stub);
+                    request.Headers.TryAddWithoutValidation("x-khronos", khronos);
+                    request.Headers.TryAddWithoutValidation("x-helios", helios);
+                    request.Headers.TryAddWithoutValidation("x-medusa", medusa);
+
+                    request.Content = new ByteArrayContent(gzipBody);
+                    request.Content.Headers.ContentType = new MediaTypeHeaderValue(
+                        "application/json"
+                    )
+                    {
+                        CharSet = "utf-8",
+                    };
+                    request.Content.Headers.ContentEncoding.Add("gzip");
+
+                    (HttpResponseMessage response, byte[] bytes) = await _http
+                        .SendAndReadAsync(request, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    using (response)
+                    {
+                        if (response.IsSuccessStatusCode && bytes.Length > 0)
+                        {
+                            try
+                            {
+                                AppResponse<AppPlaybackData>? result =
+                                    JsonAotSerializer.Deserialize<AppResponse<AppPlaybackData>>(
+                                        bytes
+                                    );
+                                bool hasData =
+                                    result?.Data is not null
+                                    && (
+                                        result.Data.Group1004 is { Count: > 0 }
+                                        || result.Data.VideoModelData is { Count: > 0 }
+                                        || result.Data.AdditionalData is { Count: > 0 }
+                                        || result.Data.VideoModel.Variants.Count > 0
+                                        || result.Data.VideoList.Count > 0
+                                    );
+
+                                if (
+                                    result is not null
+                                    && (
+                                        string.IsNullOrWhiteSpace(result.Code) || result.Code == "0"
+                                    )
+                                    && hasData
+                                )
+                                {
+                                    successResult = result;
+                                    break;
+                                }
+                            }
+                            catch (JsonException)
+                            {
+                                // continue trying other candidates
+                            }
+                        }
+                    }
+
+                    if (successResult is not null)
+                    {
+                        break;
+                    }
+
+                    await Task.Delay(20, cancellationToken).ConfigureAwait(false);
+                }
+
+                if (successResult is not null)
+                {
+                    break;
+                }
+            }
+
+            if (successResult is not null)
+            {
+                return successResult;
+            }
+
+            if (rotations < 2)
+            {
+                rotations++;
+                await _deviceManager
+                    .EnsureRegisteredAsync(forceNew: true, cancellationToken)
+                    .ConfigureAwait(false);
+                continue;
+            }
+
+            throw new PhoenixReadApiResponseException(
+                "红果 App 播放接口未返回有效数据。",
+                "/novel/player/multi_video_model/player/v1"
             );
         }
-
-        return RetryPolicy.ExecuteAsync(
-            (attempt, token) =>
-                SendOnceAsync<TResponse>(
-                    path,
-                    body,
-                    commentRequest: false,
-                    commentSource: 601,
-                    serverChannel: 1000,
-                    cancellationToken: token,
-                    playbackRequest: true
-                ),
-            _options.RetryCount,
-            RetryPolicy.IsTransient,
-            cancellationToken
-        );
     }
 
     internal Task<AppResponse<TResponse>> GetAsync<TResponse>(
@@ -444,6 +574,8 @@ internal sealed class PhoenixReadAppTransport
             .EnsureRegisteredAsync(forceNew: false, cancellationToken)
             .ConfigureAwait(false);
 
+        await _http.EnsureClockSyncedAsync(cancellationToken).ConfigureAwait(false);
+
         await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
 
         Uri requestUri = BuildAppRequestUri(path);
@@ -509,8 +641,7 @@ internal sealed class PhoenixReadAppTransport
         bool commentRequest,
         int commentSource,
         int? serverChannel,
-        CancellationToken cancellationToken,
-        bool playbackRequest = false
+        CancellationToken cancellationToken
     )
     {
         bool isBookmallTab = path.Contains(
@@ -521,10 +652,6 @@ internal sealed class PhoenixReadAppTransport
             path.Contains("/passport/", StringComparison.Ordinal)
             || path.Contains("/novel/articleapi/do_action", StringComparison.Ordinal)
             || path.Contains("/reading/bookapi/read_history/update", StringComparison.Ordinal);
-        bool isMultiVideo = path.Contains(
-            "/novel/player/multi_video_model/",
-            StringComparison.Ordinal
-        );
 
         if (!commentRequest && !isPassport && !isBookmallTab)
         {
@@ -538,7 +665,11 @@ internal sealed class PhoenixReadAppTransport
         int rotations = 0;
         while (true)
         {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            long nowMs = now.ToUnixTimeMilliseconds();
+
             Uri requestUri = BuildAppRequestUri(path);
+
             using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
             request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
             request.Headers.TryAddWithoutValidation("Accept", "application/json");
@@ -567,7 +698,6 @@ internal sealed class PhoenixReadAppTransport
                 CharSet = "utf-8",
             };
 
-            DateTimeOffset now = DateTimeOffset.UtcNow;
             if (commentRequest)
             {
                 PhoenixReadRequestSigner.SignComment(
@@ -576,17 +706,13 @@ internal sealed class PhoenixReadAppTransport
                     now
                 );
             }
-            else if (playbackRequest)
-            {
-                PhoenixReadRequestSigner.SignPlayback(request, body, _deviceManager.DeviceId, now);
-            }
             else if (isPassport)
             {
                 PhoenixReadRequestSigner.SignPassport(request, body, now);
             }
-            else if (isBookmallTab || isMultiVideo)
+            else if (isBookmallTab)
             {
-                // MultiVideo and Bookmall Tab do not require Gorgon/Argus signatures
+                // Bookmall Tab does not require Gorgon/Argus signatures
             }
             else
             {

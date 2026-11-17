@@ -23,8 +23,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         string dramaId,
         string videoId,
         CancellationToken cancellationToken
-    ) =>
-        ResolveCoreAsync(NormalizeDramaId(dramaId), NormalizeVideoId(videoId), cancellationToken);
+    ) => ResolveCoreAsync(NormalizeDramaId(dramaId), NormalizeVideoId(videoId), cancellationToken);
 
     private async Task<IReadOnlyList<PlaybackMedia>> ResolveCoreAsync(
         string dramaId,
@@ -40,19 +39,6 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         catch (Exception exception) when (IsRecoverable(exception))
         {
             appError = exception;
-            if (!Runtime.IsAuthenticated)
-            {
-                try
-                {
-                    await Runtime.ResetDeviceAsync(cancellationToken).ConfigureAwait(false);
-                    return await ResolveAppMediaAsync(videoId, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception retryException) when (IsRecoverable(retryException))
-                {
-                    appError = retryException;
-                }
-            }
         }
 
         Exception? webError = null;
@@ -81,26 +67,54 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        AppMediaPayload payload = new()
-        {
-            VideoId = videoId,
-            BusinessParameter = new AppMediaBusinessParameter
-            {
-                NeedAllVideoDefinition = true,
-                VideoPlatform = 3,
-            },
-        };
-
         AppResponse<AppPlaybackData> result = await _appTransport
-            .PostPlaybackAsync<AppMediaPayload, AppPlaybackData>(
-                "/novel/player/video_model/v1/",
-                payload,
-                cancellationToken
-            )
+            .PostPlaybackAsync(videoId, cancellationToken)
             .ConfigureAwait(false);
 
         AppPlaybackData? data = result.Data;
-        AppPlaybackModel model = data?.VideoModel ?? new();
+        AppPlaybackModel? model = null;
+
+        if (
+            data?.Group1004 is not null
+            && data.Group1004.TryGetValue(videoId, out AppMultiPlaybackEntry? entry)
+            && entry?.VideoModel is not null
+        )
+        {
+            model = entry.VideoModel;
+        }
+        else if (
+            data?.VideoModelData is not null
+            && data.VideoModelData.TryGetValue(videoId, out AppMultiPlaybackEntry? entry2)
+            && entry2?.VideoModel is not null
+        )
+        {
+            model = entry2.VideoModel;
+        }
+        else if (data?.VideoModel is not null && data.VideoModel.Variants.Count > 0)
+        {
+            model = data.VideoModel;
+        }
+        else if (
+            data?.AdditionalData is not null
+            && data.AdditionalData.TryGetValue(videoId, out JsonElement element)
+        )
+        {
+            try
+            {
+                AppMultiPlaybackEntry? customEntry =
+                    JsonAotSerializer.Deserialize<AppMultiPlaybackEntry>(
+                        Encoding.UTF8.GetBytes(element.GetRawText())
+                    );
+                model = customEntry?.VideoModel;
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        model ??= data?.VideoModel ?? new();
+
         IReadOnlyList<AppMediaVariantDto> variants =
             model.Variants.Count > 0 ? model.Variants
             : model.DynamicVideo?.DynamicVideoList is { Count: > 0 } dynamicList ? dynamicList
@@ -108,7 +122,10 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
 
         if (variants.Count == 0)
         {
-            throw new PhoenixReadApiResponseException("App 播放信息格式异常。", "media");
+            throw new PhoenixReadApiResponseException(
+                "App 播放信息未包含有效的分档列表。",
+                "media"
+            );
         }
 
         double duration =
@@ -117,17 +134,24 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
             : data?.VideoDuration > 0 ? data.VideoDuration
             : data?.Duration ?? 0;
 
-        string audioUrl = model.DynamicVideo?.DynamicAudioList is { Count: > 0 } audioList
-            ? audioList[0].MainUrl
-            : string.Empty;
+        string audioUrl = string.Empty;
+        if (model.DynamicVideo?.DynamicAudioList is { Count: > 0 } audioList)
+        {
+            audioUrl = PhoenixReadPlaybackUrlDecoder.Decode(audioList[0].MainUrl, model.KeySeed);
+        }
 
-        long expiresAt = model.UrlExpire > 0 ? model.UrlExpire : data?.ExpireTime ?? 0;
+        long expiresAt =
+            model.UrlExpire > 0 ? model.UrlExpire
+            : model.ExpireTime > 0 ? model.ExpireTime
+            : data?.ExpireTime ?? 0;
 
         AppPlaybackModel effectiveModel = new()
         {
             VideoDuration = duration,
             Duration = duration,
             UrlExpire = expiresAt,
+            ExpireTime = expiresAt,
+            KeySeed = model.KeySeed,
             Variants = variants,
             DynamicVideo = model.DynamicVideo ?? new(),
         };
@@ -158,7 +182,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
                 continue;
             }
 
-            List<string> addresses = MediaAddresses(variant);
+            List<string> addresses = MediaAddresses(variant, model.KeySeed);
             if (addresses.Count == 0)
             {
                 continue;
@@ -205,12 +229,16 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
             MediaCodec codec = ValueNormalizer.ParseCodec(codecRaw);
             int qualityScore = height * 10 + (codec == MediaCodec.H264 ? 1 : 0);
 
+            string backupUrl = PhoenixReadPlaybackUrlDecoder.Decode(
+                variant.EffectiveBackupUrl,
+                model.KeySeed
+            );
             foreach (string address in addresses)
             {
                 PlaybackMedia media = new()
                 {
                     Url = address,
-                    BackupUrl = variant.EffectiveBackupUrl,
+                    BackupUrl = backupUrl,
                     Referer = "https://novel.snssdk.com/",
                     Duration = TimeSpan.FromSeconds(Math.Max(0, durationSeconds)),
                     Definition = definition,
@@ -292,7 +320,14 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         }
 
         double duration = page.PublicVideoSeo.DurationSeconds;
-        int quality = ValueNormalizer.Quality(mediaUrl);
+        int lastSlash = mediaUrl.LastIndexOf('/');
+        string fileName = lastSlash >= 0 ? mediaUrl[(lastSlash + 1)..] : mediaUrl;
+        int quality = ValueNormalizer.Quality(fileName);
+        if (quality == 0)
+        {
+            quality = 360;
+        }
+
         PlaybackMedia webMedia = new()
         {
             Url = mediaUrl,
@@ -300,6 +335,7 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
             Duration = TimeSpan.FromSeconds(Math.Max(0, duration)),
             Definition = ValueNormalizer.ParseDefinition(quality, string.Empty),
             Codec = MediaCodec.H264,
+            Height = quality,
             Quality = quality,
         };
 
@@ -367,10 +403,10 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         return string.Empty;
     }
 
-    private static List<string> MediaAddresses(AppMediaVariantDto info)
+    private static List<string> MediaAddresses(AppMediaVariantDto info, string? keySeed)
     {
         List<string> addresses = [];
-        HashSet<string> seen = [with(StringComparer.Ordinal)];
+        HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (
             string raw in (info.MainUrls ?? [])
                 .Concat(info.BackupUrls ?? [])
@@ -380,26 +416,19 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
                 .Concat(info.UrlList ?? [])
         )
         {
-            AddAddress(addresses, seen, raw);
+            AddAddress(addresses, seen, raw, keySeed);
         }
         return addresses;
     }
 
-    private static void AddAddress(List<string> addresses, HashSet<string> seen, string value)
+    private static void AddAddress(
+        List<string> addresses,
+        HashSet<string> seen,
+        string value,
+        string? keySeed
+    )
     {
-        string text = value.Trim();
-        if (!UrlNormalizer.IsHttpUrl(text))
-        {
-            try
-            {
-                text = Encoding.UTF8.GetString(Base64Decoder.Decode(text)).Trim();
-            }
-            catch (FormatException)
-            {
-                return;
-            }
-        }
-
+        string text = PhoenixReadPlaybackUrlDecoder.Decode(value, keySeed);
         if (UrlNormalizer.IsHttpUrl(text) && seen.Add(text))
         {
             addresses.Add(text);

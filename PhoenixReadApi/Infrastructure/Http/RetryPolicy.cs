@@ -30,7 +30,10 @@ internal static class RetryPolicy
             }
 
             TimeSpan delay = TimeSpan.FromMilliseconds(250 * (attempt + 1));
-            if (last is PhoenixReadApiException { RetryAfter: { } retryAfter } && retryAfter > TimeSpan.Zero)
+            if (
+                last is PhoenixReadApiException { RetryAfter: { } retryAfter }
+                && retryAfter > TimeSpan.Zero
+            )
             {
                 int jitterMs = Random.Shared.Next(300, 700);
                 delay = retryAfter + TimeSpan.FromMilliseconds(jitterMs);
