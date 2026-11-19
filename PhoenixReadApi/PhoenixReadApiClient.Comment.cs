@@ -2,30 +2,6 @@ namespace PhoenixReadApi;
 
 public sealed partial class PhoenixReadApiClient
 {
-    /// <summary>
-    /// 获取指定分集在指定时间窗口内的弹幕。
-    /// </summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">分集视频 ID。</param>
-    /// <param name="startMs">时间窗口起点（毫秒）。</param>
-    /// <param name="durationMs">时间窗口长度（毫秒），不是结束时间。</param>
-    /// <param name="cancellationToken">取消请求的令牌。</param>
-    /// <returns>
-    /// 自动合并、去重并按时间排序后的弹幕页。Total 是服务端报告的数量，Items.Count 是实际返回的记录数，
-    /// 两者可能不同。
-    /// </returns>
-    /// <remarks>
-    /// 客户端会根据服务端游标自动请求多个时间段，并对“有统计数量但返回空列表”的响应进行有限重试。
-    /// durationMs 必须为正数；例如从视频开头读取十分钟可传 0 和 600000。
-    /// </remarks>
-    public Task<DanmakuPage> GetDanmakuAsync(
-        string dramaId,
-        string videoId,
-        long startMs,
-        long durationMs,
-        CancellationToken cancellationToken = default
-    ) => _danmaku.GetAsync(dramaId, videoId, startMs, durationMs, cancellationToken);
-
     /// <summary>获取一页剧评。</summary>
     /// <param name="dramaId">剧集 ID。</param>
     /// <param name="count">本页最多返回的评论数，范围为 1 到 90。</param>
@@ -60,76 +36,7 @@ public sealed partial class PhoenixReadApiClient
         string cursor = "",
         CommentSortOrder sort = CommentSortOrder.Hot,
         CancellationToken cancellationToken = default
-    ) =>
-        _comment.GetEpisodeCommentsAsync(
-            dramaId,
-            videoId,
-            count,
-            cursor,
-            cancellationToken,
-            sort
-        );
-
-    /// <summary>获取一条评论下的回复。</summary>
-    /// <param name="commentId">评论 ID。</param>
-    /// <param name="count">本页最多返回的回复数，范围为 1 到 90。</param>
-    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>回复、总数、下一页游标和 HasMore 状态。</returns>
-    public Task<CommentReplyPage> GetCommentRepliesAsync(
-        string commentId,
-        int count = 20,
-        string cursor = "",
-        CancellationToken cancellationToken = default
-    ) =>
-        _comment.GetRepliesAsync(
-            commentId,
-            string.Empty,
-            string.Empty,
-            count,
-            cursor,
-            cancellationToken
-        );
-
-    /// <summary>获取一条评论下的回复（带所属剧集或视频 ID）。</summary>
-    /// <param name="commentId">评论 ID。</param>
-    /// <param name="groupId">剧集 ID 或视频 ID。</param>
-    /// <param name="count">本页最多返回的回复数，范围为 1 到 90。</param>
-    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>回复、总数、下一页游标和 HasMore 状态。</returns>
-    public Task<CommentReplyPage> GetCommentRepliesAsync(
-        string commentId,
-        string groupId,
-        int count = 20,
-        string cursor = "",
-        CancellationToken cancellationToken = default
-    ) =>
-        _comment.GetRepliesAsync(
-            commentId,
-            groupId,
-            string.Empty,
-            count,
-            cursor,
-            cancellationToken
-        );
-
-    /// <summary>获取一条分集评论下的回复（同时指定剧集 ID 与分集视频 ID）。</summary>
-    /// <param name="commentId">评论 ID。</param>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">分集视频 ID。</param>
-    /// <param name="count">本页最多返回的回复数，范围为 1 到 90。</param>
-    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>回复、总数、下一页游标和 HasMore 状态。</returns>
-    public Task<CommentReplyPage> GetCommentRepliesAsync(
-        string commentId,
-        string dramaId,
-        string videoId,
-        int count = 20,
-        string cursor = "",
-        CancellationToken cancellationToken = default
-    ) => _comment.GetRepliesAsync(commentId, dramaId, videoId, count, cursor, cancellationToken);
+    ) => _comment.GetEpisodeCommentsAsync(dramaId, videoId, count, cursor, cancellationToken, sort);
 
     /// <summary>获取一条剧评下的回复。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -144,8 +51,7 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         string cursor = "",
         CancellationToken cancellationToken = default
-    ) =>
-        _comment.GetDramaReviewRepliesAsync(commentId, dramaId, count, cursor, cancellationToken);
+    ) => _comment.GetDramaReviewRepliesAsync(commentId, dramaId, count, cursor, cancellationToken);
 
     /// <summary>获取一条分集评论下的回复。</summary>
     /// <param name="commentId">评论 ID。</param>
@@ -172,32 +78,6 @@ public sealed partial class PhoenixReadApiClient
             cancellationToken
         );
 
-    /// <summary>发送一条分集评论。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">分集视频 ID。</param>
-    /// <param name="text">评论文本，长度为 1 到 4000 个字符。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    /// <remarks>发送评论需要登录；服务端还可能进行内容审核。</remarks>
-    public Task<PhoenixOperationResult> SendEpisodeCommentAsync(
-        string dramaId,
-        string videoId,
-        string text,
-        CancellationToken cancellationToken = default
-    ) => _comment.SendCommentAsync(dramaId, videoId, text, cancellationToken);
-
-    /// <summary>发送一条五分剧评（兼容重载）。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="text">剧评文本，长度为 1 到 4000 个字符。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    /// <remarks>发送剧评需要登录；新代码建议使用带 rating 的重载。</remarks>
-    public Task<PhoenixOperationResult> SendDramaReviewAsync(
-        string dramaId,
-        string text,
-        CancellationToken cancellationToken = default
-    ) => _comment.SendReviewAsync(dramaId, 5.0, text, cancellationToken);
-
     /// <summary>按 0~5 星评分发送一条剧评。</summary>
     /// <param name="dramaId">剧集 ID。</param>
     /// <param name="rating">用户评分，范围为 0.5 到 5.0，必须是 0.5 的倍数。</param>
@@ -212,45 +92,42 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _comment.SendReviewAsync(dramaId, rating, text, cancellationToken);
 
-    /// <summary>发送一条弹幕。</summary>
+    /// <summary>发送一条分集评论。</summary>
     /// <param name="dramaId">剧集 ID。</param>
     /// <param name="videoId">分集视频 ID。</param>
-    /// <param name="text">弹幕文本。</param>
+    /// <param name="text">评论文本，长度为 1 到 4000 个字符。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>服务端操作结果。</returns>
-    /// <remarks>发送弹幕需要登录。当前接口不接受时间位置，服务端会按请求上下文处理。</remarks>
-    public Task<PhoenixOperationResult> SendDanmakuAsync(
+    /// <remarks>发送评论需要登录；服务端还可能进行内容审核。</remarks>
+    public Task<PhoenixOperationResult> SendEpisodeCommentAsync(
         string dramaId,
         string videoId,
         string text,
         CancellationToken cancellationToken = default
-    ) => _comment.SendDanmakuAsync(dramaId, videoId, text, cancellationToken);
+    ) => _comment.SendCommentAsync(dramaId, videoId, text, cancellationToken);
 
-    /// <summary>点赞或取消点赞一条评论。</summary>
-    /// <param name="commentId">评论 ID。</param>
-    /// <param name="groupId">评论所属的剧集或视频 ID。</param>
-    /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
+    /// <summary>回复一条整剧剧评。</summary>
+    /// <param name="commentId">目标剧评 ID。</param>
+    /// <param name="dramaId">剧集 ID。</param>
+    /// <param name="text">回复文本，长度为 1 到 4000 个字符。</param>
+    /// <param name="replyToUserId">要回复的用户 ID；没有指定时传空字符串。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>服务端操作结果。</returns>
-    /// <remarks>该写操作需要登录。</remarks>
-    public Task<PhoenixOperationResult> SetCommentLikeAsync(
+    /// <remarks>回复需要登录；服务端会校验目标评论和内容。</remarks>
+    public Task<PhoenixOperationResult> SendDramaReviewReplyAsync(
         string commentId,
-        string groupId,
-        bool active = true,
+        string dramaId,
+        string text,
+        string replyToUserId = "",
         CancellationToken cancellationToken = default
-    ) => _comment.LikeCommentAsync(commentId, groupId, active, cancellationToken);
-
-    /// <summary>删除自己发布的评论。</summary>
-    /// <param name="commentId">评论 ID。</param>
-    /// <param name="groupId">评论所属的剧集或视频 ID。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    /// <remarks>该操作需要登录，并且只能删除当前账号有权限删除的评论。</remarks>
-    public Task<PhoenixOperationResult> DeleteCommentAsync(
-        string commentId,
-        string groupId,
-        CancellationToken cancellationToken = default
-    ) => _comment.DeleteCommentAsync(commentId, groupId, cancellationToken);
+    ) =>
+        _comment.SendDramaReviewReplyAsync(
+            commentId,
+            dramaId,
+            text,
+            replyToUserId,
+            cancellationToken
+        );
 
     /// <summary>回复一条分集评论。</summary>
     /// <param name="commentId">目标评论 ID。</param>
@@ -278,29 +155,6 @@ public sealed partial class PhoenixReadApiClient
             cancellationToken
         );
 
-    /// <summary>回复一条整剧剧评。</summary>
-    /// <param name="commentId">目标剧评 ID。</param>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="text">回复文本，长度为 1 到 4000 个字符。</param>
-    /// <param name="replyToUserId">要回复的用户 ID；没有指定时传空字符串。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    /// <remarks>回复需要登录；服务端会校验目标评论和内容。</remarks>
-    public Task<PhoenixOperationResult> SendDramaReviewReplyAsync(
-        string commentId,
-        string dramaId,
-        string text,
-        string replyToUserId = "",
-        CancellationToken cancellationToken = default
-    ) =>
-        _comment.SendDramaReviewReplyAsync(
-            commentId,
-            dramaId,
-            text,
-            replyToUserId,
-            cancellationToken
-        );
-
     /// <summary>点赞或取消点赞剧评。</summary>
     /// <param name="commentId">剧评评论 ID。</param>
     /// <param name="dramaId">剧集 ID。</param>
@@ -322,26 +176,19 @@ public sealed partial class PhoenixReadApiClient
             commentType: 4
         );
 
-    /// <summary>点赞或取消点赞弹幕。</summary>
-    /// <param name="commentId">弹幕 ID。</param>
-    /// <param name="videoId">视频 ID。</param>
+    /// <summary>点赞或取消点赞一条评论。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="groupId">评论所属的剧集或视频 ID。</param>
     /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetDanmakuLikeAsync(
+    /// <remarks>该写操作需要登录。</remarks>
+    public Task<PhoenixOperationResult> SetCommentLikeAsync(
         string commentId,
-        string videoId,
+        string groupId,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) =>
-        _comment.LikeCommentAsync(
-            commentId,
-            videoId,
-            active,
-            cancellationToken,
-            objectType: 2,
-            commentType: 20
-        );
+    ) => _comment.LikeCommentAsync(commentId, groupId, active, cancellationToken);
 
     /// <summary>点赞或取消点赞一条回复。</summary>
     /// <param name="replyId">回复 ID。</param>
@@ -364,15 +211,6 @@ public sealed partial class PhoenixReadApiClient
             commentType: 4
         );
 
-    /// <summary>删除一条回复。</summary>
-    /// <param name="replyId">回复 ID。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> DeleteReplyAsync(
-        string replyId,
-        CancellationToken cancellationToken = default
-    ) => _comment.DeleteReplyAsync(replyId, cancellationToken);
-
     /// <summary>删除一条剧评。</summary>
     /// <param name="commentId">剧评 ID。</param>
     /// <param name="dramaId">剧集 ID。</param>
@@ -390,6 +228,86 @@ public sealed partial class PhoenixReadApiClient
             dataType: 4,
             serviceId: 2,
             groupType: 1
+        );
+
+    /// <summary>删除自己发布的评论。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="groupId">评论所属的剧集或视频 ID。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    /// <remarks>该操作需要登录，并且只能删除当前账号有权限删除的评论。</remarks>
+    public Task<PhoenixOperationResult> DeleteCommentAsync(
+        string commentId,
+        string groupId,
+        CancellationToken cancellationToken = default
+    ) => _comment.DeleteCommentAsync(commentId, groupId, cancellationToken);
+
+    /// <summary>删除一条回复。</summary>
+    /// <param name="replyId">回复 ID。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> DeleteReplyAsync(
+        string replyId,
+        CancellationToken cancellationToken = default
+    ) => _comment.DeleteReplyAsync(replyId, cancellationToken);
+
+    /// <summary>
+    /// 获取指定分集在指定时间窗口内的弹幕。
+    /// </summary>
+    /// <param name="dramaId">剧集 ID。</param>
+    /// <param name="videoId">分集视频 ID。</param>
+    /// <param name="startMs">时间窗口起点（毫秒）。</param>
+    /// <param name="durationMs">时间窗口长度（毫秒），不是结束时间。</param>
+    /// <param name="cancellationToken">取消请求的令牌。</param>
+    /// <returns>
+    /// 自动合并、去重并按时间排序后的弹幕页。Total 是服务端报告的数量，Items.Count 是实际返回的记录数，
+    /// 两者可能不同。
+    /// </returns>
+    /// <remarks>
+    /// 客户端会根据服务端游标自动请求多个时间段，并对“有统计数量但返回空列表”的响应进行有限重试。
+    /// durationMs 必须为正数；例如从视频开头读取十分钟可传 0 和 600000。
+    /// </remarks>
+    public Task<DanmakuPage> GetDanmakuAsync(
+        string dramaId,
+        string videoId,
+        long startMs,
+        long durationMs,
+        CancellationToken cancellationToken = default
+    ) => _danmaku.GetAsync(dramaId, videoId, startMs, durationMs, cancellationToken);
+
+    /// <summary>发送一条弹幕。</summary>
+    /// <param name="dramaId">剧集 ID。</param>
+    /// <param name="videoId">分集视频 ID。</param>
+    /// <param name="text">弹幕文本。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    /// <remarks>发送弹幕需要登录。当前接口不接受时间位置，服务端会按请求上下文处理。</remarks>
+    public Task<PhoenixOperationResult> SendDanmakuAsync(
+        string dramaId,
+        string videoId,
+        string text,
+        CancellationToken cancellationToken = default
+    ) => _comment.SendDanmakuAsync(dramaId, videoId, text, cancellationToken);
+
+    /// <summary>点赞或取消点赞弹幕。</summary>
+    /// <param name="commentId">弹幕 ID。</param>
+    /// <param name="videoId">视频 ID。</param>
+    /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> SetDanmakuLikeAsync(
+        string commentId,
+        string videoId,
+        bool active = true,
+        CancellationToken cancellationToken = default
+    ) =>
+        _comment.LikeCommentAsync(
+            commentId,
+            videoId,
+            active,
+            cancellationToken,
+            objectType: 2,
+            commentType: 20
         );
 
     /// <summary>删除一条弹幕。</summary>
@@ -441,7 +359,16 @@ public sealed partial class PhoenixReadApiClient
         int imageHeight = 0,
         int imageType = 0,
         CancellationToken cancellationToken = default
-    ) => _emoticon.CollectEmoticonAsync(imageId, isAdd, imageUrl, imageWidth, imageHeight, imageType, cancellationToken);
+    ) =>
+        _emoticon.CollectEmoticonAsync(
+            imageId,
+            isAdd,
+            imageUrl,
+            imageWidth,
+            imageHeight,
+            imageType,
+            cancellationToken
+        );
 
     /// <summary>上传评论配图或剧评图片（Stream 流式上传）。</summary>
     /// <param name="imageStream">包含图片二进制数据的流对象。</param>

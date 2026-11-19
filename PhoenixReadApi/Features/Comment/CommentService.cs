@@ -7,8 +7,8 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Comment;
 
-using Comment = global::PhoenixReadApi.Comment;
-using User = global::PhoenixReadApi.User;
+using Comment = PhoenixReadApi.Comment;
+using User = PhoenixReadApi.User;
 
 /// <summary>加载剧评和分集评论。</summary>
 internal sealed class CommentService : PhoenixFeatureService
@@ -389,7 +389,55 @@ internal sealed class CommentService : PhoenixFeatureService
             groupType: 0
         );
 
-    private async Task<CommentPage> LoadAsync(
+    internal Task<CommentPage> GetCirclePostCommentsAsync(
+        string postId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken,
+        CommentSortOrder sort = CommentSortOrder.Hot
+    )
+    {
+        postId = NormalizeCommentId(postId);
+        return LoadCommentsInternalAsync(
+            bookId: postId,
+            targetId: postId,
+            commentSource: 5,
+            serverChannel: 32,
+            groupType: 3,
+            commentType: 11,
+            count: count,
+            cursor: cursor,
+            cancellationToken: cancellationToken,
+            sort: sort,
+            isEpisode: false
+        );
+    }
+
+    internal Task<CommentPage> GetCircleVideoCommentsAsync(
+        string videoId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken,
+        CommentSortOrder sort = CommentSortOrder.Hot
+    )
+    {
+        videoId = NormalizeDramaOrVideoId(videoId);
+        return LoadCommentsInternalAsync(
+            bookId: videoId,
+            targetId: videoId,
+            commentSource: 4,
+            serverChannel: 26,
+            groupType: 1,
+            commentType: 4,
+            count: count,
+            cursor: cursor,
+            cancellationToken: cancellationToken,
+            sort: sort,
+            isEpisode: false
+        );
+    }
+
+    private Task<CommentPage> LoadAsync(
         string dramaId,
         string targetId,
         bool isEpisode,
@@ -397,6 +445,33 @@ internal sealed class CommentService : PhoenixFeatureService
         string cursor,
         CancellationToken cancellationToken,
         CommentSortOrder sort = CommentSortOrder.Hot
+    ) =>
+        LoadCommentsInternalAsync(
+            bookId: dramaId,
+            targetId: targetId,
+            commentSource: isEpisode ? 4 : 1,
+            serverChannel: isEpisode ? 18 : 34,
+            groupType: isEpisode ? 30 : 1,
+            commentType: isEpisode ? 4 : 2,
+            count: count,
+            cursor: cursor,
+            cancellationToken: cancellationToken,
+            sort: sort,
+            isEpisode: isEpisode
+        );
+
+    private async Task<CommentPage> LoadCommentsInternalAsync(
+        string bookId,
+        string targetId,
+        int commentSource,
+        int serverChannel,
+        int groupType,
+        int commentType,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken,
+        CommentSortOrder sort = CommentSortOrder.Hot,
+        bool isEpisode = false
     )
     {
         if (count is < 1 or > MaxPageSize)
@@ -413,39 +488,22 @@ internal sealed class CommentService : PhoenixFeatureService
             throw new ArgumentException("评论游标无效。", nameof(cursor));
         }
 
-        AppCommentListPayload payload = isEpisode
-            ? new()
+        AppCommentListPayload payload = new()
+        {
+            CommentSource = commentSource,
+            ServerChannel = serverChannel,
+            GroupId = targetId,
+            GroupType = groupType,
+            CommentType = commentType,
+            Count = count,
+            Cursor = cursor,
+            Sort = (int)sort,
+            BusinessParameter = new AppCommentListBusinessParameter
             {
-                CommentSource = 4,
-                ServerChannel = 18,
-                GroupId = targetId,
-                GroupType = 30,
-                CommentType = 4,
-                Count = count,
-                Cursor = cursor,
-                Sort = (int)sort,
-                BusinessParameter = new AppCommentListBusinessParameter
-                {
-                    BookId = dramaId,
-                    NeedCount = cursor.Length == 0,
-                },
-            }
-            : new()
-            {
-                CommentSource = 1,
-                ServerChannel = 34,
-                GroupId = targetId,
-                GroupType = 1,
-                CommentType = 2,
-                Count = count,
-                Cursor = cursor,
-                Sort = (int)sort,
-                BusinessParameter = new AppCommentListBusinessParameter
-                {
-                    BookId = dramaId,
-                    NeedCount = cursor.Length == 0,
-                },
-            };
+                BookId = bookId,
+                NeedCount = cursor.Length == 0,
+            },
+        };
 
         AppResponse<AppCommentListData> response = await _appTransport
             .PostAsync<AppCommentListPayload, AppCommentListData>(

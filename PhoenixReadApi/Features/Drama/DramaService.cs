@@ -13,7 +13,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Drama;
 
-using Drama = global::PhoenixReadApi.Drama;
+using Drama = PhoenixReadApi.Drama;
 
 /// <summary>加载详情、校验分集归属，并缓存已完成的结果。</summary>
 internal sealed partial class DramaService : PhoenixFeatureService

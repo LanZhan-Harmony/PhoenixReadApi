@@ -6,7 +6,7 @@ using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
 namespace PhoenixReadApi.Internal.Features.Catalog;
 
-using Drama = global::PhoenixReadApi.Drama;
+using Drama = PhoenixReadApi.Drama;
 
 /// <summary>负责短剧动态多维筛选面板与矩阵内容检索服务。</summary>
 internal sealed class ShortDramaFilterService : PhoenixFeatureService

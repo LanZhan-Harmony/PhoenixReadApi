@@ -206,7 +206,6 @@ public sealed class CommentsAndDanmakuTests
         if (targetComment is not null && !string.IsNullOrWhiteSpace(targetComment.Id))
         {
             bool isEpisode = comments.Items.Contains(targetComment);
-            // 1. 领域专用回复接口 (分集或剧评)
             CommentReplyPage repliesWithGroup = isEpisode
                 ? await SharedScenario.Client.GetEpisodeCommentRepliesAsync(
                     targetComment.Id,
@@ -231,17 +230,6 @@ public sealed class CommentsAndDanmakuTests
             {
                 await SharedScenario.AssertValidCommentReply(reply);
             }
-
-            // 2. 通用 GetCommentRepliesAsync 重载
-            CommentReplyPage replies = await SharedScenario.Client.GetCommentRepliesAsync(
-                targetComment.Id,
-                scenario.DramaId,
-                isEpisode ? scenario.Episode.VideoId : string.Empty,
-                count: 5,
-                cancellationToken: timeout.Token
-            );
-            await Assert.That(replies).IsNotNull();
-            await Assert.That(replies.Items).IsNotNull();
         }
     }
 

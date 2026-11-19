@@ -28,8 +28,8 @@ public sealed class UserTests
         await Assert.That(profile.Likes).IsNotNull();
         await SharedScenario.AssertValidUserPageInfo(profile.LikesPage);
 
-        await Assert.That(profile.Activities).IsNotNull();
-        await SharedScenario.AssertValidUserPageInfo(profile.ActivitiesPage);
+        await Assert.That(profile.CircleItems).IsNotNull();
+        await Assert.That(profile.CirclePage).IsNotNull();
 
         await Assert.That(profile.Works).IsNotNull();
         await Assert.That(profile.WorksPage).IsNotNull();
@@ -44,9 +44,9 @@ public sealed class UserTests
             await SharedScenario.AssertValidDrama(drama);
         }
 
-        foreach (UserActivity activity in profile.Activities)
+        foreach (CircleItem item in profile.CircleItems)
         {
-            await SharedScenario.AssertValidUserActivity(activity);
+            await SharedScenario.AssertValidCircleItem(item);
         }
 
         foreach (Drama drama in profile.Works)
@@ -95,39 +95,65 @@ public sealed class UserTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetUserActivitiesAsync()
+    public async Task TestGetUserCircleAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-        TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
+        // 使用具有红果圈的代表性演员 ID（如何聪睿 3798146916562768）
+        const string actorUserId = "3798146916562768";
 
-        UserActivityPage activities = await SharedScenario.Client.GetUserActivitiesAsync(
-            scenario.UserId,
+        CirclePage circlePage = await SharedScenario.Client.GetUserCircleAsync(
+            actorUserId,
             count: 10,
             cancellationToken: timeout.Token
         );
 
-        await Assert.That(activities).IsNotNull();
-        await Assert.That(activities.Items).IsNotNull();
-        await Assert.That(activities.Cursor).IsNotNull();
-        await Assert.That(activities.Total >= 0).IsTrue();
+        await Assert.That(circlePage).IsNotNull();
+        await Assert.That(circlePage.Items).IsNotNull();
+        await Assert.That(circlePage.Cursor).IsNotNull();
 
-        foreach (UserActivity activity in activities.Items)
+        foreach (CircleItem item in circlePage.Items)
         {
-            await SharedScenario.AssertValidUserActivity(activity);
+            await SharedScenario.AssertValidCircleItem(item);
         }
 
-        if (activities is { HasMore: true, Cursor.Length: > 0 })
+        CircleItem? postItem = circlePage.Items.FirstOrDefault(static x =>
+            x.Type == CircleItemType.Post
+        );
+        if (postItem is not null && postItem.Id.Length > 0)
         {
-            UserActivityPage nextPage = await SharedScenario.Client.GetUserActivitiesAsync(
-                scenario.UserId,
-                count: 10,
-                cursor: activities.Cursor,
+            CirclePost post = await SharedScenario.Client.GetCirclePostAsync(
+                postItem.Id,
+                timeout.Token
+            );
+            await SharedScenario.AssertValidCirclePost(post);
+
+            CommentPage postComments = await SharedScenario.Client.GetCirclePostCommentsAsync(
+                postItem.Id,
+                count: 5,
                 cancellationToken: timeout.Token
             );
+            await Assert.That(postComments).IsNotNull();
+            await Assert.That(postComments.Items).IsNotNull();
+        }
 
-            await Assert.That(nextPage).IsNotNull();
-            await Assert.That(nextPage.Items).IsNotNull();
-            await Assert.That(nextPage.Cursor).IsNotNull();
+        CircleItem? videoItem = circlePage.Items.FirstOrDefault(static x =>
+            x.Type == CircleItemType.Video
+        );
+        if (videoItem is not null && videoItem.Id.Length > 0)
+        {
+            CircleVideo video = await SharedScenario.Client.GetCircleVideoAsync(
+                videoItem.Id,
+                timeout.Token
+            );
+            await SharedScenario.AssertValidCircleVideo(video);
+
+            CommentPage videoComments = await SharedScenario.Client.GetCircleVideoCommentsAsync(
+                videoItem.Id,
+                count: 5,
+                cancellationToken: timeout.Token
+            );
+            await Assert.That(videoComments).IsNotNull();
+            await Assert.That(videoComments.Items).IsNotNull();
         }
     }
 

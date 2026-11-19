@@ -633,6 +633,24 @@ foreach (UserRelationItem item in followings.Items)
 {
     Console.WriteLine($"  - 关注: {item.User.Name} (关系类型: {(item.IsFollowing ? "已关注" : "未关注")})");
 }
+
+// 获取演职人员/创作者红果圈（混合流包含短视频与图文帖子）
+CirclePage circle = await client.GetUserCircleAsync("3798146916562768", count: 18, cancellationToken: cts.Token);
+Console.WriteLine($"红果圈条数: {circle.Items.Count}, HasMore: {circle.HasMore}");
+foreach (CircleItem item in circle.Items)
+{
+    Console.WriteLine($"  - [{item.Type}] {item.Title} (点赞: {item.LikeCount}, 评论: {item.CommentCount})");
+}
+
+// 获取红果圈图文帖子正文详情（含高清图集与 #话题）与评论
+CirclePost post = await client.GetCirclePostAsync("7699803166862688830", cts.Token);
+Console.WriteLine($"图文正文: {post.PureText}, 配图数: {post.Images.Count}, 话题: {string.Join(", ", post.Topics)}");
+CommentPage postComments = await client.GetCirclePostCommentsAsync("7699803166862688830", count: 20, cancellationToken: cts.Token);
+
+// 获取红果圈短视频详情与评论
+CircleVideo video = await client.GetCircleVideoAsync("7696233443998305342", cts.Token);
+Console.WriteLine($"视频标题: {video.Title}, 时长: {video.DurationSeconds}秒, 关联剧集: {video.RelatedDrama?.Title}");
+CommentPage videoComments = await client.GetCircleVideoCommentsAsync("7696233443998305342", count: 20, cancellationToken: cts.Token);
 ```
 
 ---

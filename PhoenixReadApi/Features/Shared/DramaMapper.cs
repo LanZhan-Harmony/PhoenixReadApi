@@ -5,8 +5,8 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Shared;
 
-using Drama = global::PhoenixReadApi.Drama;
-using User = global::PhoenixReadApi.User;
+using Drama = PhoenixReadApi.Drama;
+using User = PhoenixReadApi.User;
 
 /// <summary>将红果接口返回的剧集记录映射为稳定的公共模型。</summary>
 internal static class DramaMapper
@@ -245,6 +245,10 @@ internal static class DramaMapper
 
         return DramaReleaseStatus.Unknown;
     }
+
+    internal static List<DramaCredit> MapCredits(
+        IReadOnlyList<DramaCelebrityDto> celebrities
+    ) => DtoCredits([], celebrities);
 
     private static List<DramaCredit> DtoCredits(
         IReadOnlyList<DramaCreatorUserDto> creators,

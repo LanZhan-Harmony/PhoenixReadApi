@@ -60,11 +60,11 @@ public sealed class UserProfile
     /// <summary>点赞列表的分页状态。</summary>
     public UserPageInfo LikesPage { get; init; } = new();
 
-    /// <summary>账号发布的动态。</summary>
-    public IReadOnlyList<UserActivity> Activities { get; init; } = [];
+    /// <summary>账号主页关联的红果圈内容条目列表。</summary>
+    public IReadOnlyList<CircleItem> CircleItems { get; init; } = [];
 
-    /// <summary>动态列表的分页状态。</summary>
-    public UserPageInfo ActivitiesPage { get; init; } = new();
+    /// <summary>红果圈内容分页状态。</summary>
+    public CirclePage CirclePage { get; init; } = new();
 
     /// <summary>主页支持的全部内容 Tab 分类列表。</summary>
     public IReadOnlyList<UserProfileTab> AvailableTabs { get; init; } = [];

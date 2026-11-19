@@ -190,9 +190,9 @@ AI 遇到此问题时**必须采取标准解法**，严禁擅自修改公共类�
    ```csharp
    namespace PhoenixReadApi.Internal.Features.Catalog;
 
-   using Drama = global::PhoenixReadApi.Drama;
-   using User = global::PhoenixReadApi.User;
-   using Comment = global::PhoenixReadApi.Comment;
+   using Drama = PhoenixReadApi.Drama;
+   using User = PhoenixReadApi.User;
+   using Comment = PhoenixReadApi.Comment;
    ```
 2. **禁止的做法**：
    - **禁止**把 `using Drama = ...;` 写在 `namespace` 声明之前（文件作用域命名空间外部的 using 别名优先级低于祖先命名空间成员，无法解决遮蔽）；
@@ -434,7 +434,7 @@ NuGet 包必须继续满足：
 - 物理目录、命名空间、类名混用单复数（如出现 `Comments/`, `Interactions/`, `Users/`, `FavoritesService` 等）；
 - 在公共模型或公共方法中直接出现服务端方言字段（如 `SeriesId`, `BookId`, `DiggCount`, `EpisodeId`）；
 - 为了绕过 C# 命名空间遮蔽而擅自修改公共模型类名（如把 `Drama` 改名为 `DramaModel`，把 `User` 改名为 `UserData`）；
-- 将 `using Drama = global::PhoenixReadApi.Drama;` 别名错误地放置在 `namespace ...;` 之前；
+- 将 `using Drama = PhoenixReadApi.Drama;` 别名错误地放置在 `namespace ...;` 之前；
 - 新建集中所有模型的 `Models.cs`、所有请求的 `Payloads.cs` 或不受控的 `Helpers.cs`；
 - 在 Feature 服务里用 `JsonElement` 逐字段解析正常 DTO 响应；
 - 用路径字符串判断请求策略、签名方式或是否安全重试；

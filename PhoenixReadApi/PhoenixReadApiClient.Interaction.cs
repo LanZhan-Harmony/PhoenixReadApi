@@ -24,5 +24,6 @@ public sealed partial class PhoenixReadApiClient
         string recommendInfo,
         DislikeOption option,
         CancellationToken cancellationToken = default
-    ) => _interaction.SubmitDislikeAsync(dramaId, videoId, recommendInfo, option, cancellationToken);
+    ) =>
+        _interaction.SubmitDislikeAsync(dramaId, videoId, recommendInfo, option, cancellationToken);
 }

@@ -45,8 +45,8 @@ internal sealed class SampleContext
     public Drama? FindDrama()
     {
         return Search?.Dramas.FirstOrDefault(item =>
-                string.Equals(item.Title, Keyword, StringComparison.OrdinalIgnoreCase)
-            )
+            string.Equals(item.Title, Keyword, StringComparison.OrdinalIgnoreCase)
+        )
             ?? Search?.Dramas.FirstOrDefault(item =>
                 item.Title.Contains(Keyword, StringComparison.OrdinalIgnoreCase)
             )
@@ -59,15 +59,14 @@ internal sealed class SampleContext
 
     public string FindOrdinaryUserId()
     {
-        HashSet<string> creditIds =
-            Details
-                ?.Drama.Credits.Select(static credit => credit.User.Id)
-                .Where(static id => id.Length > 0)
-                .ToHashSet(StringComparer.Ordinal)
+        HashSet<string> creditIds = Details
+            ?.Drama.Credits.Select(static credit => credit.User.Id)
+            .Where(static id => id.Length > 0)
+            .ToHashSet(StringComparer.Ordinal)
             ?? [];
         return EpisodeComments
-                ?.Items.Select(static comment => comment.Author.Id)
-                .FirstOrDefault(id => id.Length > 0 && !creditIds.Contains(id))
+            ?.Items.Select(static comment => comment.Author.Id)
+            .FirstOrDefault(id => id.Length > 0 && !creditIds.Contains(id))
             ?? string.Empty;
     }
 }
@@ -205,7 +204,7 @@ internal static partial class SampleSteps
         if (profile is not null)
         {
             Console.WriteLine(
-                $"  用户：{profile.User.Id}/{profile.User.Name} | collections={profile.Collections.Count} likes={profile.Likes.Count} activities={profile.Activities.Count} works={profile.Works.Count}"
+                $"  用户：{profile.User.Id}/{profile.User.Name} | collections={profile.Collections.Count} likes={profile.Likes.Count} circle={profile.CircleItems.Count} works={profile.Works.Count}"
             );
         }
     }

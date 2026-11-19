@@ -1,6 +1,7 @@
 using System.Net;
 using PhoenixReadApi.Internal.Features.Authentication;
 using PhoenixReadApi.Internal.Features.Catalog;
+using PhoenixReadApi.Internal.Features.Circle;
 using PhoenixReadApi.Internal.Features.Comment;
 using PhoenixReadApi.Internal.Features.Danmaku;
 using PhoenixReadApi.Internal.Features.Drama;
@@ -32,6 +33,7 @@ public sealed partial class PhoenixReadApiClient : IDisposable
     private readonly PlaybackService _playback;
     private readonly DanmakuService _danmaku;
     private readonly CommentService _comment;
+    private readonly CircleService _circle;
     private readonly UserService _user;
     private readonly HistoryService _history;
     private readonly FavoriteService _favorite;
@@ -101,7 +103,8 @@ public sealed partial class PhoenixReadApiClient : IDisposable
         _playback = new PlaybackService(_runtime);
         _danmaku = new DanmakuService(_runtime);
         _comment = new CommentService(_runtime);
-        _user = new UserService(_runtime);
+        _circle = new CircleService(_runtime, _comment);
+        _user = new UserService(_runtime, _circle);
         _history = new HistoryService(_runtime);
         _favorite = new FavoriteService(_runtime);
         _like = new LikeService(_runtime);
