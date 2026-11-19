@@ -206,6 +206,76 @@ internal sealed class CircleService : PhoenixFeatureService
         CancellationToken cancellationToken
     ) => _commentService.GetCircleVideoCommentsAsync(videoId, count, cursor, cancellationToken);
 
+    /// <summary>获取指定红果圈图文评论下的回复列表。</summary>
+    internal Task<CommentReplyPage> GetCirclePostCommentRepliesAsync(
+        string commentId,
+        string postId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    ) => _commentService.GetCirclePostCommentRepliesAsync(commentId, postId, count, cursor, cancellationToken);
+
+    /// <summary>获取指定红果圈短视频评论下的回复列表。</summary>
+    internal Task<CommentReplyPage> GetCircleVideoCommentRepliesAsync(
+        string commentId,
+        string videoId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    ) => _commentService.GetCircleVideoCommentRepliesAsync(commentId, videoId, count, cursor, cancellationToken);
+
+    /// <summary>点赞或取消点赞红果圈图文帖子的评论。</summary>
+    internal Task<PhoenixOperationResult> SetCirclePostCommentLikeAsync(
+        string commentId,
+        string postId,
+        bool active,
+        CancellationToken cancellationToken
+    ) => _commentService.LikeCirclePostCommentAsync(commentId, postId, active, cancellationToken);
+
+    /// <summary>点赞或取消点赞红果圈图文评论下的回复。</summary>
+    internal Task<PhoenixOperationResult> SetCirclePostReplyLikeAsync(
+        string replyId,
+        string postId,
+        bool active,
+        CancellationToken cancellationToken
+    ) => _commentService.LikeCirclePostReplyAsync(replyId, postId, active, cancellationToken);
+
+    /// <summary>点赞或取消点赞红果圈短视频的评论。</summary>
+    internal Task<PhoenixOperationResult> SetCircleVideoCommentLikeAsync(
+        string commentId,
+        string videoId,
+        bool active,
+        CancellationToken cancellationToken
+    ) => _commentService.LikeCircleVideoCommentAsync(commentId, videoId, active, cancellationToken);
+
+    /// <summary>点赞或取消点赞红果圈短视频评论下的回复。</summary>
+    internal Task<PhoenixOperationResult> SetCircleVideoReplyLikeAsync(
+        string replyId,
+        string videoId,
+        bool active,
+        CancellationToken cancellationToken
+    ) => _commentService.LikeCircleVideoReplyAsync(replyId, videoId, active, cancellationToken);
+
+    /// <summary>删除自己发布的红果圈图文帖子评论。</summary>
+    internal Task<PhoenixOperationResult> DeleteCirclePostCommentAsync(
+        string commentId,
+        string postId,
+        CancellationToken cancellationToken
+    ) => _commentService.DeleteCirclePostCommentAsync(commentId, postId, cancellationToken);
+
+    /// <summary>删除自己发布的红果圈短视频评论。</summary>
+    internal Task<PhoenixOperationResult> DeleteCircleVideoCommentAsync(
+        string commentId,
+        string videoId,
+        CancellationToken cancellationToken
+    ) => _commentService.DeleteCircleVideoCommentAsync(commentId, videoId, cancellationToken);
+
+    /// <summary>删除自己发布的圈内评论回复。</summary>
+    internal Task<PhoenixOperationResult> DeleteCircleReplyAsync(
+        string replyId,
+        CancellationToken cancellationToken
+    ) => _commentService.DeleteReplyAsync(replyId, cancellationToken);
+
     private static CircleItem MapFeedVideoItem(AppCircleVideoItem video)
     {
         AppCircleVideoCommon common = video.Common;
@@ -434,16 +504,6 @@ internal sealed class CircleService : PhoenixFeatureService
         }
 
         return 0;
-    }
-
-    private static string NormalizeUserId(string value)
-    {
-        string normalized = (value ?? string.Empty).Trim();
-        if (!ValueNormalizer.IsNumericId(normalized))
-        {
-            throw new ArgumentException("用户 ID 必须为纯数字字符串。", nameof(value));
-        }
-        return normalized;
     }
 
     private static string NormalizeNumericId(string value, string paramName)

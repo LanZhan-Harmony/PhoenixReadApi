@@ -14,93 +14,79 @@ internal static partial class SampleSteps
         Comment? comment = context.SampleComment;
         string userId = context.CreditUserId;
 
-        HashSet<string> favoriteDramaIds =
-            context
-                .Favorites?.Items.Select(static item => item.Id)
-                .Where(static id => id.Length > 0)
-                .ToHashSet(StringComparer.Ordinal)
+        HashSet<string> favoriteDramaIds = context
+            .Favorites?.Items.Select(static item => item.Id)
+            .Where(static id => id.Length > 0)
+            .ToHashSet(StringComparer.Ordinal)
             ?? [];
-        HashSet<string> likedDramaIds =
-            context
-                .Likes?.Items.Select(static item => item.Id)
-                .Where(static id => id.Length > 0)
-                .ToHashSet(StringComparer.Ordinal)
+        HashSet<string> likedDramaIds = context
+            .Likes?.Items.Select(static item => item.Id)
+            .Where(static id => id.Length > 0)
+            .ToHashSet(StringComparer.Ordinal)
             ?? [];
         ReadHistoryItem? existingHistory = context.History?.Items.FirstOrDefault(item =>
             item.DramaId == dramaId && item.VideoId == videoId
         );
-        HashSet<string> existingReviewIds =
-            context.Reviews?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal)
+        HashSet<string> existingReviewIds = context
+            .Reviews?.Items.Select(static item => item.Id)
+            .ToHashSet(StringComparer.Ordinal)
             ?? [];
-        HashSet<string> existingEpisodeCommentIds =
-            context
-                .EpisodeComments?.Items.Select(static item => item.Id)
-                .ToHashSet(StringComparer.Ordinal)
+        HashSet<string> existingEpisodeCommentIds = context
+            .EpisodeComments?.Items.Select(static item => item.Id)
+            .ToHashSet(StringComparer.Ordinal)
             ?? [];
-        HashSet<string> existingDanmakuIds =
-            context.Danmaku?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal)
+        HashSet<string> existingDanmakuIds = context
+            .Danmaku?.Items.Select(static item => item.Id)
+            .ToHashSet(StringComparer.Ordinal)
             ?? [];
-        HashSet<string> existingReplyIds =
-            context.Replies?.Items.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal)
+        HashSet<string> existingReplyIds = context
+            .Replies?.Items.Select(static item => item.Id)
+            .ToHashSet(StringComparer.Ordinal)
             ?? [];
 
         if (dramaId.Length > 0 && videoId.Length > 0)
         {
-            await TryAsync(
-                "ReportProgressAsync",
-                () =>
-                    client.ReportProgressAsync(
-                        new ProgressUpdate
-                        {
-                            DramaId = dramaId,
-                            VideoId = videoId,
-                            EpisodeNumber = episode?.Number ?? 0,
-                            CurrentPositionMs = 1_000,
-                            DurationMs = 60_000,
-                            AccumulatedPlayTimeMs = 1_000,
-                        },
-                        cancellationToken
-                    )
-            );
-            ReadHistoryPage? history = await TryAsync(
-                "GetHistoryAsync",
-                () => client.GetHistoryAsync(cancellationToken: cancellationToken)
+            await TryAsync("ReportProgressAsync", () => client.ReportProgressAsync(
+                    new ProgressUpdate
+                    {
+                        DramaId = dramaId,
+                        VideoId = videoId,
+                        EpisodeNumber = episode?.Number ?? 0,
+                        CurrentPositionMs = 1_000,
+                        DurationMs = 60_000,
+                        AccumulatedPlayTimeMs = 1_000,
+                    },
+                    cancellationToken
+                ));
+            ReadHistoryPage? history = await TryAsync("GetHistoryAsync", () =>
+                client.GetHistoryAsync(cancellationToken: cancellationToken)
             );
             PrintCount("  历史记录数", history?.Items.Count);
-            await TryAsync(
-                "SetFavoriteAsync",
-                () => client.SetFavoriteAsync(dramaId, videoId, true, cancellationToken)
+            await TryAsync("SetFavoriteAsync", () =>
+                client.SetFavoriteAsync(dramaId, videoId, true, cancellationToken)
             );
-            await TryAsync(
-                "RemoveFavoriteAsync",
-                () => client.RemoveFavoriteAsync(dramaId, videoId, cancellationToken)
+            await TryAsync("SetFavoriteAsync(false)", () =>
+                client.SetFavoriteAsync(dramaId, videoId, false, cancellationToken)
             );
 
-            await TryAsync(
-                "SetDramaEpisodeLikeAsync",
-                () => client.SetDramaEpisodeLikeAsync(dramaId, videoId, true, cancellationToken)
+            await TryAsync("SetDramaEpisodeLikeAsync", () =>
+                client.SetDramaEpisodeLikeAsync(dramaId, videoId, true, cancellationToken)
             );
-            await TryAsync(
-                "SetDramaEpisodeLikeAsync(false)",
-                () => client.SetDramaEpisodeLikeAsync(dramaId, videoId, false, cancellationToken)
+            await TryAsync("SetDramaEpisodeLikeAsync(false)", () =>
+                client.SetDramaEpisodeLikeAsync(dramaId, videoId, false, cancellationToken)
             );
 
             // 1. 发表分集评论
             string commentText = $"分集评论_{marker}";
-            PhoenixOperationResult? commentResult = await TryAsync(
-                "SendEpisodeCommentAsync",
-                () =>
-                    client.SendEpisodeCommentAsync(
-                        dramaId,
-                        videoId,
-                        commentText,
-                        cancellationToken
-                    )
+            PhoenixOperationResult? commentResult = await TryAsync("SendEpisodeCommentAsync", () =>
+                client.SendEpisodeCommentAsync(dramaId, videoId, commentText, cancellationToken)
             );
             string createdCommentId = commentResult?.Id ?? string.Empty;
             if (string.IsNullOrWhiteSpace(createdCommentId))
             {
-                Console.WriteLine("  [提示] 发表分集评论未返回有效 ID（可能由于网关抖动或审核排队），跳过自建回复与删除链路。");
+                Console.WriteLine(
+                    "  [提示] 发表分集评论未返回有效 ID（可能由于网关抖动或审核排队），跳过自建回复与删除链路。"
+                );
             }
             else
             {
@@ -122,42 +108,36 @@ internal static partial class SampleSteps
                 if (!string.IsNullOrWhiteSpace(createdReplyId))
                 {
                     // 3. 对自建回复进行点赞与取消点赞
-                    await TryAsync(
-                        "SetReplyLikeAsync(created)",
-                        () => client.SetReplyLikeAsync(createdReplyId, videoId, true, cancellationToken)
+                    await TryAsync("SetReplyLikeAsync(created)", () =>
+                        client.SetReplyLikeAsync(createdReplyId, videoId, true, cancellationToken)
                     );
-                    await TryAsync(
-                        "SetReplyLikeAsync(created,false)",
-                        () => client.SetReplyLikeAsync(createdReplyId, videoId, false, cancellationToken)
+                    await TryAsync("SetReplyLikeAsync(created,false)", () =>
+                        client.SetReplyLikeAsync(createdReplyId, videoId, false, cancellationToken)
                     );
 
                     // 4. 删除时先删回复！
-                    await TryAsync(
-                        "DeleteReplyAsync(created)",
-                        () => client.DeleteReplyAsync(createdReplyId, cancellationToken)
+                    await TryAsync("DeleteReplyAsync(created)", () =>
+                        client.DeleteReplyAsync(createdReplyId, cancellationToken)
                     );
                 }
 
                 // 5. 再删自己发的评论！
-                await TryAsync(
-                    "DeleteCommentAsync(created)",
-                    () => client.DeleteCommentAsync(createdCommentId, videoId, cancellationToken)
+                await TryAsync("DeleteCommentAsync(created)", () =>
+                    client.DeleteCommentAsync(createdCommentId, videoId, cancellationToken)
                 );
             }
 
             // 6. 发表弹幕
             string danmakuText = $"弹幕_{marker}";
-            PhoenixOperationResult? danmakuResult = await TryAsync(
-                "SendDanmakuAsync",
-                () => client.SendDanmakuAsync(dramaId, videoId, danmakuText, cancellationToken)
+            PhoenixOperationResult? danmakuResult = await TryAsync("SendDanmakuAsync", () =>
+                client.SendDanmakuAsync(dramaId, videoId, danmakuText, cancellationToken)
             );
             string createdDanmakuId = danmakuResult?.Id ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(createdDanmakuId))
             {
                 // 7. 删除弹幕
-                await TryAsync(
-                    "DeleteDanmakuAsync(created)",
-                    () => client.DeleteDanmakuAsync(createdDanmakuId, videoId, cancellationToken)
+                await TryAsync("DeleteDanmakuAsync(created)", () =>
+                    client.DeleteDanmakuAsync(createdDanmakuId, videoId, cancellationToken)
                 );
             }
         }
@@ -182,8 +162,7 @@ internal static partial class SampleSteps
                 Console.WriteLine(
                     $"  [提示] 剧集 {reviewDramaId} 历史已评过 (103009)，选用备选剧集测试剧评发表与删除生命周期..."
                 );
-                string? alternativeDramaId =
-                    context.Catalog?.ElementAtOrDefault(10)?.Id
+                string? alternativeDramaId = context.Catalog?.ElementAtOrDefault(10)?.Id
                     ?? context.Catalog?.LastOrDefault()?.Id;
                 if (!string.IsNullOrEmpty(alternativeDramaId))
                 {
@@ -208,98 +187,73 @@ internal static partial class SampleSteps
             string createdReviewId = reviewResult?.Id ?? string.Empty;
             if (string.IsNullOrWhiteSpace(createdReviewId))
             {
-                Console.WriteLine("  [提示] 发表剧评未返回有效 Review ID（可能由于网关抖动或审核排队），跳过删除剧评。");
+                Console.WriteLine(
+                    "  [提示] 发表剧评未返回有效 Review ID（可能由于网关抖动或审核排队），跳过删除剧评。"
+                );
             }
             else
             {
                 // 9. 删除剧评
-                await TryAsync(
-                    "DeleteDramaReviewAsync(created)",
-                    () =>
-                        client.DeleteDramaReviewAsync(
-                            createdReviewId,
-                            reviewDramaId,
-                            cancellationToken
-                        )
+                await TryAsync("DeleteDramaReviewAsync(created)", () =>
+                    client.DeleteDramaReviewAsync(createdReviewId, reviewDramaId, cancellationToken)
                 );
             }
 
-            string reservationDramaId =
-                context.UpcomingReservations?.Items.FirstOrDefault()?.DramaId ?? dramaId;
+            string reservationDramaId = context
+                .UpcomingReservations?.Items.FirstOrDefault()
+                ?.DramaId
+                ?? dramaId;
             if (reservationDramaId.Length > 0)
             {
-                await TryAsync(
-                    "SetReservationAsync",
-                    () => client.SetReservationAsync(reservationDramaId, true, cancellationToken)
+                await TryAsync("SetReservationAsync", () =>
+                    client.SetReservationAsync(reservationDramaId, true, cancellationToken)
                 );
-                await TryAsync(
-                    "DeleteReservationAsync",
-                    () => client.DeleteReservationAsync(reservationDramaId, cancellationToken)
+                await TryAsync("DeleteReservationAsync", () =>
+                    client.DeleteReservationAsync(reservationDramaId, cancellationToken)
                 );
             }
         }
 
         if (comment is not null)
         {
-            await TryAsync(
-                "SetCommentLikeAsync",
-                () => client.SetCommentLikeAsync(comment.Id, dramaId, true, cancellationToken)
+            await TryAsync("SetCommentLikeAsync", () =>
+                client.SetCommentLikeAsync(comment.Id, dramaId, true, cancellationToken)
             );
-            await TryAsync(
-                "SetCommentLikeAsync(false)",
-                () => client.SetCommentLikeAsync(comment.Id, dramaId, false, cancellationToken)
+            await TryAsync("SetCommentLikeAsync(false)", () =>
+                client.SetCommentLikeAsync(comment.Id, dramaId, false, cancellationToken)
             );
-            await TryAsync(
-                "SetReviewLikeAsync",
-                () => client.SetReviewLikeAsync(comment.Id, dramaId, true, cancellationToken)
+            await TryAsync("SetReviewLikeAsync", () =>
+                client.SetDramaReviewLikeAsync(comment.Id, dramaId, true, cancellationToken)
             );
-            await TryAsync(
-                "SetReviewLikeAsync(false)",
-                () => client.SetReviewLikeAsync(comment.Id, dramaId, false, cancellationToken)
+            await TryAsync("SetReviewLikeAsync(false)", () =>
+                client.SetDramaReviewLikeAsync(comment.Id, dramaId, false, cancellationToken)
             );
             string? sampleDanmakuId = context.Danmaku?.Items.FirstOrDefault()?.Id;
             if (!string.IsNullOrEmpty(sampleDanmakuId))
             {
-                await TryAsync(
-                    "SetDanmakuLikeAsync",
-                    () =>
-                        client.SetDanmakuLikeAsync(
-                            sampleDanmakuId,
-                            videoId,
-                            true,
-                            cancellationToken
-                        )
+                await TryAsync("SetDanmakuLikeAsync", () =>
+                    client.SetDanmakuLikeAsync(sampleDanmakuId, videoId, true, cancellationToken)
                 );
-                await TryAsync(
-                    "SetDanmakuLikeAsync(false)",
-                    () =>
-                        client.SetDanmakuLikeAsync(
-                            sampleDanmakuId,
-                            videoId,
-                            false,
-                            cancellationToken
-                        )
+                await TryAsync("SetDanmakuLikeAsync(false)", () =>
+                    client.SetDanmakuLikeAsync(sampleDanmakuId, videoId, false, cancellationToken)
                 );
             }
         }
 
         if (userId.Length > 0)
         {
-            await TryAsync(
-                "SetFollowAsync",
-                () => client.SetFollowAsync(userId, true, cancellationToken)
+            await TryAsync("SetFollowAsync", () =>
+                client.SetFollowAsync(userId, true, cancellationToken)
             );
-            await TryAsync(
-                "SetFollowAsync(false)",
-                () => client.SetFollowAsync(userId, false, cancellationToken)
+            await TryAsync("SetFollowAsync(false)", () =>
+                client.SetFollowAsync(userId, false, cancellationToken)
             );
         }
 
         if (episode is not null && dramaId.Length > 0 && videoId.Length > 0)
         {
-            await TryAsync(
-                "DeleteHistoryAsync",
-                () => client.DeleteHistoryAsync(dramaId, videoId, cancellationToken)
+            await TryAsync("DeleteHistoryAsync", () =>
+                client.DeleteHistoryAsync(dramaId, videoId, cancellationToken)
             );
         }
     }

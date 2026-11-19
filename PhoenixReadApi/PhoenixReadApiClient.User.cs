@@ -45,12 +45,12 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>收藏剧集及 NextOffset、HasMore 和 Total 分页信息。</returns>
     /// <remarks>当 HasMore 为 true 时，将 NextOffset 原样传给下一次调用。</remarks>
-    public Task<UserDramaPage> GetUserCollectionsAsync(
+    public Task<DramaPage> GetUserFavoritesAsync(
         string userId,
         int count = 18,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _user.GetCollectionsAsync(userId, count, offset, cancellationToken);
+    ) => _user.GetFavoritesAsync(userId, count, offset, cancellationToken);
 
     /// <summary>获取账号点赞剧集的一页。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
@@ -65,30 +65,4 @@ public sealed partial class PhoenixReadApiClient
         int offset = 0,
         CancellationToken cancellationToken = default
     ) => _user.GetLikesAsync(userId, count, offset, cancellationToken);
-
-    /// <summary>获取账号粉丝列表的一页（如果用户设置了隐藏粉丝列表，则返回受隐私保护且列表为空）。</summary>
-    /// <param name="userId">账号 ID，必须是数字字符串。</param>
-    /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
-    /// <param name="count">本页数量，范围为 1 到 50，默认为 20。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>粉丝列表及 Cursor、HasMore 和 IsPrivacyProtected 状态。</returns>
-    public Task<UserRelationPage> GetUserFollowersAsync(
-        string userId,
-        string cursor = "",
-        int count = 20,
-        CancellationToken cancellationToken = default
-    ) => _user.GetFollowersAsync(userId, cursor, count, cancellationToken);
-
-    /// <summary>获取账号关注人员列表的一页（如果用户设置了隐藏关注列表，则返回受隐私保护且列表为空）。</summary>
-    /// <param name="userId">账号 ID，必须是数字字符串。</param>
-    /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
-    /// <param name="count">本页数量，范围为 1 到 50，默认为 20。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>关注人员列表及 Cursor、HasMore 和 IsPrivacyProtected 状态。</returns>
-    public Task<UserRelationPage> GetUserFollowingsAsync(
-        string userId,
-        string cursor = "",
-        int count = 20,
-        CancellationToken cancellationToken = default
-    ) => _user.GetFollowingsAsync(userId, cursor, count, cancellationToken);
 }

@@ -51,6 +51,9 @@ internal sealed class AppUserWorkRecord
 
     [JsonPropertyName("video")]
     public AppUserVideo Video { get; init; } = new();
+
+    [JsonPropertyName("comment")]
+    public AppComment Comment { get; init; } = new();
 }
 
 internal sealed class AppUserVideo

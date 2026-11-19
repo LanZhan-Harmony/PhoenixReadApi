@@ -49,9 +49,16 @@ public sealed class UserTests
             await SharedScenario.AssertValidCircleItem(item);
         }
 
-        foreach (Drama drama in profile.Works)
+        foreach (UserWork work in profile.Works)
         {
-            await SharedScenario.AssertValidDrama(drama);
+            if (work is Drama drama)
+            {
+                await SharedScenario.AssertValidDrama(drama);
+            }
+            else if (work is UserReview review)
+            {
+                await Assert.That(review.Id).IsNotNull();
+            }
         }
     }
 
@@ -88,9 +95,16 @@ public sealed class UserTests
         await Assert.That(worksPage.Cursor).IsNotNull();
         await Assert.That(worksPage.Total >= 0).IsTrue();
 
-        foreach (Drama drama in worksPage.Items)
+        foreach (UserWork work in worksPage.Items)
         {
-            await SharedScenario.AssertValidDrama(drama);
+            if (work is Drama drama)
+            {
+                await SharedScenario.AssertValidDrama(drama);
+            }
+            else if (work is UserReview review)
+            {
+                await Assert.That(review.Id).IsNotNull();
+            }
         }
     }
 
@@ -134,6 +148,15 @@ public sealed class UserTests
             );
             await Assert.That(postComments).IsNotNull();
             await Assert.That(postComments.Items).IsNotNull();
+            TestContext.Current?.OutputWriter.WriteLine(
+                $"PostId={postItem.Id}, Comments={postComments.Items.Count}"
+            );
+            if (postComments.Items.Count > 0)
+            {
+                TestContext.Current?.OutputWriter.WriteLine(
+                    $"First Comment: Id={postComments.Items[0].Id}, ReplyCount={postComments.Items[0].ReplyCount}, Text={postComments.Items[0].Text}"
+                );
+            }
         }
 
         CircleItem? videoItem = circlePage.Items.FirstOrDefault(static x =>
@@ -158,35 +181,34 @@ public sealed class UserTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetUserCollectionsAsync()
+    public async Task TestGetUserFavoritesAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        UserDramaPage collections = await SharedScenario.Client.GetUserCollectionsAsync(
+        DramaPage favorites = await SharedScenario.Client.GetUserFavoritesAsync(
             scenario.UserId,
             count: 10,
             offset: 0,
             cancellationToken: timeout.Token
         );
 
-        await Assert.That(collections).IsNotNull();
-        await Assert.That(collections.Items).IsNotNull();
-        await Assert.That(collections.Cursor).IsNotNull();
-        await Assert.That(collections.NextOffset >= 0).IsTrue();
-        await Assert.That(collections.Total >= 0).IsTrue();
+        await Assert.That(favorites).IsNotNull();
+        await Assert.That(favorites.Items).IsNotNull();
+        await Assert.That(favorites.NextOffset >= 0).IsTrue();
+        await Assert.That(favorites.Total >= 0).IsTrue();
 
-        foreach (Drama drama in collections.Items)
+        foreach (Drama drama in favorites.Items)
         {
             await SharedScenario.AssertValidDrama(drama);
         }
 
-        if (collections is { HasMore: true, NextOffset: > 0 })
+        if (favorites is { HasMore: true, NextOffset: > 0 })
         {
-            UserDramaPage nextPage = await SharedScenario.Client.GetUserCollectionsAsync(
+            DramaPage nextPage = await SharedScenario.Client.GetUserFavoritesAsync(
                 scenario.UserId,
                 count: 10,
-                offset: collections.NextOffset,
+                offset: favorites.NextOffset,
                 cancellationToken: timeout.Token
             );
 
@@ -210,7 +232,6 @@ public sealed class UserTests
 
         await Assert.That(likes).IsNotNull();
         await Assert.That(likes.Items).IsNotNull();
-        await Assert.That(likes.Cursor).IsNotNull();
         await Assert.That(likes.NextOffset >= 0).IsTrue();
         await Assert.That(likes.Total >= 0).IsTrue();
 

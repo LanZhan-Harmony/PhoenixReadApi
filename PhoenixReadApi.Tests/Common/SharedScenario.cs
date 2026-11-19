@@ -182,6 +182,19 @@ public static class SharedScenario
         await Assert.That(episode.Title).IsNotNull();
     }
 
+    public static async Task AssertValidDramaReview(DramaReview? review)
+    {
+        await Assert.That(review).IsNotNull();
+        await Assert.That(string.IsNullOrWhiteSpace(review!.Id)).IsFalse();
+        await Assert.That(review.Text).IsNotNull();
+        await AssertValidUser(review.Author);
+        await Assert.That(review.CreatedAtUnixSeconds >= 0).IsTrue();
+        await Assert.That(review.Rating >= 0).IsTrue();
+        await Assert.That(review.RatingText).IsNotNull();
+        await Assert.That(review.LikeCount >= 0).IsTrue();
+        await Assert.That(review.ReplyCount >= 0).IsTrue();
+    }
+
     public static async Task AssertValidComment(Comment? comment)
     {
         await Assert.That(comment).IsNotNull();

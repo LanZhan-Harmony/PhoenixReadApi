@@ -30,7 +30,7 @@ public sealed class LibraryTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetFavoritesAsync_And_GetFavoriteIdsAsync()
+    public async Task TestGetFavoritesAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
 
@@ -49,18 +49,6 @@ public sealed class LibraryTests
         {
             await SharedScenario.AssertValidDrama(drama, allowSparse: true);
         }
-
-        // 测试 GetFavoriteIdsAsync 元组重载
-        (IReadOnlyList<string> ids, DramaPage page) =
-            await SharedScenario.Client.GetFavoriteIdsAsync(
-                count: 10,
-                offset: 0,
-                cancellationToken: timeout.Token
-            );
-
-        await Assert.That(ids).IsNotNull();
-        await Assert.That(page).IsNotNull();
-        await Assert.That(ids.Count).IsEqualTo(page.Items.Count);
     }
 
     [Test, NotInParallel("phoenix-read-api")]
@@ -111,14 +99,6 @@ public sealed class LibraryTests
             .That(async () =>
             {
                 await SharedScenario.Client.SetFavoriteAsync("", "");
-            })
-            .Throws<ArgumentException>();
-
-        // RemoveFavorite 参数空校验
-        await Assert
-            .That(async () =>
-            {
-                await SharedScenario.Client.RemoveFavoriteAsync("", "");
             })
             .Throws<ArgumentException>();
 
@@ -214,9 +194,10 @@ public sealed class LibraryTests
         await Assert.That(favResult.Succeeded).IsTrue();
 
         // 2. 移除收藏
-        PhoenixOperationResult removeResult = await authClient.RemoveFavoriteAsync(
+        PhoenixOperationResult removeResult = await authClient.SetFavoriteAsync(
             scenario.DramaId,
             scenario.Episode.VideoId,
+            false,
             timeout.Token
         );
         await Assert.That(removeResult).IsNotNull();

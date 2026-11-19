@@ -37,6 +37,63 @@ internal sealed class PhoenixReadAppTransport
         );
     }
 
+    /// <summary>探查或内部读取红果 App 接口的原始 UTF-8 字符串。</summary>
+    internal async Task<string> GetRawStringAsync(
+        string path,
+        IEnumerable<KeyValuePair<string, string>> query,
+        CancellationToken cancellationToken
+    )
+    {
+        await _deviceManager.EnsureRegisteredAsync(forceNew: false, cancellationToken).ConfigureAwait(false);
+        await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
+        Uri requestUri = BuildAppRequestUri(path, query);
+        using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
+        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+        _sessionStore.ApplySession(request);
+        PhoenixReadRequestSigner.SignPlayer(request, [], _deviceManager.DeviceId, DateTimeOffset.UtcNow);
+        (HttpResponseMessage response, byte[] bytes) = await _http
+            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
+            .ConfigureAwait(false);
+        response.Dispose();
+        return Encoding.UTF8.GetString(bytes);
+    }
+
+    /// <summary>探查或内部 POST 请求红果 App 接口的原始 UTF-8 字符串。</summary>
+    internal async Task<string> PostRawStringAsync(
+        string path,
+        byte[] body,
+        CancellationToken cancellationToken,
+        int commentSource = 601,
+        int? serverChannel = 1000
+    )
+    {
+        await _deviceManager.EnsureRegisteredAsync(forceNew: false, cancellationToken).ConfigureAwait(false);
+        await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
+        Uri requestUri = BuildAppRequestUri(path, []);
+        using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
+        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
+        request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
+        request.Headers.TryAddWithoutValidation("Comment-Source", commentSource.ToString(CultureInfo.InvariantCulture));
+        if (serverChannel.HasValue)
+        {
+            request.Headers.TryAddWithoutValidation("Server-Channel", serverChannel.Value.ToString(CultureInfo.InvariantCulture));
+        }
+        request.Content = new ByteArrayContent(body);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
+        _sessionStore.ApplySession(request);
+        PhoenixReadRequestSigner.SignPlayer(request, body, _deviceManager.DeviceId, DateTimeOffset.UtcNow);
+        (HttpResponseMessage response, byte[] bytes) = await _http
+            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
+            .ConfigureAwait(false);
+        response.Dispose();
+        return Encoding.UTF8.GetString(bytes);
+    }
+
     internal Task<AppResponse<TResponse>> PostAsync<TRequest, TResponse>(
         string path,
         TRequest payload,

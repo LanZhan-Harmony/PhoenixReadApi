@@ -1,11 +1,9 @@
 using System.Collections.Concurrent;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using PhoenixReadApi.Internal.Contracts.App;
-using PhoenixReadApi.Internal.Contracts.App.Catalog;
 using PhoenixReadApi.Internal.Contracts.App.Search;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Search;
@@ -217,71 +215,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     pending
                 )
             );
-        }
-    }
-
-    internal Task<RecommendationPage> GetRecommendationsAsync(
-        RecommendationGenre genre,
-        int offset = 0,
-        string? sessionId = null,
-        IEnumerable<string>? seen = null,
-        CancellationToken cancellationToken = default
-    )
-    {
-        RecommendationQuery query = new()
-        {
-            Genre = genre,
-            Offset = offset,
-            SessionId = sessionId ?? string.Empty,
-            Seen = [.. seen ?? []],
-        };
-
-        return GetRecommendationsCoreAsync(query, cancellationToken);
-    }
-
-    internal async IAsyncEnumerable<Drama> EnumerateRecommendationsAsync(
-        RecommendationGenre genre = RecommendationGenre.ShortDrama,
-        int maxPages = 10,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default
-    )
-    {
-        int offset = 0;
-        string? sessionId = null;
-        HashSet<string> seenIds = [with(StringComparer.Ordinal)];
-        int pageCount = 0;
-
-        while (!cancellationToken.IsCancellationRequested && pageCount < maxPages)
-        {
-            RecommendationPage page = await GetRecommendationsAsync(
-                    genre,
-                    offset,
-                    sessionId,
-                    seenIds,
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-
-            if (page.Items.Count == 0)
-            {
-                yield break;
-            }
-
-            foreach (Drama drama in page.Items)
-            {
-                if (!string.IsNullOrWhiteSpace(drama.Id) && seenIds.Add(drama.Id))
-                {
-                    yield return drama;
-                }
-            }
-
-            if (!page.HasMore || page.NextOffset <= offset)
-            {
-                yield break;
-            }
-
-            offset = page.NextOffset;
-            sessionId = page.SessionId;
-            pageCount++;
         }
     }
 
@@ -975,114 +908,6 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 exception
             );
         }
-    }
-
-    private async Task<RecommendationPage> GetRecommendationsCoreAsync(
-        RecommendationQuery query,
-        CancellationToken cancellationToken
-    )
-    {
-        (string genre, string scene, string category) = CategoryInfo(query.Genre);
-
-        string[] seen =
-        [
-            .. query
-                .Seen.Select(static id =>
-                    id.StartsWith("hongguo:", StringComparison.Ordinal) ? id[8..] : id
-                )
-                .Distinct(StringComparer.Ordinal),
-        ];
-
-        AppCatalogPayload payload = new()
-        {
-            RequestScene = scene,
-            Offset = query.Offset,
-            ClientRequestType = query.Offset > 0 ? 2 : 3,
-            SessionId = query.SessionId,
-            FilterIds = string.Join(',', seen),
-            SelectItems = new AppCatalogSelectItems { Genre = [genre] },
-        };
-
-        AppResponse<AppCatalogData> result = await _appTransport
-            .PostAsync<AppCatalogPayload, AppCatalogData>(
-                "/reading/distribution/category/landpage/v/",
-                payload,
-                commentRequest: false,
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-
-        AppCatalogData data = result.Data ?? new();
-
-        if (data.Items.Count == 0)
-        {
-            return new RecommendationPage
-            {
-                Items = [],
-
-                NextOffset = query.Offset,
-
-                HasMore = false,
-
-                SessionId = query.SessionId ?? string.Empty,
-            };
-        }
-
-        List<Drama> output = [];
-        HashSet<string> seenIds = [with(StringComparer.Ordinal), .. seen];
-
-        int validDramaCount = 0;
-
-        foreach (DramaDto row in data.Items)
-        {
-            Drama drama = DramaMapper.FromDto(row, category);
-
-            if (drama.Id.Length > 0)
-            {
-                validDramaCount++;
-
-                if (seenIds.Add(drama.Id))
-                {
-                    output.Add(drama);
-                }
-            }
-        }
-
-        if (data.Items.Count > 0 && validDramaCount == 0)
-        {
-            throw new PhoenixReadApiResponseException(
-                "红果推荐未返回可识别的剧集。",
-                "recommendations"
-            );
-        }
-
-        bool hasMore = data.HasMore;
-        int next = data.NextOffset;
-
-        if (hasMore && (next <= query.Offset || next > 1_000_000))
-        {
-            throw new PhoenixReadApiResponseException("红果推荐分页未前进。", "recommendations");
-        }
-
-        string session = data.SessionId ?? string.Empty;
-
-        if (session.Length > 4096 || session.Any(static c => c is '\r' or '\n' or '\0'))
-        {
-            throw new PhoenixReadApiResponseException("红果推荐分页标记无效。", "recommendations");
-        }
-
-        if (!hasMore && (next < query.Offset || next > 1_000_000))
-        {
-            next = query.Offset;
-        }
-
-        return new RecommendationPage
-        {
-            Items = output,
-            NextOffset = next,
-            HasMore = hasMore,
-            SessionId = session,
-        };
     }
 
     private async Task<bool> CompleteSearchSeasonsAsync(

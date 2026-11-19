@@ -47,7 +47,7 @@ public sealed class CommentsAndDanmakuTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        CommentPage reviews = await SharedScenario.Client.GetDramaReviewsAsync(
+        DramaReviewPage reviews = await SharedScenario.Client.GetDramaReviewsAsync(
             scenario.DramaId,
             count: 5,
             sort: CommentSortOrder.Hot,
@@ -55,20 +55,20 @@ public sealed class CommentsAndDanmakuTests
         );
 
         await Assert.That(reviews).IsNotNull();
-        await Assert.That(reviews.TargetId).IsEqualTo(scenario.DramaId);
+        await Assert.That(reviews.DramaId).IsEqualTo(scenario.DramaId);
         await Assert.That(reviews.Items).IsNotNull();
         await Assert.That(reviews.Items.Count <= 5).IsTrue();
         await Assert.That(reviews.Total >= reviews.Items.Count).IsTrue();
         await Assert.That(reviews.Cursor).IsNotNull();
 
-        foreach (Comment comment in reviews.Items)
+        foreach (DramaReview review in reviews.Items)
         {
-            await SharedScenario.AssertValidComment(comment);
+            await SharedScenario.AssertValidDramaReview(review);
         }
 
         if (reviews is { HasMore: true, Cursor.Length: > 0 })
         {
-            CommentPage nextPage = await SharedScenario.Client.GetDramaReviewsAsync(
+            DramaReviewPage nextPage = await SharedScenario.Client.GetDramaReviewsAsync(
                 scenario.DramaId,
                 count: 5,
                 cursor: reviews.Cursor,
@@ -76,7 +76,7 @@ public sealed class CommentsAndDanmakuTests
                 cancellationToken: timeout.Token
             );
             await Assert.That(nextPage).IsNotNull();
-            await Assert.That(nextPage.TargetId).IsEqualTo(scenario.DramaId);
+            await Assert.That(nextPage.DramaId).IsEqualTo(scenario.DramaId);
             await Assert.That(nextPage.Cursor).IsNotNull();
         }
     }
@@ -87,7 +87,7 @@ public sealed class CommentsAndDanmakuTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        CommentPage reviews = await SharedScenario.Client.GetDramaReviewsAsync(
+        DramaReviewPage reviews = await SharedScenario.Client.GetDramaReviewsAsync(
             scenario.DramaId,
             count: 5,
             sort: CommentSortOrder.Latest,
@@ -95,13 +95,13 @@ public sealed class CommentsAndDanmakuTests
         );
 
         await Assert.That(reviews).IsNotNull();
-        await Assert.That(reviews.TargetId).IsEqualTo(scenario.DramaId);
+        await Assert.That(reviews.DramaId).IsEqualTo(scenario.DramaId);
         await Assert.That(reviews.Items).IsNotNull();
         await Assert.That(reviews.Cursor).IsNotNull();
 
-        foreach (Comment comment in reviews.Items)
+        foreach (DramaReview review in reviews.Items)
         {
-            await SharedScenario.AssertValidComment(comment);
+            await SharedScenario.AssertValidDramaReview(review);
         }
     }
 
@@ -186,36 +186,34 @@ public sealed class CommentsAndDanmakuTests
             cancellationToken: timeout.Token
         );
 
-        Comment? targetComment = comments.Items.FirstOrDefault(c => c.ReplyCount > 0);
-        string groupId = scenario.Episode.VideoId;
+        string? targetCommentId = comments.Items.FirstOrDefault(c => c.ReplyCount > 0)?.Id
+            ?? comments.Items.FirstOrDefault()?.Id;
+        bool isEpisode = targetCommentId is not null;
 
-        if (targetComment is null)
+        if (targetCommentId is null)
         {
-            CommentPage reviews = await SharedScenario.Client.GetDramaReviewsAsync(
+            DramaReviewPage reviews = await SharedScenario.Client.GetDramaReviewsAsync(
                 scenario.DramaId,
                 count: 10,
                 cancellationToken: timeout.Token
             );
-            targetComment = reviews.Items.FirstOrDefault(c => c.ReplyCount > 0)
-                ?? reviews.Items.FirstOrDefault();
-            groupId = scenario.DramaId;
+            targetCommentId = reviews.Items.FirstOrDefault(c => c.ReplyCount > 0)?.Id
+                ?? reviews.Items.FirstOrDefault()?.Id;
+            isEpisode = false;
         }
 
-        targetComment ??= comments.Items.FirstOrDefault();
-
-        if (targetComment is not null && !string.IsNullOrWhiteSpace(targetComment.Id))
+        if (!string.IsNullOrWhiteSpace(targetCommentId))
         {
-            bool isEpisode = comments.Items.Contains(targetComment);
             CommentReplyPage repliesWithGroup = isEpisode
                 ? await SharedScenario.Client.GetEpisodeCommentRepliesAsync(
-                    targetComment.Id,
+                    targetCommentId,
                     scenario.DramaId,
                     scenario.Episode.VideoId,
                     count: 5,
                     cancellationToken: timeout.Token
                 )
                 : await SharedScenario.Client.GetDramaReviewRepliesAsync(
-                    targetComment.Id,
+                    targetCommentId,
                     scenario.DramaId,
                     count: 5,
                     cancellationToken: timeout.Token

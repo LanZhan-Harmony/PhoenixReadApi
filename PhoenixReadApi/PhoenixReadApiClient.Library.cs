@@ -1,5 +1,3 @@
-using PhoenixReadApi.Internal.Features.Library;
-
 namespace PhoenixReadApi;
 
 public sealed partial class PhoenixReadApiClient
@@ -59,22 +57,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _favorite.GetFavoritesAsync(count, offset, cancellationToken);
 
-    /// <summary>获取当前账号收藏剧集的 ID。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
-    /// <param name="offset">偏移量。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>收藏剧集 ID 和分页状态。</returns>
-    public async Task<(IReadOnlyList<string> Ids, DramaPage Page)> GetFavoriteIdsAsync(
-        int count = 20,
-        int offset = 0,
-        CancellationToken cancellationToken = default
-    )
-    {
-        DramaPage page = await GetFavoritesAsync(count, offset, cancellationToken)
-            .ConfigureAwait(false);
-        return ([.. page.Items.Select(static item => item.Id)], page);
-    }
-
     /// <summary>收藏或取消收藏一部剧。</summary>
     /// <param name="dramaId">剧集 ID。</param>
     /// <param name="videoId">用于定位收藏记录的分集视频 ID。</param>
@@ -88,17 +70,6 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _favorite.SetFavoriteAsync(dramaId, videoId, active, cancellationToken);
 
-    /// <summary>取消收藏一部剧。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">用于定位收藏记录的分集视频 ID。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> RemoveFavoriteAsync(
-        string dramaId,
-        string videoId,
-        CancellationToken cancellationToken = default
-    ) => _favorite.SetFavoriteAsync(dramaId, videoId, active: false, cancellationToken);
-
     /// <summary>获取当前客户端账号点赞的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
@@ -109,6 +80,19 @@ public sealed partial class PhoenixReadApiClient
         int offset = 0,
         CancellationToken cancellationToken = default
     ) => _like.GetLikesAsync(count, offset, cancellationToken);
+
+    /// <summary>点赞或取消点赞一部剧的一集。</summary>
+    /// <param name="dramaId">剧集 ID。</param>
+    /// <param name="videoId">用于定位剧集的分集视频 ID。</param>
+    /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> SetDramaEpisodeLikeAsync(
+        string dramaId,
+        string videoId,
+        bool active = true,
+        CancellationToken cancellationToken = default
+    ) => _like.SetDramaEpisodeLikeAsync(dramaId, videoId, active, cancellationToken);
 
     /// <summary>获取预约中的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -162,46 +146,4 @@ public sealed partial class PhoenixReadApiClient
         string dramaId,
         CancellationToken cancellationToken = default
     ) => _reservation.SetReservationAsync(dramaId, active: false, cancellationToken);
-
-    /// <summary>创建剧集分集分享链接。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">分集视频 ID。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端返回的分享 URL 和关联 ID。</returns>
-    /// <remarks>部分节点暂未开放短链接生成；这种情况下仍返回 DramaId 和 VideoId，Url 与 ShortUrl 为空。</remarks>
-    public Task<ShareLink> CreateShareLinkAsync(
-        string dramaId,
-        string videoId,
-        CancellationToken cancellationToken = default
-    ) => _share.CreateShareLinkAsync(dramaId, videoId, cancellationToken);
-
-    /// <summary>从分享 URL 中解析剧集和分集 ID。</summary>
-    /// <param name="url">完整分享 URL。</param>
-    /// <returns>解析出的分享目标；链接不含某个 ID 时对应属性为空字符串。</returns>
-    public ShareLink ResolveShareLink(string url) => ShareService.ResolveShareLink(url);
-
-    /// <summary>关注或取消关注一个账号。</summary>
-    /// <param name="userId">账号 ID。</param>
-    /// <param name="active">true 表示关注，false 表示取消关注。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    /// <remarks>该写操作需要登录。</remarks>
-    public Task<PhoenixOperationResult> SetFollowAsync(
-        string userId,
-        bool active = true,
-        CancellationToken cancellationToken = default
-    ) => _follow.SetFollowAsync(userId, active, cancellationToken);
-
-    /// <summary>点赞或取消点赞一部剧的一集。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">用于定位剧集的分集视频 ID。</param>
-    /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetDramaEpisodeLikeAsync(
-        string dramaId,
-        string videoId,
-        bool active = true,
-        CancellationToken cancellationToken = default
-    ) => _like.SetDramaEpisodeLikeAsync(dramaId, videoId, active, cancellationToken);
 }

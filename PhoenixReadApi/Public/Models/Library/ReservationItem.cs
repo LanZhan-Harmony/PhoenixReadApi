@@ -24,6 +24,6 @@ public sealed class ReservationItem
     /// <summary>预计更新时间（Unix 秒）。</summary>
     public long ReleaseAtUnixSeconds { get; init; }
 
-    /// <summary>预约是否仍然有效。</summary>
+    /// <summary>是否已上线。</summary>
     public bool IsActive { get; init; }
 }

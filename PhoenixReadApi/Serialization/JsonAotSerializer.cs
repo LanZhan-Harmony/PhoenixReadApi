@@ -9,11 +9,13 @@ using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.Comment.Emoticon;
 using PhoenixReadApi.Internal.Contracts.App.Danmaku;
 using PhoenixReadApi.Internal.Contracts.App.Drama;
+using PhoenixReadApi.Internal.Contracts.App.Follow;
 using PhoenixReadApi.Internal.Contracts.App.Interaction;
 using PhoenixReadApi.Internal.Contracts.App.Library;
 using PhoenixReadApi.Internal.Contracts.App.Notification;
 using PhoenixReadApi.Internal.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.App.Search;
+using PhoenixReadApi.Internal.Contracts.App.Share;
 using PhoenixReadApi.Internal.Contracts.App.User;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Authentication;
@@ -80,9 +82,13 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppCommentAddData))]
 [JsonSerializable(typeof(AppCommentAddPayload))]
 [JsonSerializable(typeof(AppCommentDeletePayload))]
+[JsonSerializable(typeof(AppCommentExpandBookInfo))]
 [JsonSerializable(typeof(AppCommentImageDataDto))]
 [JsonSerializable(typeof(AppCommentImageDataListDto))]
 [JsonSerializable(typeof(AppCommentImageDto))]
+[JsonSerializable(typeof(AppCommentListAiSummary))]
+[JsonSerializable(typeof(AppCommentListAiSummaryItem))]
+[JsonSerializable(typeof(AppCommentListExtra))]
 [JsonSerializable(typeof(AppCommentListPayload))]
 [JsonSerializable(typeof(AppCommentPayload))]
 [JsonSerializable(typeof(AppCommonAbResultData))]
@@ -276,6 +282,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 // ============================================================================
 [JsonSerializable(typeof(IReadOnlyList<AppCommentImageDataDto>))]
 [JsonSerializable(typeof(IReadOnlyList<AppCommentImageDto>))]
+[JsonSerializable(typeof(IReadOnlyList<AppCommentListAiSummaryItem>))]
 [JsonSerializable(typeof(IReadOnlyList<AppHotSearchLynxCellDto>))]
 [JsonSerializable(typeof(List<AppHotSearchLynxCellDto>))]
 internal partial class SourceGenerationContext : JsonSerializerContext;
