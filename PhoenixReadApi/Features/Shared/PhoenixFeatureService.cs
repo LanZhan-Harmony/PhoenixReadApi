@@ -6,7 +6,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Shared;
 
-using Drama = global::PhoenixReadApi.Drama;
+using Drama = PhoenixReadApi.Drama;
 
 /// <summary>
 /// 功能服务的通用辅助方法。此类不保存功能状态，也不负责转发公共 API

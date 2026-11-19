@@ -27,15 +27,6 @@ public sealed partial class PhoenixReadApiClient
             cancellationToken
         );
 
-    /// <summary>上报当前分集的播放进度。</summary>
-    /// <param name="update">视频、剧集和播放位置；UseSoftDelete 为 true 时会删除历史。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> ReportProgressAsync(
-        ProgressUpdate update,
-        CancellationToken cancellationToken = default
-    ) => _history.ReportProgressAsync(update, cancellationToken);
-
     /// <summary>删除当前账号的一条短剧阅读历史。</summary>
     /// <param name="dramaId">剧集 ID。</param>
     /// <param name="videoId">分集视频 ID。</param>
@@ -46,6 +37,15 @@ public sealed partial class PhoenixReadApiClient
         string videoId,
         CancellationToken cancellationToken = default
     ) => _history.DeleteHistoryAsync(dramaId, videoId, cancellationToken);
+
+    /// <summary>上报当前分集的播放进度。</summary>
+    /// <param name="update">视频、剧集和播放位置；UseSoftDelete 为 true 时会删除历史。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> ReportProgressAsync(
+        ProgressUpdate update,
+        CancellationToken cancellationToken = default
+    ) => _history.ReportProgressAsync(update, cancellationToken);
 
     /// <summary>获取当前客户端账号收藏的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
@@ -74,6 +74,19 @@ public sealed partial class PhoenixReadApiClient
             .ConfigureAwait(false);
         return ([.. page.Items.Select(static item => item.Id)], page);
     }
+
+    /// <summary>收藏或取消收藏一部剧。</summary>
+    /// <param name="dramaId">剧集 ID。</param>
+    /// <param name="videoId">用于定位收藏记录的分集视频 ID。</param>
+    /// <param name="active">true 表示收藏，false 表示取消收藏。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> SetFavoriteAsync(
+        string dramaId,
+        string videoId,
+        bool active = true,
+        CancellationToken cancellationToken = default
+    ) => _favorite.SetFavoriteAsync(dramaId, videoId, active, cancellationToken);
 
     /// <summary>取消收藏一部剧。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -166,19 +179,6 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="url">完整分享 URL。</param>
     /// <returns>解析出的分享目标；链接不含某个 ID 时对应属性为空字符串。</returns>
     public ShareLink ResolveShareLink(string url) => ShareService.ResolveShareLink(url);
-
-    /// <summary>收藏或取消收藏一部剧。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">用于定位收藏记录的分集视频 ID。</param>
-    /// <param name="active">true 表示收藏，false 表示取消收藏。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetFavoriteAsync(
-        string dramaId,
-        string videoId,
-        bool active = true,
-        CancellationToken cancellationToken = default
-    ) => _favorite.SetFavoriteAsync(dramaId, videoId, active, cancellationToken);
 
     /// <summary>关注或取消关注一个账号。</summary>
     /// <param name="userId">账号 ID。</param>

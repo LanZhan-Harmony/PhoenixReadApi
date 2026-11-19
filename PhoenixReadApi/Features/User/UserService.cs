@@ -1,23 +1,28 @@
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.User;
+using PhoenixReadApi.Internal.Features.Circle;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.User;
 
-using Drama = global::PhoenixReadApi.Drama;
-using User = global::PhoenixReadApi.User;
+using Drama = PhoenixReadApi.Drama;
+using User = PhoenixReadApi.User;
 
 /// <summary>加载任意公开账号的主页及其公开内容。</summary>
 internal sealed class UserService : PhoenixFeatureService
 {
     private const int PageSize = 18;
     private const int MaxPageSize = 50;
+    private readonly CircleService _circleService;
 
-    internal UserService(PhoenixReadClientRuntime runtime)
-        : base(runtime) { }
+    internal UserService(PhoenixReadClientRuntime runtime, CircleService circleService)
+        : base(runtime)
+    {
+        _circleService = circleService ?? throw new ArgumentNullException(nameof(circleService));
+    }
 
     internal Task<UserProfile> GetAsync(string userId, CancellationToken cancellationToken)
     {
@@ -78,12 +83,22 @@ internal sealed class UserService : PhoenixFeatureService
 
         AppUserProfileData? data = response.Data;
         IReadOnlyList<Drama> items = MapWorks(data);
+        long total = TabTotal(data, 23);
+        if (total == 0)
+        {
+            total = TabTotal(data, 16);
+        }
+        if (total == 0)
+        {
+            total = TabTotal(data, 8);
+        }
+
         return new UserWorkPage
         {
             Items = items,
             Cursor = data?.ListInfo?.Cursor ?? string.Empty,
             HasMore = data?.ListInfo?.HasMore ?? false,
-            Total = TabTotal(data, 16),
+            Total = Math.Max(total, items.Count),
         };
     }
 
@@ -192,33 +207,6 @@ internal sealed class UserService : PhoenixFeatureService
         };
     }
 
-    internal async Task<UserActivityPage> GetActivitiesAsync(
-        string userId,
-        int count,
-        string cursor,
-        CancellationToken cancellationToken
-    )
-    {
-        userId = NormalizeUserId(userId);
-        ValidateCount(count);
-        cursor = NormalizeCursor(cursor);
-        AppUserProfileData? data = await LoadProfileTabAsync(
-                userId,
-                5,
-                count,
-                cursor,
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        return new UserActivityPage
-        {
-            Items = MapActivities(data),
-            Cursor = data?.ListInfo?.Cursor ?? string.Empty,
-            HasMore = data?.ListInfo?.HasMore ?? false,
-            Total = TabTotal(data, 5),
-        };
-    }
-
     internal async Task<UserDramaPage> GetCollectionsAsync(
         string userId,
         int count,
@@ -311,11 +299,19 @@ internal sealed class UserService : PhoenixFeatureService
                 .Select(static tab => tab.Type),
         ];
 
-        // If tabs has 16 (Works - 短剧作品), load Tab 16; else if 8 (Related), load Tab 8
-        int worksTabType =
-            tabTypes.Contains(16) ? 16
-            : tabTypes.Contains(8) ? 8
-            : 0;
+        // If tabs has 23 or 16 or 8 (Works - 短剧作品), or tab name contains "作品", load that tab
+        int worksTabType = 0;
+        foreach (AppUserProfileTab? tab in metadata.Tabs ?? [])
+        {
+            if (
+                tab is not null
+                && (tab.Type is 23 or 16 or 8 || tab.Name?.Contains("作品") == true)
+            )
+            {
+                worksTabType = tab.Type;
+                break;
+            }
+        }
         Task<AppUserProfileData?> worksTask =
             worksTabType != 0
                 ? LoadProfileTabAsync(
@@ -327,9 +323,9 @@ internal sealed class UserService : PhoenixFeatureService
                 )
                 : Task.FromResult<AppUserProfileData?>(null);
 
-        Task<AppUserProfileData?> activitiesTask = tabTypes.Contains(5)
-            ? LoadProfileTabAsync(user.Id, 5, PageSize, string.Empty, cancellationToken)
-            : Task.FromResult<AppUserProfileData?>(null);
+        Task<CirclePage> circleTask = tabTypes.Contains(7)
+            ? _circleService.GetUserCircleAsync(user.Id, PageSize, string.Empty, cancellationToken)
+            : Task.FromResult(new CirclePage());
         Task<AppUserShelfData?> collectionsTask = tabTypes.Contains(10)
             ? LoadCollectionsAsync(user.Id, PageSize, 0, cancellationToken)
             : Task.FromResult<AppUserShelfData?>(null);
@@ -337,11 +333,10 @@ internal sealed class UserService : PhoenixFeatureService
             ? LoadLikesAsync(user.Id, PageSize, 0, cancellationToken)
             : Task.FromResult<AppUserActionData?>(null);
 
-        await Task.WhenAll(worksTask, activitiesTask, collectionsTask, likesTask)
-            .ConfigureAwait(false);
+        await Task.WhenAll(worksTask, circleTask, collectionsTask, likesTask).ConfigureAwait(false);
 
         AppUserProfileData? worksData = await worksTask.ConfigureAwait(false);
-        AppUserProfileData? activities = await activitiesTask.ConfigureAwait(false);
+        CirclePage circlePage = await circleTask.ConfigureAwait(false);
         AppUserShelfData? collections = await collectionsTask.ConfigureAwait(false);
         AppUserActionData? likes = await likesTask.ConfigureAwait(false);
 
@@ -391,14 +386,10 @@ internal sealed class UserService : PhoenixFeatureService
         bool isActor =
             isBlueVip
             || actorRoles.Any(static r => r.Contains("演员", StringComparison.OrdinalIgnoreCase))
-            || tabTypes.Contains(16);
+            || worksTabType != 0;
 
         IReadOnlyList<Drama> works = MapWorks(worksData);
-        long worksTotal = TabTotal(metadata, 16);
-        if (worksTotal == 0)
-        {
-            worksTotal = TabTotal(metadata, 8);
-        }
+        long worksTotal = worksTabType != 0 ? TabTotal(metadata, worksTabType) : 0;
 
         string bgCover = ValueNormalizer.First(ugc?.BgCover, ugcResponse?.Data?.BgCover);
 
@@ -457,8 +448,8 @@ internal sealed class UserService : PhoenixFeatureService
                 HasMore = likes?.HasMore ?? false,
                 Total = Math.Max(likes?.Total ?? 0, TabTotal(metadata, 9)),
             },
-            Activities = MapActivities(activities),
-            ActivitiesPage = ProfilePageInfo(activities, metadata, 5),
+            CircleItems = circlePage.Items,
+            CirclePage = circlePage,
             AvailableTabs = availableTabs,
         };
     }
@@ -609,45 +600,6 @@ internal sealed class UserService : PhoenixFeatureService
                     Views = viewCount > 0 ? ValueNormalizer.FormatCount(viewCount) : string.Empty,
                     PlayCount = Math.Max(0, viewCount),
                     FollowCount = Math.Max(0, followCount),
-                }
-            );
-        }
-
-        return result;
-    }
-
-    private static IReadOnlyList<UserActivity> MapActivities(AppUserProfileData? data)
-    {
-        if (data is null)
-        {
-            return [];
-        }
-
-        List<UserActivity> result = [];
-        HashSet<string> seen = [with(StringComparer.Ordinal)];
-        foreach (AppUserWorkRecord? record in data.Items ?? [])
-        {
-            if (record?.Video is null)
-            {
-                continue;
-            }
-
-            AppUserVideo video = record.Video;
-            string id = video.Id.Trim();
-            if (id.Length == 0 || !seen.Add(id))
-            {
-                continue;
-            }
-
-            result.Add(
-                new UserActivity
-                {
-                    Id = id,
-                    Text = video.Common.Title,
-                    CoverUrl = video.Common.CoverUrl,
-                    CreatedAtUnixSeconds = Math.Max(0, video.Common.CreatedAt),
-                    LikeCount = Math.Max(0, video.Stat.LikeCount),
-                    ViewCount = Math.Max(0, video.Stat.ViewCount),
                 }
             );
         }

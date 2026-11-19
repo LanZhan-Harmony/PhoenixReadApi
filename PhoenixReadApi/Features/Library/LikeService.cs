@@ -9,7 +9,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Library;
 
-using Drama = global::PhoenixReadApi.Drama;
+using Drama = PhoenixReadApi.Drama;
 
 /// <summary>剧集点赞列表以及分集点赞操作。</summary>
 internal sealed class LikeService : LibraryServiceBase

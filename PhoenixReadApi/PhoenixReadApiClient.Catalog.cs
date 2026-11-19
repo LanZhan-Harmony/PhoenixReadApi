@@ -40,6 +40,21 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _catalog.GetTagDramaPageAsync(tagItemId, sort, offset, count, cancellationToken);
 
+    /// <summary>流式遍历题材标签下的短剧，并在跨页时自动进行剧集 ID 去重。</summary>
+    /// <param name="tagItemId">题材标签项标识（如 "cate_261"），可从 <see cref="GetTagCategoriesAsync"/> 获取，传空表示全部。</param>
+    /// <param name="sort">排序方式，默认 <see cref="TagDramaSortOrder.Hot"/>（最热）。</param>
+    /// <param name="pageSize">每页条数，范围 1 到 30，默认 12。</param>
+    /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
+    /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
+    /// <returns>去重后的短剧异步流。</returns>
+    public IAsyncEnumerable<Drama> EnumerateTagDramasAsync(
+        string tagItemId = "",
+        TagDramaSortOrder sort = TagDramaSortOrder.Hot,
+        int pageSize = 12,
+        int maxPages = 10,
+        CancellationToken cancellationToken = default
+    ) => _catalog.EnumerateTagDramasAsync(tagItemId, sort, pageSize, maxPages, cancellationToken);
+
     /// <summary>获取红果短剧演员排行榜分页数据。</summary>
     /// <param name="offset">分页偏移量，初次调用传入 0。</param>
     /// <param name="sessionId">上一页返回的会话 ID；初次请求可为 null。</param>
@@ -50,6 +65,15 @@ public sealed partial class PhoenixReadApiClient
         string? sessionId = null,
         CancellationToken cancellationToken = default
     ) => _catalog.GetActorLeaderboardAsync(offset, sessionId, cancellationToken);
+
+    /// <summary>流式遍历演员排行榜。</summary>
+    /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
+    /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
+    /// <returns>去重后的演员排行榜条目异步流。</returns>
+    public IAsyncEnumerable<ActorLeaderboardItem> EnumerateActorLeaderboardAsync(
+        int maxPages = 10,
+        CancellationToken cancellationToken = default
+    ) => _catalog.EnumerateActorLeaderboardAsync(maxPages, cancellationToken);
 
     /// <summary>获取红果短剧排行榜分页数据。</summary>
     /// <param name="type">排行榜类型（推荐榜、热播榜、新剧榜、热搜榜），默认为 <see cref="ShortDramaLeaderboardType.Recommend"/>。</param>
@@ -80,6 +104,28 @@ public sealed partial class PhoenixReadApiClient
             offset,
             sessionId,
             seenIds,
+            cancellationToken
+        );
+
+    /// <summary>流式遍历短剧排行榜，并在跨页时自动去重。</summary>
+    /// <param name="type">排行榜类型：默认为 <see cref="ShortDramaLeaderboardType.Recommend"/>（推荐榜）。</param>
+    /// <param name="channel">频道受众：默认为 <see cref="ShortDramaLeaderboardChannel.All"/>（总榜）。</param>
+    /// <param name="genreTag">可选细分标签。</param>
+    /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
+    /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
+    /// <returns>去重后的排行榜短剧异步流。</returns>
+    public IAsyncEnumerable<Drama> EnumerateShortDramaLeaderboardAsync(
+        ShortDramaLeaderboardType type = ShortDramaLeaderboardType.Recommend,
+        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
+        string? genreTag = null,
+        int maxPages = 10,
+        CancellationToken cancellationToken = default
+    ) =>
+        _catalog.EnumerateShortDramaLeaderboardAsync(
+            type,
+            channel,
+            genreTag,
+            maxPages,
             cancellationToken
         );
 
@@ -123,52 +169,6 @@ public sealed partial class PhoenixReadApiClient
             maxPages,
             cancellationToken
         );
-
-    /// <summary>流式遍历题材标签下的短剧，并在跨页时自动进行剧集 ID 去重。</summary>
-    /// <param name="tagItemId">题材标签项标识（如 "cate_261"），可从 <see cref="GetTagCategoriesAsync"/> 获取，传空表示全部。</param>
-    /// <param name="sort">排序方式，默认 <see cref="TagDramaSortOrder.Hot"/>（最热）。</param>
-    /// <param name="pageSize">每页条数，范围 1 到 30，默认 12。</param>
-    /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
-    /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
-    /// <returns>去重后的短剧异步流。</returns>
-    public IAsyncEnumerable<Drama> EnumerateTagDramasAsync(
-        string tagItemId = "",
-        TagDramaSortOrder sort = TagDramaSortOrder.Hot,
-        int pageSize = 12,
-        int maxPages = 10,
-        CancellationToken cancellationToken = default
-    ) => _catalog.EnumerateTagDramasAsync(tagItemId, sort, pageSize, maxPages, cancellationToken);
-
-    /// <summary>流式遍历短剧排行榜，并在跨页时自动去重。</summary>
-    /// <param name="type">排行榜类型：默认为 <see cref="ShortDramaLeaderboardType.Recommend"/>（推荐榜）。</param>
-    /// <param name="channel">频道受众：默认为 <see cref="ShortDramaLeaderboardChannel.All"/>（总榜）。</param>
-    /// <param name="genreTag">可选细分标签。</param>
-    /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
-    /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
-    /// <returns>去重后的排行榜短剧异步流。</returns>
-    public IAsyncEnumerable<Drama> EnumerateShortDramaLeaderboardAsync(
-        ShortDramaLeaderboardType type = ShortDramaLeaderboardType.Recommend,
-        ShortDramaLeaderboardChannel channel = ShortDramaLeaderboardChannel.All,
-        string? genreTag = null,
-        int maxPages = 10,
-        CancellationToken cancellationToken = default
-    ) =>
-        _catalog.EnumerateShortDramaLeaderboardAsync(
-            type,
-            channel,
-            genreTag,
-            maxPages,
-            cancellationToken
-        );
-
-    /// <summary>流式遍历演员排行榜。</summary>
-    /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
-    /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
-    /// <returns>去重后的演员排行榜条目异步流。</returns>
-    public IAsyncEnumerable<ActorLeaderboardItem> EnumerateActorLeaderboardAsync(
-        int maxPages = 10,
-        CancellationToken cancellationToken = default
-    ) => _catalog.EnumerateActorLeaderboardAsync(maxPages, cancellationToken);
 
     /// <summary>获取 App 首页指定频道的发现页内容列表及流式翻页游标。</summary>
     /// <param name="channel">发现频道枚举，默认 <see cref="DiscoverChannel.Recommend"/>（推荐）。</param>

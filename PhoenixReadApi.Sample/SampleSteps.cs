@@ -15,9 +15,8 @@ internal static partial class SampleSteps
 
         if (isSessionValid)
         {
-            AuthenticatedUser? currentUser = await TryAsync(
-                "GetCurrentUserInfoAsync",
-                () => client.GetCurrentUserInfoAsync(cancellationToken)
+            AuthenticatedUser? currentUser = await TryAsync("GetCurrentUserInfoAsync", () =>
+                client.GetCurrentUserInfoAsync(cancellationToken)
             );
             if (currentUser is not null)
             {
@@ -29,9 +28,8 @@ internal static partial class SampleSteps
 
         if (!context.Authentication.IsAuthenticated && phone.Length > 0)
         {
-            VerificationCodeResult? sent = await TryAsync(
-                "SendVerificationCodeAsync",
-                () => client.SendVerificationCodeAsync(phone, cancellationToken)
+            VerificationCodeResult? sent = await TryAsync("SendVerificationCodeAsync", () =>
+                client.SendVerificationCodeAsync(phone, cancellationToken)
             );
             if (sent is not null)
             {
@@ -40,9 +38,8 @@ internal static partial class SampleSteps
 
                 if (code.Length > 0)
                 {
-                    AuthenticatedUser? user = await TryAsync(
-                        "LoginAsync",
-                        () => client.LoginAsync(phone, code, cancellationToken)
+                    AuthenticatedUser? user = await TryAsync("LoginAsync", () =>
+                        client.LoginAsync(phone, code, cancellationToken)
                     );
                     if (user is not null)
                     {
@@ -59,18 +56,16 @@ internal static partial class SampleSteps
         context.Authentication = client.GetAuthenticationState();
         Console.WriteLine($"当前登录状态：{context.Authentication.IsAuthenticated}");
 
-        QrCodeLoginSession? qrSession = await TryAsync(
-            "CreateQrCodeLoginAsync",
-            () => client.CreateQrCodeLoginAsync(cancellationToken)
+        QrCodeLoginSession? qrSession = await TryAsync("CreateQrCodeLoginAsync", () =>
+            client.CreateQrCodeLoginAsync(cancellationToken)
         );
         if (qrSession is not null)
         {
             Console.WriteLine(
                 $"  获取到扫码 Token: {qrSession.Token[..Math.Min(16, qrSession.Token.Length)]}..., 有效秒数: {qrSession.ExpiresInSeconds}"
             );
-            QrCodeCheckResult? qrStatus = await TryAsync(
-                "CheckQrCodeStatusAsync",
-                () => client.CheckQrCodeStatusAsync(qrSession.Token, cancellationToken)
+            QrCodeCheckResult? qrStatus = await TryAsync("CheckQrCodeStatusAsync", () =>
+                client.CheckQrCodeStatusAsync(qrSession.Token, cancellationToken)
             );
             if (qrStatus is not null)
             {
@@ -84,48 +79,60 @@ internal static partial class SampleSteps
         PhoenixReadApiClient client = context.Client;
         CancellationToken cancellationToken = context.CancellationToken;
 
-        context.Catalog = await TryAsync(
-            "GetCatalogAsync",
-            () => client.GetCatalogAsync(PhoenixReadApiCategory.All, cancellationToken)
+        context.Catalog = await TryAsync("GetCatalogAsync", () =>
+            client.GetCatalogAsync(PhoenixReadApiCategory.All, cancellationToken)
         );
         PrintCount("  剧库", context.Catalog?.Count);
 
         NewDramaRecommendationPage? newDramas = await TryAsync(
             "GetNewDramaRecommendationsAsync",
-            () => client.GetNewDramaRecommendationsAsync(ShortDramaLeaderboardChannel.All, limit: 5, cancellationToken: cancellationToken)
+            () =>
+                client.GetNewDramaRecommendationsAsync(
+                    ShortDramaLeaderboardChannel.All,
+                    limit: 5,
+                    cancellationToken: cancellationToken
+                )
         );
         PrintCount("  新剧推荐(总榜)", newDramas?.Items.Count);
 
         ShortDramaLeaderboardPage? recommendRank = await TryAsync(
             "GetShortDramaLeaderboardAsync(Recommend)",
-            () => client.GetShortDramaLeaderboardAsync(ShortDramaLeaderboardType.Recommend, offset: 0, cancellationToken: cancellationToken)
+            () =>
+                client.GetShortDramaLeaderboardAsync(
+                    ShortDramaLeaderboardType.Recommend,
+                    offset: 0,
+                    cancellationToken: cancellationToken
+                )
         );
         PrintCount("  推荐榜首屏", recommendRank?.Items.Count);
 
         IReadOnlyList<LoginRegion> loginRegions = client.GetLoginRegions();
-        Console.WriteLine($"  登录支持区域: {loginRegions.Count} 个 (示例: {loginRegions[0].Name} +{loginRegions[0].Code})");
+        Console.WriteLine(
+            $"  登录支持区域: {loginRegions.Count} 个 (示例: {loginRegions[0].Name} +{loginRegions[0].Code})"
+        );
 
-        DislikePanel? dislikePanel = await TryAsync(
-            "GetDislikePanelAsync",
-            () => client.GetDislikePanelAsync(2, cancellationToken)
+        DislikePanel? dislikePanel = await TryAsync("GetDislikePanelAsync", () =>
+            client.GetDislikePanelAsync(2, cancellationToken)
         );
         PrintCount("  负反馈面板分组", dislikePanel?.Groups.Count);
 
-        EmoticonPage? emoticons = await TryAsync(
-            "GetEmoticonsAsync",
-            () => client.GetEmoticonsAsync(isCollected: false, offset: 0, count: 5, cancellationToken: cancellationToken)
+        EmoticonPage? emoticons = await TryAsync("GetEmoticonsAsync", () =>
+            client.GetEmoticonsAsync(
+                isCollected: false,
+                offset: 0,
+                count: 5,
+                cancellationToken: cancellationToken
+            )
         );
         PrintCount("  热门表情包", emoticons?.Items.Count);
 
-        IReadOnlyList<SearchSuggestion>? suggestions = await TryAsync(
-            "GetSuggestionsAsync",
-            () => client.GetSuggestionsAsync(context.Keyword, 5, cancellationToken)
+        IReadOnlyList<SearchSuggestion>? suggestions = await TryAsync("GetSuggestionsAsync", () =>
+            client.GetSuggestionsAsync(context.Keyword, 5, cancellationToken)
         );
         PrintCount("  联想", suggestions?.Count);
 
-        IReadOnlyList<string>? searchCues = await TryAsync(
-            "GetSearchCuesAsync",
-            () => client.GetSearchCuesAsync(cancellationToken)
+        IReadOnlyList<string>? searchCues = await TryAsync("GetSearchCuesAsync", () =>
+            client.GetSearchCuesAsync(cancellationToken)
         );
         PrintCount("  搜索轮播热词", searchCues?.Count);
         if (searchCues is { Count: > 0 })
@@ -133,9 +140,8 @@ internal static partial class SampleSteps
             Console.WriteLine($"    轮播热词预览: {string.Join(" / ", searchCues.Take(4))}");
         }
 
-        HotSearch? hotSearch = await TryAsync(
-            "GetHotSearchAsync",
-            () => client.GetHotSearchAsync(cancellationToken)
+        HotSearch? hotSearch = await TryAsync("GetHotSearchAsync", () =>
+            client.GetHotSearchAsync(cancellationToken)
         );
         if (hotSearch is not null)
         {
@@ -152,9 +158,8 @@ internal static partial class SampleSteps
             }
         }
 
-        context.Search = await TryAsync(
-            "SearchAsync",
-            () => client.SearchAsync(context.Keyword, cancellationToken)
+        context.Search = await TryAsync("SearchAsync", () =>
+            client.SearchAsync(context.Keyword, cancellationToken)
         );
         if (context.Search is not null)
         {
@@ -174,9 +179,8 @@ internal static partial class SampleSteps
         ];
         if (batchIds.Length > 0)
         {
-            IReadOnlyList<Drama>? batchDramas = await TryAsync(
-                "GetBatchDramaDetailsAsync",
-                () => client.GetBatchDramaDetailsAsync(batchIds, cancellationToken)
+            IReadOnlyList<Drama>? batchDramas = await TryAsync("GetBatchDramaDetailsAsync", () =>
+                client.GetBatchDramaDetailsAsync(batchIds, cancellationToken)
             );
             PrintCount("  批量短剧详情 (图书级)", batchDramas?.Count);
 
@@ -214,13 +218,11 @@ internal static partial class SampleSteps
                 )
         );
         PrintCount("  漫剧推荐", comicDramaRecommendations?.Items.Count);
-        RecommendationPage? aiDramaRecommendations = await TryAsync(
-            "GetRecommendationsAsync",
-            () =>
-                client.GetRecommendationsAsync(
-                    RecommendationGenre.AiDrama,
-                    cancellationToken: cancellationToken
-                )
+        RecommendationPage? aiDramaRecommendations = await TryAsync("GetRecommendationsAsync", () =>
+            client.GetRecommendationsAsync(
+                RecommendationGenre.AiDrama,
+                cancellationToken: cancellationToken
+            )
         );
         PrintCount("  AI短剧推荐", aiDramaRecommendations?.Items.Count);
     }
@@ -238,9 +240,8 @@ internal static partial class SampleSteps
 
         context.Details = selectedDrama is null
             ? null
-            : await TryAsync(
-                "GetDramaDetailsAsync",
-                () => client.GetDramaDetailsAsync(selectedDrama.Id, cancellationToken)
+            : await TryAsync("GetDramaDetailsAsync", () =>
+                client.GetDramaDetailsAsync(selectedDrama.Id, cancellationToken)
             );
 
         context.DramaId = context.Details?.Drama.Id ?? selectedDrama?.Id ?? string.Empty;
@@ -268,8 +269,7 @@ internal static partial class SampleSteps
             "GetDanmakuAsync",
             context.DramaId,
             context.VideoId,
-            (drama, video) =>
-                client.GetDanmakuAsync(drama, video, 0, durationMs, cancellationToken)
+            (drama, video) => client.GetDanmakuAsync(drama, video, 0, durationMs, cancellationToken)
         );
         if (context.Danmaku is not null)
         {
@@ -278,10 +278,8 @@ internal static partial class SampleSteps
             );
         }
 
-        context.Reviews = await TryWhenIdAsync(
-            "GetDramaReviewsAsync",
-            context.DramaId,
-            id => client.GetDramaReviewsAsync(id, 10, cancellationToken: cancellationToken)
+        context.Reviews = await TryWhenIdAsync("GetDramaReviewsAsync", context.DramaId, id =>
+            client.GetDramaReviewsAsync(id, 10, cancellationToken: cancellationToken)
         );
         PrintComments("  剧评", context.Reviews);
 
@@ -299,8 +297,7 @@ internal static partial class SampleSteps
         );
         PrintComments("  分集评论", context.EpisodeComments);
 
-        context.SampleComment =
-            context.EpisodeComments?.Items.FirstOrDefault(c => c.ReplyCount > 0)
+        context.SampleComment = context.EpisodeComments?.Items.FirstOrDefault(c => c.ReplyCount > 0)
             ?? context.Reviews?.Items.FirstOrDefault(c => c.ReplyCount > 0)
             ?? context.EpisodeComments?.Items.FirstOrDefault()
             ?? context.Reviews?.Items.FirstOrDefault();
@@ -329,8 +326,8 @@ internal static partial class SampleSteps
             );
         PrintCount("  评论回复", context.Replies?.Items.Count);
 
-        context.CreditUserId =
-            context.Details?.Drama.Credits.FirstOrDefault()?.User.Id ?? string.Empty;
+        context.CreditUserId = context.Details?.Drama.Credits.FirstOrDefault()?.User.Id
+            ?? string.Empty;
         UserProfile? creditProfile = await TryWhenIdAsync(
             "GetUserProfileAsync(userId)",
             context.CreditUserId,
@@ -340,34 +337,29 @@ internal static partial class SampleSteps
 
         if (context.Details?.Drama.Credits.FirstOrDefault() is { } credit)
         {
-            UserProfile? creditProfileByCredit = await TryAsync(
-                "GetUserProfileAsync(credit)",
-                () => client.GetUserProfileAsync(credit, cancellationToken)
+            UserProfile? creditProfileByCredit = await TryAsync("GetUserProfileAsync(credit)", () =>
+                client.GetUserProfileAsync(credit, cancellationToken)
             );
             PrintProfile(creditProfileByCredit);
         }
 
         string ordinaryUserId = context.FindOrdinaryUserId();
         context.ProfileUserId = ordinaryUserId.Length > 0 ? ordinaryUserId : context.CreditUserId;
-        UserActivityPage? activities = await TryWhenIdAsync(
-            "GetUserActivitiesAsync",
-            context.ProfileUserId,
-            id => client.GetUserActivitiesAsync(id, cancellationToken: cancellationToken)
+        CirclePage? circle = await TryWhenIdAsync("GetUserCircleAsync", context.ProfileUserId, id =>
+            client.GetUserCircleAsync(id, cancellationToken: cancellationToken)
         );
-        PrintCount("  用户动态", activities?.Items.Count);
+        PrintCount("  用户红果圈", circle?.Items.Count);
 
-        if (activities is { HasMore: true, Cursor.Length: > 0 })
+        if (circle is { HasMore: true, Cursor.Length: > 0 })
         {
-            UserActivityPage? nextActivities = await TryAsync(
-                "GetUserActivitiesAsync(next)",
-                () =>
-                    client.GetUserActivitiesAsync(
-                        context.ProfileUserId,
-                        cursor: activities.Cursor,
-                        cancellationToken: cancellationToken
-                    )
+            CirclePage? nextCircle = await TryAsync("GetUserCircleAsync(next)", () =>
+                client.GetUserCircleAsync(
+                    context.ProfileUserId,
+                    cursor: circle.Cursor,
+                    cancellationToken: cancellationToken
+                )
             );
-            PrintCount("  用户动态下一页", nextActivities?.Items.Count);
+            PrintCount("  用户红果圈下一页", nextCircle?.Items.Count);
         }
 
         UserWorkPage? userWorks = await TryWhenIdAsync(
@@ -411,15 +403,13 @@ internal static partial class SampleSteps
         PhoenixReadApiClient client = context.Client;
         CancellationToken cancellationToken = context.CancellationToken;
 
-        context.History = await TryAsync(
-            "GetHistoryAsync",
-            () => client.GetHistoryAsync(cancellationToken: cancellationToken)
+        context.History = await TryAsync("GetHistoryAsync", () =>
+            client.GetHistoryAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  历史", context.History?.Items.Count);
 
-        context.Favorites = await TryAsync(
-            "GetFavoritesAsync",
-            () => client.GetFavoritesAsync(cancellationToken: cancellationToken)
+        context.Favorites = await TryAsync("GetFavoritesAsync", () =>
+            client.GetFavoritesAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  收藏", context.Favorites?.Items.Count);
 
@@ -429,51 +419,50 @@ internal static partial class SampleSteps
         );
         PrintCount("  收藏 ID", favoriteIds?.Ids.Count);
 
-        context.Likes = await TryAsync(
-            "GetLikesAsync",
-            () => client.GetLikesAsync(cancellationToken: cancellationToken)
+        context.Likes = await TryAsync("GetLikesAsync", () =>
+            client.GetLikesAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  点赞剧集", context.Likes?.Items.Count);
 
-        ReservationPage? reservations = await TryAsync(
-            "GetReservationsAsync",
-            () => client.GetReservationsAsync(cancellationToken: cancellationToken)
+        ReservationPage? reservations = await TryAsync("GetReservationsAsync", () =>
+            client.GetReservationsAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  预约", reservations?.Items.Count);
 
-        ReservationPage? calendar = await TryAsync(
-            "GetCalendarAsync",
-            () => client.GetCalendarAsync(cancellationToken: cancellationToken)
+        ReservationPage? calendar = await TryAsync("GetCalendarAsync", () =>
+            client.GetCalendarAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  日历", calendar?.Items.Count);
 
-        ReservationPage? upcomingReservations = await TryAsync(
-            "GetUpcomingReservationsAsync",
-            () => client.GetUpcomingReservationsAsync(cancellationToken: cancellationToken)
+        ReservationPage? upcomingReservations = await TryAsync("GetUpcomingReservationsAsync", () =>
+            client.GetUpcomingReservationsAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  可预约新剧", upcomingReservations?.Items.Count);
 
-        FollowUpdatePage? followUpdates = await TryAsync(
-            "GetFollowUpdatesAsync",
-            () => client.GetFollowUpdatesAsync(cursor: "", count: 5, cancellationToken: cancellationToken)
+        FollowUpdatePage? followUpdates = await TryAsync("GetFollowUpdatesAsync", () =>
+            client.GetFollowUpdatesAsync(cursor: "", count: 5, cancellationToken: cancellationToken)
         );
         PrintCount("  追更短剧", followUpdates?.Items.Count);
 
-        NoticePage? notices = await TryAsync(
-            "GetNoticesAsync",
-            () => client.GetNoticesAsync(cancellationToken: cancellationToken)
+        NoticePage? notices = await TryAsync("GetNoticesAsync", () =>
+            client.GetNoticesAsync(cancellationToken: cancellationToken)
         );
-        Console.WriteLine($"  通知中心: {notices?.Items.Count ?? 0} 条，未读 {notices?.UnreadCount ?? 0} 条");
+        Console.WriteLine(
+            $"  通知中心: {notices?.Items.Count ?? 0} 条，未读 {notices?.UnreadCount ?? 0} 条"
+        );
 
         string sampleActorId = "3974078057440443"; // 黄彦恺
-        UserProfile? actorProfile = await TryAsync(
-            "GetUserProfileAsync",
-            () => client.GetUserProfileAsync(sampleActorId, cancellationToken)
+        UserProfile? actorProfile = await TryAsync("GetUserProfileAsync", () =>
+            client.GetUserProfileAsync(sampleActorId, cancellationToken)
         );
         if (actorProfile is not null)
         {
-            Console.WriteLine($"  演职人员主页: {actorProfile.User.Name} ({string.Join(" | ", actorProfile.CreatorRoles)})");
-            Console.WriteLine($"    红果号: {actorProfile.HongguoId}, 蓝V: {actorProfile.IsVerified}, 粉丝: {actorProfile.FansCount}, 获赞: {actorProfile.LikeCount}");
+            Console.WriteLine(
+                $"  演职人员主页: {actorProfile.User.Name} ({string.Join(" | ", actorProfile.CreatorRoles)})"
+            );
+            Console.WriteLine(
+                $"    红果号: {actorProfile.HongguoId}, 蓝V: {actorProfile.IsVerified}, 粉丝: {actorProfile.FansCount}, 获赞: {actorProfile.LikeCount}"
+            );
             Console.WriteLine($"    首屏作品数: {actorProfile.Works.Count}");
         }
     }
@@ -494,14 +483,12 @@ internal static partial class SampleSteps
             Console.WriteLine($"  分享：{share.Url}");
         }
 
-        ShareLink? parsedShare = RunSync(
-            "ResolveShareLink",
-            () =>
-                client.ResolveShareLink(
-                    share is { Url.Length: > 0 }
-                        ? share.Url
-                        : $"https://hongguoduanju.com/?series_id={context.DramaId}&video_id={context.VideoId}"
-                )
+        ShareLink? parsedShare = RunSync("ResolveShareLink", () =>
+            client.ResolveShareLink(
+                share is { Url.Length: > 0 }
+                    ? share.Url
+                    : $"https://hongguoduanju.com/?series_id={context.DramaId}&video_id={context.VideoId}"
+            )
         );
         if (parsedShare is not null)
         {

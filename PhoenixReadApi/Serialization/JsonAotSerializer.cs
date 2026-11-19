@@ -4,6 +4,7 @@ using System.Text.Json.Serialization.Metadata;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Authentication;
 using PhoenixReadApi.Internal.Contracts.App.Catalog;
+using PhoenixReadApi.Internal.Contracts.App.Circle;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.Comment.Emoticon;
 using PhoenixReadApi.Internal.Contracts.App.Danmaku;
@@ -44,6 +45,35 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppBookmallTabResponse))]
 [JsonSerializable(typeof(AppBusinessParameter))]
 [JsonSerializable(typeof(AppCatalogPayload))]
+[JsonSerializable(typeof(AppCircleFeedData))]
+[JsonSerializable(typeof(AppCircleFeedItem))]
+[JsonSerializable(typeof(AppCircleFeedPayload))]
+[JsonSerializable(typeof(AppCirclePostCommon))]
+[JsonSerializable(typeof(AppCirclePostContent))]
+[JsonSerializable(typeof(AppCirclePostCover))]
+[JsonSerializable(typeof(AppCirclePostData))]
+[JsonSerializable(typeof(AppCirclePostDetailPayload))]
+[JsonSerializable(typeof(AppCirclePostExpand))]
+[JsonSerializable(typeof(AppCirclePostImageItem))]
+[JsonSerializable(typeof(AppCirclePostItem))]
+[JsonSerializable(typeof(AppCirclePostMaterial))]
+[JsonSerializable(typeof(AppCirclePostMaterialContainer))]
+[JsonSerializable(typeof(AppCirclePostMaterialData))]
+[JsonSerializable(typeof(AppCirclePostStat))]
+[JsonSerializable(typeof(AppCirclePostTextExt))]
+[JsonSerializable(typeof(AppCirclePostTopicTag))]
+[JsonSerializable(typeof(AppCirclePostUserAction))]
+[JsonSerializable(typeof(AppCircleRelatedDrama))]
+[JsonSerializable(typeof(AppCircleVideoBizParam))]
+[JsonSerializable(typeof(AppCircleVideoCommon))]
+[JsonSerializable(typeof(AppCircleVideoDetailData))]
+[JsonSerializable(typeof(AppCircleVideoDetailDataContainer))]
+[JsonSerializable(typeof(AppCircleVideoDetailPayload))]
+[JsonSerializable(typeof(AppCircleVideoExpand))]
+[JsonSerializable(typeof(AppCircleVideoItem))]
+[JsonSerializable(typeof(AppCircleVideoListItem))]
+[JsonSerializable(typeof(AppCircleVideoStat))]
+[JsonSerializable(typeof(AppCircleVideoSubDetail))]
 [JsonSerializable(typeof(AppCollectEmoticonPayload))]
 [JsonSerializable(typeof(AppCommentActionPayload))]
 [JsonSerializable(typeof(AppCommentAddCommentInfo))]
@@ -181,6 +211,9 @@ namespace PhoenixReadApi.Internal.Serialization;
 // ============================================================================
 [JsonSerializable(typeof(AppResponse<AppAlbumData>))]
 [JsonSerializable(typeof(AppResponse<AppCatalogData>))]
+[JsonSerializable(typeof(AppResponse<AppCircleFeedData>))]
+[JsonSerializable(typeof(AppResponse<AppCirclePostData>))]
+[JsonSerializable(typeof(AppResponse<AppCircleVideoDetailData>))]
 [JsonSerializable(typeof(AppResponse<AppCommentAddData>))]
 [JsonSerializable(typeof(AppResponse<AppCommentListData>))]
 [JsonSerializable(typeof(AppResponse<AppCommonAbResultData>))]

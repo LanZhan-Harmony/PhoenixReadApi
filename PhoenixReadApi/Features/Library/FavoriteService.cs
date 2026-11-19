@@ -7,7 +7,7 @@ using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Features.Library;
 
-using Drama = global::PhoenixReadApi.Drama;
+using Drama = PhoenixReadApi.Drama;
 
 /// <summary>剧集收藏列表以及收藏和取消收藏操作。</summary>
 internal sealed class FavoriteService : LibraryServiceBase

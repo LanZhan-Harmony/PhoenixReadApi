@@ -14,18 +14,102 @@ internal sealed class AuthenticationService : PhoenixFeatureService
 {
     private static readonly IReadOnlyList<LoginRegion> s_defaultRegions =
     [
-        new() { Name = "中国大陆", Code = "86", Iso = "CN", MinLength = 11, MaxLength = 11 },
-        new() { Name = "中国香港", Code = "852", Iso = "HK", MinLength = 8, MaxLength = 8 },
-        new() { Name = "中国澳门", Code = "853", Iso = "MO", MinLength = 8, MaxLength = 8 },
-        new() { Name = "中国台湾", Code = "886", Iso = "TW", MinLength = 9, MaxLength = 10 },
-        new() { Name = "美国", Code = "1", Iso = "US", MinLength = 10, MaxLength = 10 },
-        new() { Name = "加拿大", Code = "1", Iso = "CA", MinLength = 10, MaxLength = 10 },
-        new() { Name = "新加坡", Code = "65", Iso = "SG", MinLength = 8, MaxLength = 12 },
-        new() { Name = "马来西亚", Code = "60", Iso = "MY", MinLength = 9, MaxLength = 11 },
-        new() { Name = "日本", Code = "81", Iso = "JP", MinLength = 10, MaxLength = 11 },
-        new() { Name = "韩国", Code = "82", Iso = "KR", MinLength = 9, MaxLength = 11 },
-        new() { Name = "英国", Code = "44", Iso = "GB", MinLength = 10, MaxLength = 11 },
-        new() { Name = "澳大利亚", Code = "61", Iso = "AU", MinLength = 9, MaxLength = 10 },
+        new()
+        {
+            Name = "中国大陆",
+            Code = "86",
+            Iso = "CN",
+            MinLength = 11,
+            MaxLength = 11,
+        },
+        new()
+        {
+            Name = "中国香港",
+            Code = "852",
+            Iso = "HK",
+            MinLength = 8,
+            MaxLength = 8,
+        },
+        new()
+        {
+            Name = "中国澳门",
+            Code = "853",
+            Iso = "MO",
+            MinLength = 8,
+            MaxLength = 8,
+        },
+        new()
+        {
+            Name = "中国台湾",
+            Code = "886",
+            Iso = "TW",
+            MinLength = 9,
+            MaxLength = 10,
+        },
+        new()
+        {
+            Name = "美国",
+            Code = "1",
+            Iso = "US",
+            MinLength = 10,
+            MaxLength = 10,
+        },
+        new()
+        {
+            Name = "加拿大",
+            Code = "1",
+            Iso = "CA",
+            MinLength = 10,
+            MaxLength = 10,
+        },
+        new()
+        {
+            Name = "新加坡",
+            Code = "65",
+            Iso = "SG",
+            MinLength = 8,
+            MaxLength = 12,
+        },
+        new()
+        {
+            Name = "马来西亚",
+            Code = "60",
+            Iso = "MY",
+            MinLength = 9,
+            MaxLength = 11,
+        },
+        new()
+        {
+            Name = "日本",
+            Code = "81",
+            Iso = "JP",
+            MinLength = 10,
+            MaxLength = 11,
+        },
+        new()
+        {
+            Name = "韩国",
+            Code = "82",
+            Iso = "KR",
+            MinLength = 9,
+            MaxLength = 11,
+        },
+        new()
+        {
+            Name = "英国",
+            Code = "44",
+            Iso = "GB",
+            MinLength = 10,
+            MaxLength = 11,
+        },
+        new()
+        {
+            Name = "澳大利亚",
+            Code = "61",
+            Iso = "AU",
+            MinLength = 9,
+            MaxLength = 10,
+        },
     ];
 
     private AuthenticatedUser _user = new();
@@ -37,14 +121,6 @@ internal sealed class AuthenticationService : PhoenixFeatureService
     }
 
     internal IReadOnlyList<LoginRegion> GetLoginRegions() => s_defaultRegions;
-
-    internal Task<IReadOnlyList<LoginRegion>> GetLoginRegionsAsync(
-        CancellationToken cancellationToken
-    )
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(s_defaultRegions);
-    }
 
     internal async Task<VerificationCodeResult> SendVerificationCodeAsync(
         string phone,
@@ -234,9 +310,10 @@ internal sealed class AuthenticationService : PhoenixFeatureService
 
         long rawExpiry = data.ExpireTime;
         long nowSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        int expiresInSeconds = rawExpiry > 1_000_000_000
-            ? (int)Math.Max(0, Math.Min(600, rawExpiry - nowSeconds))
-            : (int)Math.Max(0, Math.Min(600, rawExpiry > 0 ? rawExpiry : 180));
+        int expiresInSeconds =
+            rawExpiry > 1_000_000_000
+                ? (int)Math.Max(0, Math.Min(600, rawExpiry - nowSeconds))
+                : (int)Math.Max(0, Math.Min(600, rawExpiry > 0 ? rawExpiry : 180));
 
         return new QrCodeLoginSession
         {
@@ -261,10 +338,7 @@ internal sealed class AuthenticationService : PhoenixFeatureService
         WebPassportResponse<WebQrStatusData> response = await _appTransport
             .GetWebPassportJsonAsync<WebQrStatusData>(
                 "/passport/web/check_qrconnect/",
-                [
-                    new("next", "https://hongguoduanju.com/"),
-                    new("token", token),
-                ],
+                [new("next", "https://hongguoduanju.com/"), new("token", token)],
                 cancellationToken
             )
             .ConfigureAwait(false);
@@ -298,31 +372,25 @@ internal sealed class AuthenticationService : PhoenixFeatureService
                 )
                 .ConfigureAwait(false);
             WebPassportAccountInfoData profile = profileResponse.Data ?? new();
-            string userId = !string.IsNullOrWhiteSpace(profile.UserIdStr)
-                ? profile.UserIdStr
-                : profile.UserId > 0
-                    ? profile.UserId.ToString(CultureInfo.InvariantCulture)
-                    : string.Empty;
+            string userId =
+                !string.IsNullOrWhiteSpace(profile.UserIdStr) ? profile.UserIdStr
+                : profile.UserId > 0 ? profile.UserId.ToString(CultureInfo.InvariantCulture)
+                : string.Empty;
 
             _user = new AuthenticatedUser
             {
                 Id = userId,
-                Name = !string.IsNullOrWhiteSpace(profile.Name)
-                    ? profile.Name
-                    : !string.IsNullOrWhiteSpace(profile.ScreenName)
-                        ? profile.ScreenName
-                        : "红果用户",
+                Name =
+                    !string.IsNullOrWhiteSpace(profile.Name) ? profile.Name
+                    : !string.IsNullOrWhiteSpace(profile.ScreenName) ? profile.ScreenName
+                    : "红果用户",
                 AvatarUrl = profile.AvatarUrl,
                 Description = string.Empty,
                 MaskedPhone = string.Empty,
             };
             _appTransport.SaveAuthenticatedUser(_user);
 
-            return new QrCodeCheckResult
-            {
-                Status = QrCodeLoginStatus.Confirmed,
-                User = _user,
-            };
+            return new QrCodeCheckResult { Status = QrCodeLoginStatus.Confirmed, User = _user };
         }
 
         return new QrCodeCheckResult { Status = QrCodeLoginStatus.WaitingForScan };

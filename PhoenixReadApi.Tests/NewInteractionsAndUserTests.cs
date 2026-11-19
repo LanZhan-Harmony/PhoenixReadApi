@@ -20,17 +20,15 @@ public sealed class NewInteractionsAndUserTests
         await Assert.That(cn.IsoCode).IsEqualTo("CN");
         await Assert.That(cn.MinLength).IsEqualTo(11);
         await Assert.That(cn.MaxLength).IsEqualTo(11);
-
-        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-        IReadOnlyList<LoginRegion> asyncRegions = await SharedScenario.Client.GetLoginRegionsAsync(timeout.Token);
-        await Assert.That(asyncRegions.Count).IsEqualTo(regions.Count);
     }
 
     [Test, NotInParallel("phoenix-read-api")]
     public async Task TestDislikePanelAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-        DislikePanel panel = await SharedScenario.Client.GetDislikePanelAsync(cancellationToken: timeout.Token);
+        DislikePanel panel = await SharedScenario.Client.GetDislikePanelAsync(
+            cancellationToken: timeout.Token
+        );
 
         await Assert.That(panel).IsNotNull();
         await Assert.That(panel.CardType).IsEqualTo(2);
@@ -86,7 +84,9 @@ public sealed class NewInteractionsAndUserTests
         await Assert.That(updates.Items).IsNotNull();
 
         // 检查通知中心
-        IReadOnlyList<NoticeItem> newNotices = await SharedScenario.Client.CheckNoticesAsync(timeout.Token);
+        IReadOnlyList<NoticeItem> newNotices = await SharedScenario.Client.CheckNoticesAsync(
+            timeout.Token
+        );
         await Assert.That(newNotices).IsNotNull();
 
         NoticePage notices = await SharedScenario.Client.GetNoticesAsync(timeout.Token);
@@ -95,7 +95,10 @@ public sealed class NewInteractionsAndUserTests
         await Assert.That(notices.UnreadCount >= 0).IsTrue();
 
         // 检查未追更的短剧状态
-        bool isFollowing = await SharedScenario.Client.IsFollowingUpdateAsync("7699833115866303550", timeout.Token);
+        bool isFollowing = await SharedScenario.Client.IsFollowingUpdateAsync(
+            "7699833115866303550",
+            timeout.Token
+        );
         await Assert.That(isFollowing).IsFalse();
     }
 
@@ -105,7 +108,10 @@ public sealed class NewInteractionsAndUserTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         // 黄彦恺
         string actorUserId = "3974078057440443";
-        UserProfile profile = await SharedScenario.Client.GetUserProfileAsync(actorUserId, timeout.Token);
+        UserProfile profile = await SharedScenario.Client.GetUserProfileAsync(
+            actorUserId,
+            timeout.Token
+        );
 
         await Assert.That(profile).IsNotNull();
         await Assert.That(profile.User.Id).IsEqualTo(actorUserId);
@@ -114,7 +120,9 @@ public sealed class NewInteractionsAndUserTests
         await Assert.That(profile.IsCreator).IsTrue();
         await Assert.That(profile.HongguoId).IsEqualTo("Huangyankia");
         await Assert.That(profile.CreatorRoles.Count > 0).IsTrue();
-        await Assert.That(profile.CreatorRoles.Contains("男演员") || profile.CreatorRoles.Contains("导演")).IsTrue();
+        await Assert
+            .That(profile.CreatorRoles.Contains("男演员") || profile.CreatorRoles.Contains("导演"))
+            .IsTrue();
         await Assert.That(profile.FansCount >= 0).IsTrue();
         await Assert.That(profile.FollowCount >= 0).IsTrue();
         await Assert.That(profile.LikeCount >= 0).IsTrue();

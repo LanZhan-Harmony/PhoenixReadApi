@@ -1,4 +1,4 @@
-﻿namespace PhoenixReadApi.Tests.Common;
+namespace PhoenixReadApi.Tests.Common;
 
 /// <summary>
 /// 测试套件共享的客户端上下文、场景数据缓存和全属性校验辅助方法。
@@ -24,7 +24,16 @@ public static class SharedScenario
     /// <summary>如果存在本地开发环境的会话文件，获取带登录态的测试客户端。</summary>
     public static PhoenixReadApiClient? TryGetAuthenticatedClient()
     {
-        string candidate = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "PhoenixReadApi.Sample", ".auth", "phone-session.json");
+        string candidate = Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "PhoenixReadApi.Sample",
+            ".auth",
+            "phone-session.json"
+        );
         string fullPath = Path.GetFullPath(candidate);
         if (File.Exists(fullPath))
         {
@@ -52,8 +61,9 @@ public static class SharedScenario
         new(TimeSpan.FromMinutes(minutes));
 
     /// <summary>获取全局复用的有效剧集场景。</summary>
-    public static async Task<TestDramaScenario> GetScenarioAsync(CancellationToken cancellationToken) =>
-        await ScenarioTask.Value.WaitAsync(cancellationToken);
+    public static async Task<TestDramaScenario> GetScenarioAsync(
+        CancellationToken cancellationToken
+    ) => await ScenarioTask.Value.WaitAsync(cancellationToken);
 
     private static async Task<TestDramaScenario> CreateScenarioAsync()
     {
@@ -76,12 +86,13 @@ public static class SharedScenario
             selected = catalog.FirstOrDefault(IsValidDramaItem);
         }
 
-        Drama selectedDrama =
-            selected ?? throw new InvalidOperationException("搜索和剧库都没有返回可用剧集以供初始化测试场景。");
+        Drama selectedDrama = selected
+            ?? throw new InvalidOperationException(
+                "搜索和剧库都没有返回可用剧集以供初始化测试场景。"
+            );
 
         DramaDetails details = await Client.GetDramaDetailsAsync(selectedDrama.Id, timeout.Token);
-        Episode episode =
-            details.Episodes.FirstOrDefault(IsValidEpisodeItem)
+        Episode episode = details.Episodes.FirstOrDefault(IsValidEpisodeItem)
             ?? throw new InvalidOperationException("剧集详情没有返回可用分集。");
 
         DramaCredit? credit = details.Drama.Credits.FirstOrDefault(item =>
@@ -259,15 +270,41 @@ public static class SharedScenario
         await Assert.That(entry.UpdatedAtUnixMilliseconds >= 0).IsTrue();
     }
 
-    public static async Task AssertValidUserActivity(UserActivity? activity)
+    public static async Task AssertValidCircleItem(CircleItem? item)
     {
-        await Assert.That(activity).IsNotNull();
-        await Assert.That(activity!.Id).IsNotNull();
-        await Assert.That(activity.Text).IsNotNull();
-        await Assert.That(activity.CoverUrl).IsNotNull();
-        await Assert.That(activity.CreatedAtUnixSeconds >= 0).IsTrue();
-        await Assert.That(activity.LikeCount >= 0).IsTrue();
-        await Assert.That(activity.ViewCount >= 0).IsTrue();
+        await Assert.That(item).IsNotNull();
+        await Assert.That(item!.Id).IsNotNull();
+        await Assert.That(item.Title).IsNotNull();
+        await Assert.That(item.Text).IsNotNull();
+        await Assert.That(item.CoverUrl).IsNotNull();
+        await Assert.That(item.CreatedAtUnixSeconds >= 0).IsTrue();
+        await Assert.That(item.LikeCount >= 0).IsTrue();
+        await Assert.That(item.CommentCount >= 0).IsTrue();
+        await Assert.That(item.ViewCount >= 0).IsTrue();
+    }
+
+    public static async Task AssertValidCirclePost(CirclePost? post)
+    {
+        await Assert.That(post).IsNotNull();
+        await Assert.That(post!.Id).IsNotNull();
+        await Assert.That(post.Title).IsNotNull();
+        await Assert.That(post.PureText).IsNotNull();
+        await Assert.That(post.Images).IsNotNull();
+        await Assert.That(post.Topics).IsNotNull();
+        await Assert.That(post.LikeCount >= 0).IsTrue();
+        await Assert.That(post.CommentCount >= 0).IsTrue();
+    }
+
+    public static async Task AssertValidCircleVideo(CircleVideo? video)
+    {
+        await Assert.That(video).IsNotNull();
+        await Assert.That(video!.VideoId).IsNotNull();
+        await Assert.That(video.Title).IsNotNull();
+        await Assert.That(video.Description).IsNotNull();
+        await Assert.That(video.CoverUrl).IsNotNull();
+        await Assert.That(video.DurationSeconds >= 0).IsTrue();
+        await Assert.That(video.PlayCount >= 0).IsTrue();
+        await Assert.That(video.LikeCount >= 0).IsTrue();
     }
 
     public static async Task AssertValidUserPageInfo(UserPageInfo? pageInfo)
