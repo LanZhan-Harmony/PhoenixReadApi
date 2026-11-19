@@ -1,13 +1,14 @@
 using System.Globalization;
 using PhoenixReadApi.Internal.Contracts.App;
-using PhoenixReadApi.Internal.Contracts.App.Library;
+using PhoenixReadApi.Internal.Contracts.App.Share;
+using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
 
-namespace PhoenixReadApi.Internal.Features.Library;
+namespace PhoenixReadApi.Internal.Features.Share;
 
 /// <summary>分享链接生成与解析。</summary>
-internal sealed class ShareService : LibraryServiceBase
+internal sealed class ShareService : PhoenixFeatureService
 {
     internal ShareService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
@@ -81,5 +82,36 @@ internal sealed class ShareService : LibraryServiceBase
             DramaId = ValueNormalizer.IsNumericId(dramaId) ? dramaId : string.Empty,
             VideoId = ValueNormalizer.IsNumericId(videoId) ? videoId : string.Empty,
         };
+    }
+
+    private static Dictionary<string, string> ParseQuery(string query)
+    {
+        Dictionary<string, string> values = [with(StringComparer.OrdinalIgnoreCase)];
+        foreach (
+            string item in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+        )
+        {
+            string[] parts = item.Split('=', 2);
+            if (parts.Length == 2)
+            {
+                values[Uri.UnescapeDataString(parts[0])] = Uri.UnescapeDataString(parts[1]);
+            }
+        }
+        return values;
+    }
+
+    private static string FirstQuery(
+        IReadOnlyDictionary<string, string> values,
+        params string[] names
+    )
+    {
+        foreach (string name in names)
+        {
+            if (values.TryGetValue(name, out string? value) && value.Length > 0)
+            {
+                return value;
+            }
+        }
+        return string.Empty;
     }
 }

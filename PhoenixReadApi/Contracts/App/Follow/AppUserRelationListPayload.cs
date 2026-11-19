@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace PhoenixReadApi.Internal.Contracts.App.User;
+namespace PhoenixReadApi.Internal.Contracts.App.Follow;
 
 internal sealed class AppUserRelationListPayload
 {

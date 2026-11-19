@@ -10,6 +10,9 @@ internal sealed class AppCommentListData
 
     [JsonPropertyName("common_list_info")]
     public AppCommentListInfo ListInfo { get; init; } = new();
+
+    [JsonPropertyName("extra")]
+    public AppCommentListExtra Extra { get; init; } = new();
 }
 
 internal sealed class AppCommentListInfo
@@ -151,8 +154,89 @@ internal sealed class AppCommentExpand
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string BookId { get; init; } = string.Empty;
 
+    [JsonPropertyName("score")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int Score { get; init; }
+
+    [JsonPropertyName("score_suffix_text")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ScoreSuffixText { get; init; } = string.Empty;
+
+    [JsonPropertyName("book_info")]
+    public AppCommentExpandBookInfo BookInfo { get; init; } = new();
+
     [JsonPropertyName("image_list")]
     public IReadOnlyList<AppCommentImageDto> ImageList { get; init; } = [];
+}
+
+internal sealed class AppCommentExpandBookInfo
+{
+    [JsonPropertyName("book_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookId { get; init; } = string.Empty;
+
+    [JsonPropertyName("book_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookName { get; init; } = string.Empty;
+
+    [JsonPropertyName("author")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Author { get; init; } = string.Empty;
+
+    [JsonPropertyName("abstract")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Abstract { get; init; } = string.Empty;
+
+    [JsonPropertyName("thumb_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ThumbUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("serial_count")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int SerialCount { get; init; }
+
+    [JsonPropertyName("tags")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Tags { get; init; } = string.Empty;
+}
+
+internal sealed class AppCommentListExtra
+{
+    [JsonPropertyName("credibility_score")]
+    [JsonConverter(typeof(FlexibleDoubleConverter))]
+    public double CredibilityScore { get; init; }
+
+    [JsonPropertyName("credibility_score_count")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long CredibilityScoreCount { get; init; }
+
+    [JsonPropertyName("ai_summary")]
+    public AppCommentListAiSummary AiSummary { get; init; } = new();
+}
+
+internal sealed class AppCommentListAiSummary
+{
+    [JsonPropertyName("summary_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string SummaryId { get; init; } = string.Empty;
+
+    [JsonPropertyName("overall_summary")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string OverallSummary { get; init; } = string.Empty;
+
+    [JsonPropertyName("items")]
+    public IReadOnlyList<AppCommentListAiSummaryItem> Items { get; init; } = [];
+}
+
+internal sealed class AppCommentListAiSummaryItem
+{
+    [JsonPropertyName("dimension")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Dimension { get; init; } = string.Empty;
+
+    [JsonPropertyName("sub_comment")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string SubComment { get; init; } = string.Empty;
 }
 
 internal sealed class AppCommentStat

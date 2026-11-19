@@ -10,6 +10,8 @@ namespace PhoenixReadApi.Internal.Features.User;
 
 using Drama = PhoenixReadApi.Drama;
 using User = PhoenixReadApi.User;
+using UserReview = PhoenixReadApi.UserReview;
+using UserWork = PhoenixReadApi.UserWork;
 
 /// <summary>加载任意公开账号的主页及其公开内容。</summary>
 internal sealed class UserService : PhoenixFeatureService
@@ -82,7 +84,7 @@ internal sealed class UserService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         AppUserProfileData? data = response.Data;
-        IReadOnlyList<Drama> items = MapWorks(data);
+        IReadOnlyList<UserWork> items = MapWorks(data);
         long total = TabTotal(data, 23);
         if (total == 0)
         {
@@ -102,112 +104,7 @@ internal sealed class UserService : PhoenixFeatureService
         };
     }
 
-    internal Task<UserRelationPage> GetFollowersAsync(
-        string userId,
-        string cursor,
-        int count,
-        CancellationToken cancellationToken
-    ) => LoadRelationListAsync(userId, 1508, cursor, count, cancellationToken);
-
-    internal Task<UserRelationPage> GetFollowingsAsync(
-        string userId,
-        string cursor,
-        int count,
-        CancellationToken cancellationToken
-    ) => LoadRelationListAsync(userId, 1507, cursor, count, cancellationToken);
-
-    private async Task<UserRelationPage> LoadRelationListAsync(
-        string userId,
-        int commentSource,
-        string cursor,
-        int count,
-        CancellationToken cancellationToken
-    )
-    {
-        userId = NormalizeUserId(userId);
-        ValidateCount(count);
-        cursor = NormalizeCursor(cursor);
-
-        AppUserRelationListPayload payload = new()
-        {
-            Count = count,
-            CommentSource = commentSource,
-            TargetUserId = userId,
-            Cursor = cursor.Length > 0 ? cursor : null,
-        };
-
-        AppResponse<AppUserRelationListData> response = await _appTransport
-            .PostAsync<AppUserRelationListPayload, AppUserRelationListData>(
-                "/novel/commentapi/relation/list/" + userId + "/v1",
-                payload,
-                commentRequest: true,
-                cancellationToken: cancellationToken,
-                commentSource: commentSource,
-                serverChannel: null
-            )
-            .ConfigureAwait(false);
-
-        AppUserRelationListData? data = response.Data;
-        List<UserRelationItem> items = [];
-        HashSet<string> seen = [with(StringComparer.Ordinal)];
-
-        foreach (AppUserRelationUgcUser? ugc in data?.Users ?? [])
-        {
-            if (ugc is null)
-            {
-                continue;
-            }
-
-            string id = ValueNormalizer.First(ugc.UserId, ugc.BaseInfo?.UserId).Trim();
-            if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
-            {
-                continue;
-            }
-
-            AppUgcUserBaseInfo baseInfo = ugc.BaseInfo ?? new();
-            AppUgcUserRelation relation = ugc.UserRelation ?? new();
-            AppUgcUserTag tag = ugc.UserTag ?? new();
-
-            IReadOnlyList<string> roles =
-            [
-                .. (tag.SubTitleList ?? [])
-                    .Where(static s => s is not null && !string.IsNullOrWhiteSpace(s.Text))
-                    .Select(static s => s.Text.Trim())
-                    .Distinct(StringComparer.Ordinal),
-            ];
-
-            bool isCreator = (tag.CreatorTypesFull?.Count ?? 0) > 0 || roles.Count > 0;
-
-            items.Add(
-                new UserRelationItem
-                {
-                    User = new User
-                    {
-                        Id = id,
-                        Name = ValueNormalizer.First(baseInfo.UserName, id),
-                        Introduction = baseInfo.Description ?? string.Empty,
-                        AvatarUrl = baseInfo.UserAvatar,
-                    },
-                    Gender = baseInfo.Gender,
-                    IsVerified = tag.IsBlueVip,
-                    IsCreator = isCreator,
-                    CreatorRoles = roles,
-                    CanFollow = relation.CanFollow,
-                    IsFollowing = relation.RelationType is 2 or 4,
-                }
-            );
-        }
-
-        return new UserRelationPage
-        {
-            Items = items,
-            Cursor = data?.ListInfo?.Cursor ?? string.Empty,
-            HasMore = data?.ListInfo?.HasMore ?? false,
-            IsPrivacyProtected = data?.IsPrivacyOn ?? false,
-        };
-    }
-
-    internal async Task<UserDramaPage> GetCollectionsAsync(
+    internal async Task<DramaPage> GetFavoritesAsync(
         string userId,
         int count,
         int offset,
@@ -224,9 +121,9 @@ internal sealed class UserService : PhoenixFeatureService
                 cancellationToken
             )
             .ConfigureAwait(false);
-        return new UserDramaPage
+        return new DramaPage
         {
-            Items = MapCollections(data),
+            Items = MapFavorites(data),
             NextOffset = data?.NextOffset ?? offset,
             HasMore = data?.HasMore ?? false,
             Total = data?.Total ?? 0,
@@ -388,7 +285,7 @@ internal sealed class UserService : PhoenixFeatureService
             || actorRoles.Any(static r => r.Contains("演员", StringComparison.OrdinalIgnoreCase))
             || worksTabType != 0;
 
-        IReadOnlyList<Drama> works = MapWorks(worksData);
+        IReadOnlyList<UserWork> works = MapWorks(worksData);
         long worksTotal = worksTabType != 0 ? TabTotal(metadata, worksTabType) : 0;
 
         string bgCover = ValueNormalizer.First(ugc?.BgCover, ugcResponse?.Data?.BgCover);
@@ -434,7 +331,7 @@ internal sealed class UserService : PhoenixFeatureService
                 HasMore = worksData?.ListInfo?.HasMore ?? false,
                 Total = worksTotal,
             },
-            Collections = MapCollections(collections),
+            Collections = MapFavorites(collections),
             CollectionsPage = new UserPageInfo
             {
                 NextOffset = collections?.NextOffset ?? 0,
@@ -554,41 +451,42 @@ internal sealed class UserService : PhoenixFeatureService
         return response.Data;
     }
 
-    private static IReadOnlyList<Drama> MapWorks(AppUserProfileData? data)
+    private static IReadOnlyList<UserWork> MapWorks(AppUserProfileData? data)
     {
         if (data is null)
         {
             return [];
         }
 
-        List<Drama> result = [];
+        List<UserWork> result = [];
         HashSet<string> seen = [with(StringComparer.Ordinal)];
         foreach (AppUserWorkRecord? record in data.Items ?? [])
         {
-            if (record?.Video is null)
+            if (record is null)
             {
                 continue;
             }
 
-            string id = record.Video.Id.Trim();
-            if (!ValueNormalizer.IsNumericId(id) || !seen.Add(id))
+            if (record.Video is not null && !string.IsNullOrWhiteSpace(record.Video.Id))
             {
-                continue;
-            }
+                string id = record.Video.Id.Trim();
+                if (!ValueNormalizer.IsNumericId(id) || !seen.Add("v:" + id))
+                {
+                    continue;
+                }
 
-            AppUserVideoCommon common = record.Video.Common;
-            IReadOnlyList<string> tags = record
-                .Video.Expand?.SubTitleList?.Select(static s => s.Text)
-                .Where(static s => !string.IsNullOrWhiteSpace(s))
-                .ToList()
-                ?? [];
+                AppUserVideoCommon common = record.Video.Common;
+                IReadOnlyList<string> tags = record
+                    .Video.Expand?.SubTitleList?.Select(static s => s.Text)
+                    .Where(static s => !string.IsNullOrWhiteSpace(s))
+                    .ToList()
+                    ?? [];
 
-            long hot = record.Video.Stat?.Hot ?? 0;
-            long viewCount = record.Video.Stat?.ViewCount ?? 0;
-            long followCount = record.Video.Stat?.FollowedCount ?? 0;
+                long hot = record.Video.Stat?.Hot ?? 0;
+                long viewCount = record.Video.Stat?.ViewCount ?? 0;
+                long followCount = record.Video.Stat?.FollowedCount ?? 0;
 
-            result.Add(
-                new Drama
+                Drama drama = new Drama
                 {
                     Id = id,
                     Title = ValueNormalizer.First(common.Title, id),
@@ -600,14 +498,70 @@ internal sealed class UserService : PhoenixFeatureService
                     Views = viewCount > 0 ? ValueNormalizer.FormatCount(viewCount) : string.Empty,
                     PlayCount = Math.Max(0, viewCount),
                     FollowCount = Math.Max(0, followCount),
+                };
+
+                result.Add(drama);
+                continue;
+            }
+
+            if (record.Comment is not null && !string.IsNullOrWhiteSpace(record.Comment.Id))
+            {
+                string id = record.Comment.Id.Trim();
+                if (!ValueNormalizer.IsNumericId(id) || !seen.Add("c:" + id))
+                {
+                    continue;
                 }
-            );
+
+                AppComment comment = record.Comment;
+                AppCommentExpand expand = comment.Expand ?? new();
+                AppCommentStat stat = comment.Stat ?? new();
+                AppCommentExpandBookInfo bookInfo = expand.BookInfo ?? new();
+
+                string dramaId = ValueNormalizer.First(
+                    bookInfo.BookId,
+                    expand.BookId,
+                    comment.Common?.GroupId
+                );
+                IReadOnlyList<string> dramaTags = !string.IsNullOrWhiteSpace(bookInfo.Tags)
+                    ? [
+                        .. bookInfo.Tags.Split(
+                            ',',
+                            StringSplitOptions.RemoveEmptyEntries
+                                | StringSplitOptions.TrimEntries
+                        ),
+                    ]
+                    : [];
+
+                Drama reviewedDrama = new Drama
+                {
+                    Id = dramaId,
+                    Title = ValueNormalizer.First(bookInfo.BookName, dramaId),
+                    Description = bookInfo.Abstract,
+                    CoverUrl = bookInfo.ThumbUrl,
+                    EpisodeCount = Math.Max(0, bookInfo.SerialCount),
+                    Tags = dramaTags,
+                };
+
+                UserReview userReview = new UserReview
+                {
+                    Id = id,
+                    Drama = reviewedDrama,
+                    Content = comment.Common?.Content?.Text ?? string.Empty,
+                    Rating = expand.Score,
+                    RatingText = expand.ScoreSuffixText,
+                    LikeCount = Math.Max(0, stat.LikeCount),
+                    ReplyCount = Math.Max(0, stat.ReplyCount),
+                    CreatedAtUnixSeconds = comment.Common?.CreatedAt ?? 0,
+                };
+
+                result.Add(userReview);
+            }
         }
 
         return result;
     }
 
-    private static IReadOnlyList<Drama> MapCollections(AppUserShelfData? data)
+    private static IReadOnlyList<Drama> MapFavorites(AppUserShelfData? data)
     {
         if (data is null)
         {
@@ -713,22 +667,6 @@ internal sealed class UserService : PhoenixFeatureService
         }
 
         return 0;
-    }
-
-    private static string NormalizeUserId(string userId)
-    {
-        if (string.IsNullOrWhiteSpace(userId))
-        {
-            throw new ArgumentException("账号 ID 不能为空。", nameof(userId));
-        }
-
-        string trimmed = userId.Trim();
-        if (!ValueNormalizer.IsNumericId(trimmed))
-        {
-            throw new ArgumentException("账号 ID 必须是由数字构成的字符串。", nameof(userId));
-        }
-
-        return trimmed;
     }
 
     private static void ValidateCount(int count)

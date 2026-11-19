@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace PhoenixReadApi.Internal.Contracts.App.Library;
+namespace PhoenixReadApi.Internal.Contracts.App.Share;
 
 internal sealed class AppShareData
 {

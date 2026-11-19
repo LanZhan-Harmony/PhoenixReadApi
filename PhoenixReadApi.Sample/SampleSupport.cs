@@ -21,7 +21,7 @@ internal sealed class SampleContext
     public IReadOnlyList<PlaybackMedia>? Medias { get; set; }
     public PlaybackMedia? Media => Medias?.FirstOrDefault();
     public DanmakuPage? Danmaku { get; set; }
-    public CommentPage? Reviews { get; set; }
+    public DramaReviewPage? Reviews { get; set; }
     public CommentPage? EpisodeComments { get; set; }
     public Comment? SampleComment { get; set; }
     public CommentReplyPage? Replies { get; set; }
@@ -184,6 +184,21 @@ internal static partial class SampleSteps
                 Console.WriteLine(
                     $"    - [{m.Definition}] {m.QualityName} ({m.Codec}) {m.Width}x{m.Height} 码率:{m.Bitrate}b/s 大小:{m.Size}B 直链:{m.Url[..Math.Min(40, m.Url.Length)]}..."
                 );
+            }
+        }
+    }
+
+    private static void PrintReviews(string label, DramaReviewPage? page)
+    {
+        if (page is not null)
+        {
+            int imageCommentCount = page.Items.Count(static c => c.Images.Count > 0);
+            Console.WriteLine(
+                $"{label}：{page.Items.Count}/{page.Total}，HasMore={page.HasMore}，评分={page.DramaScore?.ToString("F1") ?? "无"}，打分人数={page.ScoreCount}，含附图数={imageCommentCount}"
+            );
+            if (page.AiSummary is not null)
+            {
+                Console.WriteLine($"  AI综评：{page.AiSummary.OverallSummary}");
             }
         }
     }

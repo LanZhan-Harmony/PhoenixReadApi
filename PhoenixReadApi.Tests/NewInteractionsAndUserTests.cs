@@ -129,9 +129,16 @@ public sealed class NewInteractionsAndUserTests
         await Assert.That(profile.Works).IsNotNull();
         await Assert.That(profile.Works.Count > 0).IsTrue();
 
-        foreach (Drama drama in profile.Works)
+        foreach (UserWork work in profile.Works)
         {
-            await SharedScenario.AssertValidDrama(drama);
+            if (work is Drama drama)
+            {
+                await SharedScenario.AssertValidDrama(drama);
+            }
+            else if (work is UserReview review)
+            {
+                await Assert.That(review.Id).IsNotNull();
+            }
         }
 
         // 验证用户作品分页接口
@@ -150,9 +157,16 @@ public sealed class NewInteractionsAndUserTests
         await Assert.That(worksPage.Items.Count > 0).IsTrue();
         await Assert.That(worksPage.Total >= worksPage.Items.Count).IsTrue();
 
-        foreach (Drama drama in worksPage.Items)
+        foreach (UserWork work in worksPage.Items)
         {
-            await SharedScenario.AssertValidDrama(drama);
+            if (work is Drama drama)
+            {
+                await SharedScenario.AssertValidDrama(drama);
+            }
+            else if (work is UserReview review)
+            {
+                await Assert.That(review.Id).IsNotNull();
+            }
         }
     }
 

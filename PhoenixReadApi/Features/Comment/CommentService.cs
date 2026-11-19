@@ -18,7 +18,7 @@ internal sealed class CommentService : PhoenixFeatureService
     internal CommentService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
-    internal Task<CommentPage> GetDramaReviewsAsync(
+    internal Task<DramaReviewPage> GetDramaReviewsAsync(
         string dramaId,
         int count,
         string cursor,
@@ -27,14 +27,12 @@ internal sealed class CommentService : PhoenixFeatureService
     )
     {
         string normalizedDramaId = NormalizeDramaId(dramaId);
-        return LoadAsync(
-            normalizedDramaId,
-            normalizedDramaId,
-            isEpisode: false,
-            count,
-            cursor,
-            cancellationToken,
-            sort
+        return LoadDramaReviewsInternalAsync(
+            dramaId: normalizedDramaId,
+            count: count,
+            cursor: cursor,
+            cancellationToken: cancellationToken,
+            sort: sort
         );
     }
 
@@ -89,39 +87,7 @@ internal sealed class CommentService : PhoenixFeatureService
         commentId = NormalizeCommentId(commentId);
         cursor = cursor?.Trim() ?? string.Empty;
         ValidateReplyPage(count, cursor);
-        AppReplyListData data = await LoadRepliesAsync(
-                commentId,
-                dramaId,
-                videoId,
-                count,
-                cursor,
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        IReadOnlyList<AppReplyRecord> replyItems = data.ReplyItems is { Count: > 0 }
-            ? data.ReplyItems
-            : data.Items ?? [];
-        AppReplyListInfo info = data.CommentListInfo is { Total: > 0 }
-            ? data.CommentListInfo
-            : data.ListInfo ?? new();
-        return new CommentReplyPage
-        {
-            Items = [.. replyItems.Select(MapReply).Where(static item => item.Id.Length > 0)],
-            Total = Math.Max(info.Total, replyItems.Count),
-            Cursor = info.Cursor ?? string.Empty,
-            HasMore = info.HasMore,
-        };
-    }
 
-    private async Task<AppReplyListData> LoadRepliesAsync(
-        string commentId,
-        string dramaId,
-        string videoId,
-        int count,
-        string cursor,
-        CancellationToken cancellationToken
-    )
-    {
         bool isEpisode =
             !string.IsNullOrWhiteSpace(videoId)
             && !string.Equals(dramaId, videoId, StringComparison.Ordinal);
@@ -130,12 +96,99 @@ internal sealed class CommentService : PhoenixFeatureService
             : NormalizeDramaOrVideoId(dramaId);
         string normalizedVideoId = isEpisode ? NormalizeDramaOrVideoId(videoId) : string.Empty;
 
-        int commentSource = isEpisode ? 504 : 501;
-        int serverChannel = isEpisode ? 18 : 34;
-        int commentType = isEpisode ? 4 : 2;
-        int groupType = isEpisode ? 30 : 1;
-        string groupId = isEpisode ? normalizedVideoId : normalizedDramaId;
-        string path = isEpisode
+        return await LoadRepliesInternalAsync(
+                commentId: commentId,
+                groupId: isEpisode ? normalizedVideoId : normalizedDramaId,
+                bookId: normalizedDramaId.Length > 0 ? normalizedDramaId : (isEpisode ? normalizedVideoId : string.Empty),
+                commentSource: isEpisode ? 504 : 501,
+                serverChannel: isEpisode ? 18 : 34,
+                groupType: isEpisode ? 30 : 1,
+                commentType: isEpisode ? 4 : 2,
+                realLevel: isEpisode ? 0 : 2,
+                isTrailingSlash: isEpisode,
+                count: count,
+                cursor: cursor,
+                cancellationToken: cancellationToken
+            )
+            .ConfigureAwait(false);
+    }
+
+    internal async Task<CommentReplyPage> GetCirclePostCommentRepliesAsync(
+        string commentId,
+        string postId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    )
+    {
+        commentId = NormalizeCommentId(commentId);
+        postId = NormalizeCommentId(postId);
+        cursor = cursor?.Trim() ?? string.Empty;
+        ValidateReplyPage(count, cursor);
+
+        return await LoadRepliesInternalAsync(
+                commentId: commentId,
+                groupId: postId,
+                bookId: postId,
+                commentSource: 5,
+                serverChannel: 32,
+                groupType: 3,
+                commentType: 11,
+                realLevel: 2,
+                isTrailingSlash: false,
+                count: count,
+                cursor: cursor,
+                cancellationToken: cancellationToken
+            )
+            .ConfigureAwait(false);
+    }
+
+    internal async Task<CommentReplyPage> GetCircleVideoCommentRepliesAsync(
+        string commentId,
+        string videoId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    )
+    {
+        commentId = NormalizeCommentId(commentId);
+        videoId = NormalizeDramaOrVideoId(videoId);
+        cursor = cursor?.Trim() ?? string.Empty;
+        ValidateReplyPage(count, cursor);
+
+        return await LoadRepliesInternalAsync(
+                commentId: commentId,
+                groupId: videoId,
+                bookId: videoId,
+                commentSource: 4,
+                serverChannel: 26,
+                groupType: 1,
+                commentType: 4,
+                realLevel: 0,
+                isTrailingSlash: true,
+                count: count,
+                cursor: cursor,
+                cancellationToken: cancellationToken
+            )
+            .ConfigureAwait(false);
+    }
+
+    private async Task<CommentReplyPage> LoadRepliesInternalAsync(
+        string commentId,
+        string groupId,
+        string bookId,
+        int commentSource,
+        int serverChannel,
+        int groupType,
+        int commentType,
+        int realLevel,
+        bool isTrailingSlash,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    )
+    {
+        string path = isTrailingSlash
             ? "/novel/commentapi/reply/list/" + commentId + "/v1/"
             : "/novel/commentapi/reply/list/" + commentId + "/v1";
 
@@ -153,9 +206,9 @@ internal sealed class CommentService : PhoenixFeatureService
             ComplianceStatus = 0,
             BusinessParameter = new AppReplyBusinessParameter
             {
-                BookId = normalizedDramaId.Length > 0 ? normalizedDramaId : groupId,
+                BookId = bookId,
                 NeedCount = cursor.Length == 0,
-                RealLevel = isEpisode ? 0 : 2,
+                RealLevel = realLevel,
             },
         };
 
@@ -169,7 +222,22 @@ internal sealed class CommentService : PhoenixFeatureService
                 serverChannel: serverChannel
             )
             .ConfigureAwait(false);
-        return response.Data ?? new();
+
+        AppReplyListData data = response.Data ?? new();
+        IReadOnlyList<AppReplyRecord> replyItems = data.ReplyItems is { Count: > 0 }
+            ? data.ReplyItems
+            : data.Items ?? [];
+        AppReplyListInfo info = data.CommentListInfo is { Total: > 0 }
+            ? data.CommentListInfo
+            : data.ListInfo ?? new();
+
+        return new CommentReplyPage
+        {
+            Items = [.. replyItems.Select(MapReply).Where(static item => item.Id.Length > 0)],
+            Total = Math.Max(info.Total, replyItems.Count),
+            Cursor = info.Cursor ?? string.Empty,
+            HasMore = info.HasMore,
+        };
     }
 
     internal Task<PhoenixOperationResult> SendCommentAsync(
@@ -231,14 +299,16 @@ internal sealed class CommentService : PhoenixFeatureService
         bool active,
         CancellationToken cancellationToken,
         int objectType = 2,
-        int commentType = 4
+        int commentType = 4,
+        int? commentSource = null,
+        int? serverChannel = null
     )
     {
         commentId = NormalizeCommentId(commentId);
         groupId = NormalizeDramaOrVideoId(groupId);
         bool isReview = commentType == 2;
-        int likeCommentSource = isReview ? 501 : 504;
-        int likeServerChannel = isReview ? 34 : 18;
+        int likeCommentSource = commentSource ?? (isReview ? 501 : 504);
+        int likeServerChannel = serverChannel ?? (isReview ? 34 : 18);
 
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppCommentActionPayload, AppOperationResponse>(
@@ -261,20 +331,90 @@ internal sealed class CommentService : PhoenixFeatureService
         return Operation(response.Message);
     }
 
+    internal Task<PhoenixOperationResult> LikeCirclePostCommentAsync(
+        string commentId,
+        string postId,
+        bool active,
+        CancellationToken cancellationToken
+    ) =>
+        LikeCommentAsync(
+            commentId,
+            postId,
+            active,
+            cancellationToken,
+            objectType: 2,
+            commentType: 11,
+            commentSource: 5,
+            serverChannel: 32
+        );
+
+    internal Task<PhoenixOperationResult> LikeCirclePostReplyAsync(
+        string replyId,
+        string postId,
+        bool active,
+        CancellationToken cancellationToken
+    ) =>
+        LikeCommentAsync(
+            replyId,
+            postId,
+            active,
+            cancellationToken,
+            objectType: 8,
+            commentType: 11,
+            commentSource: 5,
+            serverChannel: 32
+        );
+
+    internal Task<PhoenixOperationResult> LikeCircleVideoCommentAsync(
+        string commentId,
+        string videoId,
+        bool active,
+        CancellationToken cancellationToken
+    ) =>
+        LikeCommentAsync(
+            commentId,
+            videoId,
+            active,
+            cancellationToken,
+            objectType: 2,
+            commentType: 4,
+            commentSource: 4,
+            serverChannel: 26
+        );
+
+    internal Task<PhoenixOperationResult> LikeCircleVideoReplyAsync(
+        string replyId,
+        string videoId,
+        bool active,
+        CancellationToken cancellationToken
+    ) =>
+        LikeCommentAsync(
+            replyId,
+            videoId,
+            active,
+            cancellationToken,
+            objectType: 8,
+            commentType: 4,
+            commentSource: 4,
+            serverChannel: 26
+        );
+
     internal async Task<PhoenixOperationResult> DeleteCommentAsync(
         string commentId,
         string groupId,
         CancellationToken cancellationToken,
         int dataType = 4,
         int serviceId = 4,
-        int groupType = 30
+        int groupType = 30,
+        int? commentSource = null,
+        int? serverChannel = null
     )
     {
         commentId = NormalizeCommentId(commentId);
         groupId = NormalizeDramaOrVideoId(groupId);
         bool isReview = groupType == 1;
-        int delCommentSource = isReview ? 501 : 504;
-        int delServerChannel = isReview ? 34 : 18;
+        int delCommentSource = commentSource ?? (isReview ? 501 : 504);
+        int delServerChannel = serverChannel ?? (isReview ? 34 : 18);
 
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppCommentDeletePayload, AppOperationResponse>(
@@ -296,6 +436,38 @@ internal sealed class CommentService : PhoenixFeatureService
             .ConfigureAwait(false);
         return Operation(response.Message, commentId);
     }
+
+    internal Task<PhoenixOperationResult> DeleteCirclePostCommentAsync(
+        string commentId,
+        string postId,
+        CancellationToken cancellationToken
+    ) =>
+        DeleteCommentAsync(
+            commentId,
+            postId,
+            cancellationToken,
+            dataType: 4,
+            serviceId: 4,
+            groupType: 3,
+            commentSource: 5,
+            serverChannel: 32
+        );
+
+    internal Task<PhoenixOperationResult> DeleteCircleVideoCommentAsync(
+        string commentId,
+        string videoId,
+        CancellationToken cancellationToken
+    ) =>
+        DeleteCommentAsync(
+            commentId,
+            videoId,
+            cancellationToken,
+            dataType: 4,
+            serviceId: 4,
+            groupType: 1,
+            commentSource: 4,
+            serverChannel: 26
+        );
 
     internal async Task<PhoenixOperationResult> SendReplyAsync(
         string commentId,
@@ -435,6 +607,169 @@ internal sealed class CommentService : PhoenixFeatureService
             sort: sort,
             isEpisode: false
         );
+    }
+
+    private async Task<DramaReviewPage> LoadDramaReviewsInternalAsync(
+        string dramaId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken,
+        CommentSortOrder sort = CommentSortOrder.Hot
+    )
+    {
+        if (count is < 1 or > MaxPageSize)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(count),
+                $"评论数量必须在 1 到 {MaxPageSize} 之间。"
+            );
+        }
+
+        cursor = (cursor ?? string.Empty).Trim();
+        if (cursor.Length > 8192 || cursor.Any(static c => c is '\r' or '\n' or '\0'))
+        {
+            throw new ArgumentException("评论游标无效。", nameof(cursor));
+        }
+
+        AppCommentListPayload payload = new()
+        {
+            CommentSource = 1,
+            ServerChannel = 34,
+            GroupId = dramaId,
+            GroupType = 1,
+            CommentType = 2,
+            Count = count,
+            Cursor = cursor,
+            Sort = (int)sort,
+            BusinessParameter = new AppCommentListBusinessParameter
+            {
+                BookId = dramaId,
+                NeedCount = cursor.Length == 0,
+            },
+        };
+
+        AppResponse<AppCommentListData> response = await _appTransport
+            .PostAsync<AppCommentListPayload, AppCommentListData>(
+                "/novel/commentapi/comment/list/" + dramaId + "/v1/",
+                payload,
+                commentRequest: true,
+                cancellationToken,
+                commentSource: payload.CommentSource,
+                serverChannel: payload.ServerChannel
+            )
+            .ConfigureAwait(false);
+        AppCommentListData data = response.Data
+            ?? throw new PhoenixReadApiResponseException("剧评接口未返回有效数据。", "drama-reviews");
+
+        List<DramaReview> items = [];
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
+        foreach (AppCommentRecord? record in data.Items ?? [])
+        {
+            if (record?.Comment?.Common?.Content is null)
+            {
+                continue;
+            }
+
+            AppComment comment = record.Comment;
+            string groupId = comment.Common.GroupId ?? string.Empty;
+            if (comment.Common.Status != "1" || (groupId.Length > 0 && groupId != dramaId))
+            {
+                continue;
+            }
+
+            string id = (comment.Id ?? string.Empty).Trim();
+            string text = SanitizeText(comment.Common.Content?.Text ?? string.Empty);
+            IReadOnlyList<CommentImage> images = MapCommentImages(comment);
+            if (
+                id.Length == 0
+                || id.Length > 120
+                || (text.Length == 0 && images.Count == 0)
+                || !seen.Add(id)
+            )
+            {
+                continue;
+            }
+
+            AppCommentUserInfo userInfo = comment.Common.UserInfo ?? new();
+            AppCommentExpand expand = comment.Expand ?? new();
+            AppCommentStat stat = comment.Stat ?? new();
+            string userName = userInfo.Name ?? string.Empty;
+            string userAvatar = userInfo.AvatarUrl ?? string.Empty;
+            AppCommentUserBaseInfo? baseInfo = userInfo.BaseInfo;
+
+            items.Add(
+                new DramaReview
+                {
+                    Id = id,
+                    Text = text.Length > 4000 ? string.Concat(text.AsSpan(0, 4000), "…") : text,
+                    Author = new User
+                    {
+                        Id = ValueNormalizer.First(userInfo.Id, baseInfo?.UserId, string.Empty),
+                        Name = userName.Length > 0 ? userName : baseInfo?.Name ?? string.Empty,
+                        AvatarUrl =
+                            userAvatar.Length > 0
+                                ? userAvatar
+                                : baseInfo?.AvatarUrl ?? string.Empty,
+                    },
+                    CreatedAtUnixSeconds = comment.Common.CreatedAt,
+                    Rating = expand.Score,
+                    RatingText = expand.ScoreSuffixText,
+                    LikeCount = Math.Max(0, stat.LikeCount),
+                    ReplyCount = Math.Max(0, stat.ReplyCount),
+                    Images = images,
+                }
+            );
+        }
+
+        if (sort == CommentSortOrder.Latest && items.Count > 1)
+        {
+            items.Sort(static (a, b) => b.CreatedAtUnixSeconds.CompareTo(a.CreatedAtUnixSeconds));
+        }
+
+        AppCommentListInfo listInfo = data.ListInfo ?? new();
+        AppCommentListExtra extra = data.Extra ?? new();
+        DramaReviewAiSummary? aiSummary = MapAiSummary(extra.AiSummary);
+
+        return new DramaReviewPage
+        {
+            DramaId = dramaId,
+            Items = items,
+            DramaScore = extra.CredibilityScore > 0 ? extra.CredibilityScore : null,
+            ScoreCount = Math.Max(0, extra.CredibilityScoreCount),
+            AiSummary = aiSummary,
+            Cursor = listInfo.Cursor ?? string.Empty,
+            HasMore = listInfo.HasMore,
+            Total = Math.Max(listInfo.Total, items.Count),
+        };
+    }
+
+    private static DramaReviewAiSummary? MapAiSummary(AppCommentListAiSummary? aiSummary)
+    {
+        if (
+            aiSummary is null
+            || (
+                string.IsNullOrWhiteSpace(aiSummary.OverallSummary)
+                && (aiSummary.Items is null || aiSummary.Items.Count == 0)
+            )
+        )
+        {
+            return null;
+        }
+
+        return new DramaReviewAiSummary
+        {
+            SummaryId = aiSummary.SummaryId,
+            OverallSummary = aiSummary.OverallSummary,
+            Items = [
+                .. (aiSummary.Items ?? [])
+                    .Where(static item => item is not null)
+                    .Select(static item => new DramaReviewAiSummaryItem
+                    {
+                        Dimension = item.Dimension,
+                        Summary = item.SubComment,
+                    }),
+            ],
+        };
     }
 
     private Task<CommentPage> LoadAsync(

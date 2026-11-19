@@ -115,6 +115,22 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
         return value;
     }
 
+    protected static string NormalizeUserId(string value)
+    {
+        value = (value ?? string.Empty).Trim();
+        if (value.Length == 0)
+        {
+            throw new ArgumentException("账号 ID 不能为空。", nameof(value));
+        }
+
+        if (!ValueNormalizer.IsNumericId(value))
+        {
+            throw new ArgumentException("账号 ID 必须是由数字构成的字符串。", nameof(value));
+        }
+
+        return value;
+    }
+
     protected static string NormalizeKeyword(string value)
     {
         value = (value ?? string.Empty).Normalize(NormalizationForm.FormKC).Trim();

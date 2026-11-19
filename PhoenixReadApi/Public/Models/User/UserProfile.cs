@@ -42,8 +42,8 @@ public sealed class UserProfile
     /// <summary>主页顶部背景封面图 URL。</summary>
     public string BackgroundCoverUrl { get; init; } = string.Empty;
 
-    /// <summary>账号主页作品（短剧作品列表，优先加载第 16 号作品 Tab）。</summary>
-    public IReadOnlyList<Drama> Works { get; init; } = [];
+    /// <summary>账号主页作品（短剧作品或剧评作品列表，优先加载第 16 号作品 Tab）。</summary>
+    public IReadOnlyList<UserWork> Works { get; init; } = [];
 
     /// <summary>主页作品列表的分页状态。</summary>
     public UserWorkPage WorksPage { get; init; } = new();

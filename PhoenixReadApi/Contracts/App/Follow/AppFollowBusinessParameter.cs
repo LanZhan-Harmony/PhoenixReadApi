@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 
-namespace PhoenixReadApi.Internal.Contracts.App.Library;
+namespace PhoenixReadApi.Internal.Contracts.App.Follow;
 
 internal sealed class AppFollowBusinessParameter
 {

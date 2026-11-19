@@ -224,4 +224,30 @@ public sealed partial class PhoenixReadApiClient
         int count = 20,
         CancellationToken cancellationToken = default
     ) => _novelCategory.GetCategoryFrontAsync(categoryId, offset, count, cancellationToken);
+
+    /// <summary>使用题材和分页参数获取一页推荐结果。</summary>
+    /// <param name="genre">推荐题材枚举，例如 <see cref="RecommendationGenre.ShortDrama"/>。</param>
+    /// <param name="offset">分页偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="sessionId">上一页返回的会话 ID；首次请求可为 null。</param>
+    /// <param name="seen">已经展示过的剧集 ID；可为 null，客户端会去重。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>包含当前页剧集和下一页状态的 <see cref="RecommendationPage"/>。</returns>
+    public Task<RecommendationPage> GetRecommendationsAsync(
+        RecommendationGenre genre,
+        int offset = 0,
+        string? sessionId = null,
+        IEnumerable<string>? seen = null,
+        CancellationToken cancellationToken = default
+    ) => _catalog.GetRecommendationsAsync(genre, offset, sessionId, seen, cancellationToken);
+
+    /// <summary>流式遍历指定题材的推荐短剧，并在跨页时自动追踪并过滤重复的剧集。</summary>
+    /// <param name="genre">推荐题材分类枚举。</param>
+    /// <param name="maxPages">最多拉取的页数上限，默认 10 页。</param>
+    /// <param name="cancellationToken">用于取消流式遍历的令牌。</param>
+    /// <returns>去重后的短剧异步流。</returns>
+    public IAsyncEnumerable<Drama> EnumerateRecommendationsAsync(
+        RecommendationGenre genre = RecommendationGenre.ShortDrama,
+        int maxPages = 10,
+        CancellationToken cancellationToken = default
+    ) => _catalog.EnumerateRecommendationsAsync(genre, maxPages, cancellationToken);
 }

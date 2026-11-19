@@ -5,11 +5,13 @@ using PhoenixReadApi.Internal.Features.Circle;
 using PhoenixReadApi.Internal.Features.Comment;
 using PhoenixReadApi.Internal.Features.Danmaku;
 using PhoenixReadApi.Internal.Features.Drama;
+using PhoenixReadApi.Internal.Features.Follow;
 using PhoenixReadApi.Internal.Features.Interaction;
 using PhoenixReadApi.Internal.Features.Library;
 using PhoenixReadApi.Internal.Features.Notification;
 using PhoenixReadApi.Internal.Features.Playback;
 using PhoenixReadApi.Internal.Features.Search;
+using PhoenixReadApi.Internal.Features.Share;
 using PhoenixReadApi.Internal.Features.User;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
@@ -46,6 +48,8 @@ public sealed partial class PhoenixReadApiClient : IDisposable
     private readonly ShortDramaFilterService _shortDramaFilter;
     private readonly DailyReleaseService _dailyRelease;
     private readonly NovelCategoryService _novelCategory;
+
+    internal PhoenixReadClientRuntime Runtime => _runtime;
     private readonly NotificationService _notification;
     private readonly EmoticonService _emoticon;
     private readonly InteractionService _interaction;

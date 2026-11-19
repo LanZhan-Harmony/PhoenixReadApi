@@ -1,7 +1,8 @@
 using System.Text.Json.Serialization;
+using PhoenixReadApi.Internal.Contracts.App.User;
 using PhoenixReadApi.Internal.Serialization;
 
-namespace PhoenixReadApi.Internal.Contracts.App.User;
+namespace PhoenixReadApi.Internal.Contracts.App.Follow;
 
 internal sealed class AppUserRelationListData
 {

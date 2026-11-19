@@ -281,7 +281,7 @@ internal static partial class SampleSteps
         context.Reviews = await TryWhenIdAsync("GetDramaReviewsAsync", context.DramaId, id =>
             client.GetDramaReviewsAsync(id, 10, cancellationToken: cancellationToken)
         );
-        PrintComments("  剧评", context.Reviews);
+        PrintReviews("  剧评", context.Reviews);
 
         context.EpisodeComments = await TryWhenIdsAsync(
             "GetEpisodeCommentsAsync(ids)",
@@ -298,9 +298,7 @@ internal static partial class SampleSteps
         PrintComments("  分集评论", context.EpisodeComments);
 
         context.SampleComment = context.EpisodeComments?.Items.FirstOrDefault(c => c.ReplyCount > 0)
-            ?? context.Reviews?.Items.FirstOrDefault(c => c.ReplyCount > 0)
-            ?? context.EpisodeComments?.Items.FirstOrDefault()
-            ?? context.Reviews?.Items.FirstOrDefault();
+            ?? context.EpisodeComments?.Items.FirstOrDefault();
 
         bool isEpisodeComment =
             context.SampleComment is not null
@@ -369,12 +367,12 @@ internal static partial class SampleSteps
         );
         PrintCount("  用户作品", userWorks?.Items.Count);
 
-        UserDramaPage? userCollections = await TryWhenIdAsync(
-            "GetUserCollectionsAsync",
+        DramaPage? userFavorites = await TryWhenIdAsync(
+            "GetUserFavoritesAsync",
             context.ProfileUserId,
-            id => client.GetUserCollectionsAsync(id, cancellationToken: cancellationToken)
+            id => client.GetUserFavoritesAsync(id, cancellationToken: cancellationToken)
         );
-        PrintCount("  用户收藏", userCollections?.Items.Count);
+        PrintCount("  用户收藏", userFavorites?.Items.Count);
 
         UserDramaPage? userLikes = await TryWhenIdAsync(
             "GetUserLikesAsync",
@@ -412,12 +410,6 @@ internal static partial class SampleSteps
             client.GetFavoritesAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  收藏", context.Favorites?.Items.Count);
-
-        (IReadOnlyList<string> Ids, DramaPage Page)? favoriteIds = await TryFavoriteIdsAsync(
-            "GetFavoriteIdsAsync",
-            () => client.GetFavoriteIdsAsync(cancellationToken: cancellationToken)
-        );
-        PrintCount("  收藏 ID", favoriteIds?.Ids.Count);
 
         context.Likes = await TryAsync("GetLikesAsync", () =>
             client.GetLikesAsync(cancellationToken: cancellationToken)

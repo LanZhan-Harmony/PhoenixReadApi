@@ -2,17 +2,17 @@ namespace PhoenixReadApi;
 
 public sealed partial class PhoenixReadApiClient
 {
-    /// <summary>获取一页剧评。</summary>
+    /// <summary>获取一页短剧剧评。</summary>
     /// <param name="dramaId">剧集 ID。</param>
     /// <param name="count">本页最多返回的评论数，范围为 1 到 90。</param>
     /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
     /// <param name="sort">排序方式：默认为 <see cref="CommentSortOrder.Hot"/>（最热）。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>包含评论、总数、下一页游标和 HasMore 状态的 <see cref="CommentPage"/>。</returns>
+    /// <returns>包含剧评列表、全剧公信评分、打分人数、AI综评、总数、下一页游标和 HasMore 状态的 <see cref="DramaReviewPage"/>。</returns>
     /// <remarks>
     /// 当 HasMore 为 true 时，将返回页的 Cursor 原样传给下一次调用；不要自行解析或修改游标。
     /// </remarks>
-    public Task<CommentPage> GetDramaReviewsAsync(
+    public Task<DramaReviewPage> GetDramaReviewsAsync(
         string dramaId,
         int count = 10,
         string cursor = "",
@@ -161,7 +161,7 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetReviewLikeAsync(
+    public Task<PhoenixOperationResult> SetDramaReviewLikeAsync(
         string commentId,
         string dramaId,
         bool active = true,
@@ -250,84 +250,6 @@ public sealed partial class PhoenixReadApiClient
         string replyId,
         CancellationToken cancellationToken = default
     ) => _comment.DeleteReplyAsync(replyId, cancellationToken);
-
-    /// <summary>
-    /// 获取指定分集在指定时间窗口内的弹幕。
-    /// </summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">分集视频 ID。</param>
-    /// <param name="startMs">时间窗口起点（毫秒）。</param>
-    /// <param name="durationMs">时间窗口长度（毫秒），不是结束时间。</param>
-    /// <param name="cancellationToken">取消请求的令牌。</param>
-    /// <returns>
-    /// 自动合并、去重并按时间排序后的弹幕页。Total 是服务端报告的数量，Items.Count 是实际返回的记录数，
-    /// 两者可能不同。
-    /// </returns>
-    /// <remarks>
-    /// 客户端会根据服务端游标自动请求多个时间段，并对“有统计数量但返回空列表”的响应进行有限重试。
-    /// durationMs 必须为正数；例如从视频开头读取十分钟可传 0 和 600000。
-    /// </remarks>
-    public Task<DanmakuPage> GetDanmakuAsync(
-        string dramaId,
-        string videoId,
-        long startMs,
-        long durationMs,
-        CancellationToken cancellationToken = default
-    ) => _danmaku.GetAsync(dramaId, videoId, startMs, durationMs, cancellationToken);
-
-    /// <summary>发送一条弹幕。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">分集视频 ID。</param>
-    /// <param name="text">弹幕文本。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    /// <remarks>发送弹幕需要登录。当前接口不接受时间位置，服务端会按请求上下文处理。</remarks>
-    public Task<PhoenixOperationResult> SendDanmakuAsync(
-        string dramaId,
-        string videoId,
-        string text,
-        CancellationToken cancellationToken = default
-    ) => _comment.SendDanmakuAsync(dramaId, videoId, text, cancellationToken);
-
-    /// <summary>点赞或取消点赞弹幕。</summary>
-    /// <param name="commentId">弹幕 ID。</param>
-    /// <param name="videoId">视频 ID。</param>
-    /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetDanmakuLikeAsync(
-        string commentId,
-        string videoId,
-        bool active = true,
-        CancellationToken cancellationToken = default
-    ) =>
-        _comment.LikeCommentAsync(
-            commentId,
-            videoId,
-            active,
-            cancellationToken,
-            objectType: 2,
-            commentType: 20
-        );
-
-    /// <summary>删除一条弹幕。</summary>
-    /// <param name="commentId">弹幕 ID。</param>
-    /// <param name="videoId">视频 ID。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> DeleteDanmakuAsync(
-        string commentId,
-        string videoId,
-        CancellationToken cancellationToken = default
-    ) =>
-        _comment.DeleteCommentAsync(
-            commentId,
-            videoId,
-            cancellationToken,
-            dataType: 4,
-            serviceId: 20,
-            groupType: 30
-        );
 
     /// <summary>获取表情包列表的一页。</summary>
     /// <param name="isCollected">true 为查询当前账号收藏的表情，false 为查询系统表情包。</param>
