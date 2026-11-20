@@ -30,11 +30,11 @@ public sealed class DiscoveryAndReservationTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetReservationsAsync()
+    public async Task TestGetPendingReservationsAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
 
-        ReservationPage reservations = await SharedScenario.Client.GetReservationsAsync(
+        ReservationPage reservations = await SharedScenario.Client.GetPendingReservationsAsync(
             count: 10,
             offset: 0,
             cancellationToken: timeout.Token
@@ -52,22 +52,22 @@ public sealed class DiscoveryAndReservationTests
     }
 
     [Test, NotInParallel("phoenix-read-api")]
-    public async Task TestGetCalendarAsync()
+    public async Task TestGetAvailableReservationsAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
 
-        ReservationPage calendar = await SharedScenario.Client.GetCalendarAsync(
+        ReservationPage reservations = await SharedScenario.Client.GetAvailableReservationsAsync(
             count: 10,
             offset: 0,
             cancellationToken: timeout.Token
         );
 
-        await Assert.That(calendar).IsNotNull();
-        await Assert.That(calendar.Items).IsNotNull();
-        await Assert.That(calendar.NextOffset >= 0).IsTrue();
-        await Assert.That(calendar.Total >= 0).IsTrue();
+        await Assert.That(reservations).IsNotNull();
+        await Assert.That(reservations.Items).IsNotNull();
+        await Assert.That(reservations.NextOffset >= 0).IsTrue();
+        await Assert.That(reservations.Total >= 0).IsTrue();
 
-        foreach (ReservationItem res in calendar.Items)
+        foreach (ReservationItem res in reservations.Items)
         {
             await SharedScenario.AssertValidReservation(res);
         }

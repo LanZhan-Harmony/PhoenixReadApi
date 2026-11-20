@@ -66,7 +66,7 @@ internal sealed class UserService : PhoenixFeatureService
         {
             Count = query.Count,
             Cursor = cursor,
-            TabType = 16,
+            TabType = 23,
             SubTabType = subTab,
             Sort = sort,
             TargetUserId = userId,
@@ -84,8 +84,39 @@ internal sealed class UserService : PhoenixFeatureService
             .ConfigureAwait(false);
 
         AppUserProfileData? data = response.Data;
+        if (
+            (data?.Items is null || data.Items.Count == 0)
+            && subTab is null
+            && string.IsNullOrEmpty(cursor)
+        )
+        {
+            AppUserProfilePayload fallbackPayload = new()
+            {
+                Count = query.Count,
+                Cursor = cursor,
+                TabType = 16,
+                SubTabType = null,
+                Sort = sort,
+                TargetUserId = userId,
+            };
+            AppResponse<AppUserProfileData> fallbackResp = await _appTransport
+                .PostAsync<AppUserProfilePayload, AppUserProfileData>(
+                    "/novel/commentapi/user/profile/" + userId + "/v1",
+                    fallbackPayload,
+                    commentRequest: true,
+                    cancellationToken,
+                    commentSource: 1506,
+                    serverChannel: null
+                )
+                .ConfigureAwait(false);
+            if (fallbackResp.Data?.Items is { Count: > 0 })
+            {
+                data = fallbackResp.Data;
+            }
+        }
+
         IReadOnlyList<UserWork> items = MapWorks(data);
-        long total = TabTotal(data, 23);
+        long total = subTab.HasValue ? SubTabTotal(data, subTab.Value) : TabTotal(data, 23);
         if (total == 0)
         {
             total = TabTotal(data, 16);
@@ -523,11 +554,11 @@ internal sealed class UserService : PhoenixFeatureService
                     comment.Common?.GroupId
                 );
                 IReadOnlyList<string> dramaTags = !string.IsNullOrWhiteSpace(bookInfo.Tags)
-                    ? [
+                    ?
+                    [
                         .. bookInfo.Tags.Split(
                             ',',
-                            StringSplitOptions.RemoveEmptyEntries
-                                | StringSplitOptions.TrimEntries
+                            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
                         ),
                     ]
                     : [];
@@ -663,6 +694,46 @@ internal sealed class UserService : PhoenixFeatureService
             if (tab is not null && tab.Type == tabType)
             {
                 return Math.Max(0, tab.Total);
+            }
+        }
+
+        return 0;
+    }
+
+    private static long SubTabTotal(AppUserProfileData? data, int subTabType)
+    {
+        if (data is null)
+        {
+            return 0;
+        }
+
+        if (data.Highlight?.SubTabs is not null)
+        {
+            foreach (AppUserProfileSubTab? sub in data.Highlight.SubTabs)
+            {
+                if (sub is not null && sub.Type == subTabType)
+                {
+                    return Math.Max(0, sub.Total);
+                }
+            }
+        }
+
+        if (data.Tabs is not null)
+        {
+            foreach (AppUserProfileTab? tab in data.Tabs)
+            {
+                if (tab?.SubTabs is null)
+                {
+                    continue;
+                }
+
+                foreach (AppUserProfileSubTab? sub in tab.SubTabs)
+                {
+                    if (sub is not null && sub.Type == subTabType)
+                    {
+                        return Math.Max(0, sub.Total);
+                    }
+                }
             }
         }
 

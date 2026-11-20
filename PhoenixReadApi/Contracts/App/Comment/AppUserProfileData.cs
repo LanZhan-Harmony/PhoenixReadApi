@@ -14,6 +14,9 @@ internal sealed class AppUserProfileData
     [JsonPropertyName("tabs")]
     public IReadOnlyList<AppUserProfileTab> Tabs { get; init; } = [];
 
+    [JsonPropertyName("hightlight")]
+    public AppUserProfileHighlight Highlight { get; init; } = new();
+
     [JsonPropertyName("user_info")]
     public AppCommentUserInfo UserInfo { get; init; } = new();
 }
@@ -29,6 +32,42 @@ internal sealed class AppUserListInfo
 }
 
 internal sealed class AppUserProfileTab
+{
+    [JsonPropertyName("name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("tab_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int Type { get; init; }
+
+    [JsonPropertyName("total")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long Total { get; init; }
+
+    [JsonPropertyName("sub_tabs")]
+    public IReadOnlyList<AppUserProfileSubTab> SubTabs { get; init; } = [];
+}
+
+internal sealed class AppUserProfileHighlight
+{
+    [JsonPropertyName("name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("tab_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int Type { get; init; }
+
+    [JsonPropertyName("total")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long Total { get; init; }
+
+    [JsonPropertyName("sub_tabs")]
+    public IReadOnlyList<AppUserProfileSubTab> SubTabs { get; init; } = [];
+}
+
+internal sealed class AppUserProfileSubTab
 {
     [JsonPropertyName("name")]
     [JsonConverter(typeof(FlexibleStringConverter))]

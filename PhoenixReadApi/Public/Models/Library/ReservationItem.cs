@@ -25,5 +25,5 @@ public sealed class ReservationItem
     public long ReleaseAtUnixSeconds { get; init; }
 
     /// <summary>是否已上线。</summary>
-    public bool IsActive { get; init; }
+    public bool IsAvailable { get; init; }
 }

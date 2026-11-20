@@ -94,27 +94,27 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _like.SetDramaEpisodeLikeAsync(dramaId, videoId, active, cancellationToken);
 
-    /// <summary>获取预约中的剧集。</summary>
+    /// <summary>获取未上线预约的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>预约记录和分页状态。</returns>
-    public Task<ReservationPage> GetReservationsAsync(
+    public Task<ReservationPage> GetPendingReservationsAsync(
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _reservation.GetReservationsAsync(count, offset, calendar: false, cancellationToken);
+    ) => _reservation.GetReservationsAsync(count, offset, isAvailable: false, cancellationToken);
 
-    /// <summary>获取预约日历数据。</summary>
+    /// <summary>获取已上线预约的剧集。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>预约记录；服务端提供的日历字段已转换为统一的预约实体。</returns>
-    public Task<ReservationPage> GetCalendarAsync(
+    public Task<ReservationPage> GetAvailableReservationsAsync(
         int count = 20,
         int offset = 0,
         CancellationToken cancellationToken = default
-    ) => _reservation.GetReservationsAsync(count, offset, calendar: true, cancellationToken);
+    ) => _reservation.GetReservationsAsync(count, offset, isAvailable: true, cancellationToken);
 
     /// <summary>获取可预约的新剧列表。</summary>
     /// <param name="count">本页数量，范围为 1 到 50。</param>
