@@ -6,15 +6,15 @@ public enum UserWorkSubTab
     /// <summary>全部作品。</summary>
     All = 0,
 
-    /// <summary>剧作（演职人员主创作品）。</summary>
-    Drama = 1,
+    /// <summary>短剧合集（服务端类型 13）。</summary>
+    Collection = 13,
 
-    /// <summary>预约剧集。</summary>
-    Reservation = 2,
+    /// <summary>预约剧集（服务端类型 20）。</summary>
+    Reservation = 20,
 
-    /// <summary>短剧合集。</summary>
-    Collection = 3,
+    /// <summary>剧作（演职人员主创短剧作品，服务端类型 22）。</summary>
+    Drama = 22,
 
-    /// <summary>剧评。</summary>
-    Review = 4,
+    /// <summary>剧评（发表的短剧评价作品，服务端类型 121）。</summary>
+    Review = 121,
 }

@@ -49,7 +49,7 @@ internal sealed class ReservationService : LibraryServiceBase
     internal async Task<ReservationPage> GetReservationsAsync(
         int count,
         int offset,
-        bool calendar,
+        bool isAvailable,
         CancellationToken cancellationToken
     )
     {
@@ -71,7 +71,7 @@ internal sealed class ReservationService : LibraryServiceBase
                     new("limit", count.ToString(CultureInfo.InvariantCulture)),
                     new("tab_style", "2"),
                     new("device_platform", "android"),
-                    new("is_online", calendar ? "true" : "false"),
+                    new("is_online", isAvailable ? "true" : "false"),
                 ],
                 cancellationToken
             )
@@ -138,6 +138,6 @@ internal sealed class ReservationService : LibraryServiceBase
             CoverUrl = item.CoverUrl ?? string.Empty,
             ReservedAtUnixSeconds = Math.Max(0, item.ReservedAt),
             ReleaseAtUnixSeconds = Math.Max(item.ReleaseAt, item.ExpectedPublishAt),
-            IsActive = item.IsOnline || item.ReleaseAt > 0,
+            IsAvailable = item.IsOnline || item.ReleaseAt > 0,
         };
 }

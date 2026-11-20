@@ -5,6 +5,41 @@ namespace PhoenixReadApi.Tests;
 public sealed class CircleInteractionTests
 {
     [Test, NotInParallel("phoenix-read-api")]
+    public async Task TestActorReviewsSubTabAsync()
+    {
+        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
+        string actorId = "3974078057440443"; // 黄彦恺
+
+        UserWorkPage worksPage = await SharedScenario.Client.GetUserWorksAsync(
+            actorId,
+            new UserWorksQuery
+            {
+                SubTab = UserWorkSubTab.Review,
+                Count = 10,
+            },
+            timeout.Token
+        );
+
+        await Assert.That(worksPage).IsNotNull();
+        await Assert.That(worksPage.Items.Count >= 5).IsTrue();
+        await Assert.That(worksPage.Total >= 5).IsTrue();
+
+        int reviewCount = 0;
+        foreach (UserWork work in worksPage.Items)
+        {
+            if (work is UserReview review)
+            {
+                reviewCount++;
+                await Assert.That(review.Id).IsNotNull();
+                await Assert.That(review.Drama).IsNotNull();
+                await Assert.That(review.Drama.Title).IsNotNull();
+                await Assert.That(review.Rating > 0).IsTrue();
+            }
+        }
+        await Assert.That(reviewCount >= 5).IsTrue();
+    }
+
+    [Test, NotInParallel("phoenix-read-api")]
     public async Task TestAuthenticatedUserPrivacyAndFavoritesAsync()
     {
         using PhoenixReadApiClient? authClient = SharedScenario.TryGetAuthenticatedClient();

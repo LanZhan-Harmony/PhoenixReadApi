@@ -416,15 +416,15 @@ internal static partial class SampleSteps
         );
         PrintCount("  点赞剧集", context.Likes?.Items.Count);
 
-        ReservationPage? reservations = await TryAsync("GetReservationsAsync", () =>
-            client.GetReservationsAsync(cancellationToken: cancellationToken)
+        ReservationPage? pendingReservations = await TryAsync("GetPendingReservationsAsync", () =>
+            client.GetPendingReservationsAsync(cancellationToken: cancellationToken)
         );
-        PrintCount("  预约", reservations?.Items.Count);
+        PrintCount("  未上线的预约", pendingReservations?.Items.Count);
 
-        ReservationPage? calendar = await TryAsync("GetCalendarAsync", () =>
-            client.GetCalendarAsync(cancellationToken: cancellationToken)
+        ReservationPage? availableReservations = await TryAsync("GetAvailableReservationsAsync", () =>
+            client.GetAvailableReservationsAsync(cancellationToken: cancellationToken)
         );
-        PrintCount("  日历", calendar?.Items.Count);
+        PrintCount("  已上线的预约", availableReservations?.Items.Count);
 
         ReservationPage? upcomingReservations = await TryAsync("GetUpcomingReservationsAsync", () =>
             client.GetUpcomingReservationsAsync(cancellationToken: cancellationToken)
@@ -456,6 +456,26 @@ internal static partial class SampleSteps
                 $"    红果号: {actorProfile.HongguoId}, 蓝V: {actorProfile.IsVerified}, 粉丝: {actorProfile.FansCount}, 获赞: {actorProfile.LikeCount}"
             );
             Console.WriteLine($"    首屏作品数: {actorProfile.Works.Count}");
+        }
+        UserWorkPage? userWorks = await TryWhenIdAsync(
+            "GetUserWorksAsync(Review)",
+            sampleActorId,
+            id => client.GetUserWorksAsync(id, new UserWorksQuery { SubTab = UserWorkSubTab.Review, Count = 10 }, cancellationToken)
+        );
+        PrintCount("  演员作品(剧评)", userWorks?.Items.Count);
+        if (userWorks?.Items is { Count: > 0 })
+        {
+            foreach (UserWork work in userWorks.Items)
+            {
+                if (work is Drama drama)
+                {
+                    Console.WriteLine($"    短剧: {drama.Title}");
+                }
+                else if (work is UserReview review)
+                {
+                    Console.WriteLine($"    剧评: 《{review.Drama.Title}》评分={review.Rating}分 ({review.RatingText}) 点赞={review.LikeCount}");
+                }
+            }
         }
     }
 

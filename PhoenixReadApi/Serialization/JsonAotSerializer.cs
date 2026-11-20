@@ -198,7 +198,9 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppUserListInfo))]
 [JsonSerializable(typeof(AppUserProfileData))]
 [JsonSerializable(typeof(AppUserProfileGetResponse))]
+[JsonSerializable(typeof(AppUserProfileHighlight))]
 [JsonSerializable(typeof(AppUserProfilePayload))]
+[JsonSerializable(typeof(AppUserProfileSubTab))]
 [JsonSerializable(typeof(AppUserProfileTab))]
 [JsonSerializable(typeof(AppUserRelationListData))]
 [JsonSerializable(typeof(AppUserRelationListInfo))]
@@ -284,6 +286,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<AppCommentImageDto>))]
 [JsonSerializable(typeof(IReadOnlyList<AppCommentListAiSummaryItem>))]
 [JsonSerializable(typeof(IReadOnlyList<AppHotSearchLynxCellDto>))]
+[JsonSerializable(typeof(IReadOnlyList<AppUserProfileSubTab>))]
 [JsonSerializable(typeof(List<AppHotSearchLynxCellDto>))]
 internal partial class SourceGenerationContext : JsonSerializerContext;
 
