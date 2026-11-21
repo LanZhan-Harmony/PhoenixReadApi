@@ -5,6 +5,36 @@ namespace PhoenixReadApi.Tests;
 public sealed class CircleInteractionTests
 {
     [Test, NotInParallel("phoenix-read-api")]
+    public async Task TestActorReservationSubTabAsync()
+    {
+        using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
+        string actorId = "3974078057440443"; // 黄彦恺
+
+        UserWorkPage worksPage = await SharedScenario.Client.GetUserWorksAsync(
+            actorId,
+            new UserWorksQuery { SubTab = UserWorkSubTab.Reservation, Count = 10 },
+            timeout.Token
+        );
+
+        await Assert.That(worksPage).IsNotNull();
+        await Assert.That(worksPage.Items.Count >= 2).IsTrue();
+
+        int dramaCount = 0;
+        foreach (UserWork work in worksPage.Items)
+        {
+            if (work is Drama drama)
+            {
+                dramaCount++;
+                await Assert.That(drama.Id).IsNotNull();
+                await Assert.That(drama.Title).IsNotNull();
+                await Assert.That(drama.ReleaseStatus).IsEqualTo(DramaReleaseStatus.Upcoming);
+                await Assert.That(drama.OnlineDate).IsNotNull();
+            }
+        }
+        await Assert.That(dramaCount >= 2).IsTrue();
+    }
+
+    [Test, NotInParallel("phoenix-read-api")]
     public async Task TestActorReviewsSubTabAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
@@ -12,11 +42,7 @@ public sealed class CircleInteractionTests
 
         UserWorkPage worksPage = await SharedScenario.Client.GetUserWorksAsync(
             actorId,
-            new UserWorksQuery
-            {
-                SubTab = UserWorkSubTab.Review,
-                Count = 10,
-            },
+            new UserWorksQuery { SubTab = UserWorkSubTab.Review, Count = 10 },
             timeout.Token
         );
 

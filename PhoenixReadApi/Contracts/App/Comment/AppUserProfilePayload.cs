@@ -13,6 +13,10 @@ internal sealed class AppUserProfilePayload
     [JsonPropertyName("cursor")]
     public string Cursor { get; init; } = string.Empty;
 
+    [JsonPropertyName("extra_param")]
+    public IReadOnlyDictionary<string, string> ExtraParam { get; init; } =
+        new Dictionary<string, string>();
+
     [JsonPropertyName("locate_post_id")]
     public string LocatePostId { get; init; } = string.Empty;
 
@@ -32,4 +36,3 @@ internal sealed class AppUserProfilePayload
     [JsonPropertyName("target_user_id")]
     public string TargetUserId { get; init; } = string.Empty;
 }
-

@@ -1,3 +1,4 @@
+using System.Globalization;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.User;
@@ -70,6 +71,7 @@ internal sealed class UserService : PhoenixFeatureService
             SubTabType = subTab,
             Sort = sort,
             TargetUserId = userId,
+            ExtraParam = new Dictionary<string, string> { ["is_video_tab_comment"] = "1" },
         };
 
         AppResponse<AppUserProfileData> response = await _appTransport
@@ -586,6 +588,80 @@ internal sealed class UserService : PhoenixFeatureService
                 };
 
                 result.Add(userReview);
+                continue;
+            }
+
+            if (
+                record.SubscribeItem is not null
+                && !string.IsNullOrWhiteSpace(record.SubscribeItem.ItemId)
+            )
+            {
+                string id = record.SubscribeItem.ItemId.Trim();
+                if (!ValueNormalizer.IsNumericId(id) || !seen.Add("s:" + id))
+                {
+                    continue;
+                }
+
+                AppUserSubscribeItem sub = record.SubscribeItem;
+                List<string> tags = [];
+                long followCount = 0;
+                foreach (AppUserSubTitleItem? item in sub.SubTitleList ?? [])
+                {
+                    if (item is null || string.IsNullOrWhiteSpace(item.Text))
+                    {
+                        continue;
+                    }
+
+                    string text = item.Text.Trim();
+                    if (text.EndsWith("人预约", StringComparison.Ordinal))
+                    {
+                        string countPart = text[..^3].Trim();
+                        if (
+                            countPart.EndsWith("万", StringComparison.Ordinal)
+                            && double.TryParse(
+                                countPart[..^1],
+                                CultureInfo.InvariantCulture,
+                                out double wan
+                            )
+                        )
+                        {
+                            followCount = (long)(wan * 10_000);
+                        }
+                        else if (
+                            long.TryParse(countPart, CultureInfo.InvariantCulture, out long num)
+                        )
+                        {
+                            followCount = num;
+                        }
+                    }
+                    else
+                    {
+                        tags.Add(text);
+                    }
+                }
+
+                string onlineDate = sub.SubInfo;
+                if (string.IsNullOrWhiteSpace(onlineDate) && sub.SchedulePublishTime > 0)
+                {
+                    onlineDate = DateTimeOffset
+                        .FromUnixTimeSeconds(sub.SchedulePublishTime)
+                        .ToOffset(TimeSpan.FromHours(8))
+                        .ToString("yyyy-MM-dd");
+                }
+
+                Drama drama = new Drama
+                {
+                    Id = id,
+                    Title = ValueNormalizer.First(sub.Name, id),
+                    CoverUrl = sub.CoverUrl,
+                    ReleaseStatus = DramaReleaseStatus.Upcoming,
+                    OnlineDate = onlineDate,
+                    Remark = sub.SubInfo,
+                    Tags = tags,
+                    FollowCount = followCount,
+                };
+
+                result.Add(drama);
             }
         }
 

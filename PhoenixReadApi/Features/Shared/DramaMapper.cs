@@ -194,6 +194,10 @@ internal static class DramaMapper
         {
             return DramaReleaseStatus.Ongoing;
         }
+        if (value is "upcoming" or "subscribe" or "reservation")
+        {
+            return DramaReleaseStatus.Upcoming;
+        }
 
         if (!string.IsNullOrWhiteSpace(remark))
         {
@@ -213,6 +217,15 @@ internal static class DramaMapper
             )
             {
                 return DramaReleaseStatus.Ongoing;
+            }
+
+            if (
+                cleanRemark.Contains("待播", StringComparison.OrdinalIgnoreCase)
+                || cleanRemark.Contains("即将上线", StringComparison.OrdinalIgnoreCase)
+                || cleanRemark.Contains("预约", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                return DramaReleaseStatus.Upcoming;
             }
         }
 
@@ -240,15 +253,23 @@ internal static class DramaMapper
                 {
                     return DramaReleaseStatus.Ongoing;
                 }
+
+                if (
+                    tag.Contains("待播", StringComparison.OrdinalIgnoreCase)
+                    || tag.Contains("即将上线", StringComparison.OrdinalIgnoreCase)
+                    || tag.Contains("预约", StringComparison.OrdinalIgnoreCase)
+                )
+                {
+                    return DramaReleaseStatus.Upcoming;
+                }
             }
         }
 
         return DramaReleaseStatus.Unknown;
     }
 
-    internal static List<DramaCredit> MapCredits(
-        IReadOnlyList<DramaCelebrityDto> celebrities
-    ) => DtoCredits([], celebrities);
+    internal static List<DramaCredit> MapCredits(IReadOnlyList<DramaCelebrityDto> celebrities) =>
+        DtoCredits([], celebrities);
 
     private static List<DramaCredit> DtoCredits(
         IReadOnlyList<DramaCreatorUserDto> creators,

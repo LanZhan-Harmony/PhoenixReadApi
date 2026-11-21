@@ -33,12 +33,12 @@ await SampleSteps.LoginAsync(context, phone);
 
 // 第 2 步：基础只读接口（不依赖前置结果）
 await SampleSteps.RunBasicReadOnlyAsync(context);
-await SampleSteps.RunUserRelatedAsync(context);
 
 // 第 3 步：剧集详情派生接口（依赖搜索/剧库结果）
 await SampleSteps.RunDramaDerivedAsync(context);
 
 // 第 4 步：用户相关接口
+await SampleSteps.RunUserRelatedAsync(context);
 
 // 第 5 步：分享链接
 await SampleSteps.RunShareAsync(context);

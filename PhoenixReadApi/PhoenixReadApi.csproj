@@ -16,7 +16,7 @@
 
   <PropertyGroup>
     <PackageId>PhoenixReadApi</PackageId>
-    <Version>0.5.1</Version>
+    <Version>0.5.2</Version>
     <Authors>LanZhan-Harmony</Authors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/LanZhan-Harmony/PhoenixReadApi</PackageProjectUrl>

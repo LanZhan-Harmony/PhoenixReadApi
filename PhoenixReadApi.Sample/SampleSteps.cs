@@ -457,21 +457,34 @@ internal static partial class SampleSteps
             );
             Console.WriteLine($"    首屏作品数: {actorProfile.Works.Count}");
         }
-        UserWorkPage? userWorks = await TryWhenIdAsync(
+        UserWorkPage? reservationWorks = await TryWhenIdAsync(
+            "GetUserWorksAsync(Reservation)",
+            sampleActorId,
+            id => client.GetUserWorksAsync(id, new UserWorksQuery { SubTab = UserWorkSubTab.Reservation, Count = 10 }, cancellationToken)
+        );
+        PrintCount("  演员作品(预约)", reservationWorks?.Items.Count);
+        if (reservationWorks?.Items is { Count: > 0 })
+        {
+            foreach (UserWork work in reservationWorks.Items)
+            {
+                if (work is Drama drama)
+                {
+                    Console.WriteLine($"    待播剧: 《{drama.Title}》上线={drama.OnlineDate} 状态={drama.ReleaseStatus} 预约人数={drama.FollowCount} 标签=[{string.Join(",", drama.Tags)}]");
+                }
+            }
+        }
+
+        UserWorkPage? reviewWorks = await TryWhenIdAsync(
             "GetUserWorksAsync(Review)",
             sampleActorId,
             id => client.GetUserWorksAsync(id, new UserWorksQuery { SubTab = UserWorkSubTab.Review, Count = 10 }, cancellationToken)
         );
-        PrintCount("  演员作品(剧评)", userWorks?.Items.Count);
-        if (userWorks?.Items is { Count: > 0 })
+        PrintCount("  演员作品(剧评)", reviewWorks?.Items.Count);
+        if (reviewWorks?.Items is { Count: > 0 })
         {
-            foreach (UserWork work in userWorks.Items)
+            foreach (UserWork work in reviewWorks.Items)
             {
-                if (work is Drama drama)
-                {
-                    Console.WriteLine($"    短剧: {drama.Title}");
-                }
-                else if (work is UserReview review)
+                if (work is UserReview review)
                 {
                     Console.WriteLine($"    剧评: 《{review.Drama.Title}》评分={review.Rating}分 ({review.RatingText}) 点赞={review.LikeCount}");
                 }

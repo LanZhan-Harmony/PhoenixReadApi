@@ -93,6 +93,38 @@ internal sealed class AppUserWorkRecord
 
     [JsonPropertyName("comment")]
     public AppComment Comment { get; init; } = new();
+
+    [JsonPropertyName("subscribe_item")]
+    public AppUserSubscribeItem SubscribeItem { get; init; } = new();
+}
+
+internal sealed class AppUserSubscribeItem
+{
+    [JsonPropertyName("item_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ItemId { get; init; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("cover")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string CoverUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("sub_info")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string SubInfo { get; init; } = string.Empty;
+
+    [JsonPropertyName("schedule_publish_time")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long SchedulePublishTime { get; init; }
+
+    [JsonPropertyName("is_subscribed")]
+    public bool IsSubscribed { get; init; }
+
+    [JsonPropertyName("sub_title_list")]
+    public IReadOnlyList<AppUserSubTitleItem> SubTitleList { get; init; } = [];
 }
 
 internal sealed class AppUserVideo

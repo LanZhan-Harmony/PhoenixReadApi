@@ -206,6 +206,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppUserRelationListInfo))]
 [JsonSerializable(typeof(AppUserRelationListPayload))]
 [JsonSerializable(typeof(AppUserRelationUgcUser))]
+[JsonSerializable(typeof(AppUserSubscribeItem))]
 [JsonSerializable(typeof(AppUserSubTitleItem))]
 [JsonSerializable(typeof(AppUserVideo))]
 [JsonSerializable(typeof(AppUserVideoCommon))]

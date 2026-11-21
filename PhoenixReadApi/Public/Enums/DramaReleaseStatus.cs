@@ -11,4 +11,7 @@ public enum DramaReleaseStatus
 
     /// <summary>已完结。</summary>
     Finished = 2,
+
+    /// <summary>即将上线或待播预约中。</summary>
+    Upcoming = 3,
 }
