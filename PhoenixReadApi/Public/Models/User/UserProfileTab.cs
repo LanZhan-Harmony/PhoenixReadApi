@@ -3,8 +3,8 @@ namespace PhoenixReadApi;
 /// <summary>用户主页展示的内容 Tab 信息。</summary>
 public sealed class UserProfileTab
 {
-    /// <summary>Tab 标识类型（例如 16 为作品，5 为动态，10 为收藏，9 为点赞等）。</summary>
-    public int Type { get; init; }
+    /// <summary>Tab 标识类型（例如作品、红果圈、收藏、点赞等）。</summary>
+    public UserProfileTabType Type { get; init; } = UserProfileTabType.Unknown;
 
     /// <summary>Tab 显示名称。</summary>
     public string Name { get; init; } = string.Empty;

@@ -34,6 +34,12 @@ public sealed class UserTests
         await Assert.That(profile.Works).IsNotNull();
         await Assert.That(profile.WorksPage).IsNotNull();
 
+        await Assert.That(profile.AvailableTabs).IsNotNull();
+        foreach (UserProfileTab tab in profile.AvailableTabs)
+        {
+            await Assert.That(tab.Name).IsNotNull();
+        }
+
         foreach (Drama drama in profile.Collections)
         {
             await SharedScenario.AssertValidDrama(drama);
@@ -252,5 +258,21 @@ public sealed class UserTests
             await Assert.That(nextPage).IsNotNull();
             await Assert.That(nextPage.Items).IsNotNull();
         }
+    }
+
+    [Test]
+    public async Task TestUserProfileTabTypeEnumValues()
+    {
+        UserProfileTabType unknown = UserProfileTabType.Unknown;
+        UserProfileTabType circle = UserProfileTabType.Circle;
+        UserProfileTabType like = UserProfileTabType.Like;
+        UserProfileTabType favorite = UserProfileTabType.Favorite;
+        UserProfileTabType work = UserProfileTabType.Work;
+
+        await Assert.That((int)unknown).IsEqualTo(0);
+        await Assert.That((int)circle).IsEqualTo(7);
+        await Assert.That((int)like).IsEqualTo(9);
+        await Assert.That((int)favorite).IsEqualTo(10);
+        await Assert.That((int)work).IsEqualTo(23);
     }
 }

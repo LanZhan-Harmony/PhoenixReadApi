@@ -253,13 +253,13 @@ internal sealed class UserService : PhoenixFeatureService
                 )
                 : Task.FromResult<AppUserProfileData?>(null);
 
-        Task<CirclePage> circleTask = tabTypes.Contains(7)
+        Task<CirclePage> circleTask = tabTypes.Contains((int)UserProfileTabType.Circle)
             ? _circleService.GetUserCircleAsync(user.Id, PageSize, string.Empty, cancellationToken)
             : Task.FromResult(new CirclePage());
-        Task<AppUserShelfData?> collectionsTask = tabTypes.Contains(10)
+        Task<AppUserShelfData?> collectionsTask = tabTypes.Contains((int)UserProfileTabType.Favorite)
             ? LoadCollectionsAsync(user.Id, PageSize, 0, cancellationToken)
             : Task.FromResult<AppUserShelfData?>(null);
-        Task<AppUserActionData?> likesTask = tabTypes.Contains(9)
+        Task<AppUserActionData?> likesTask = tabTypes.Contains((int)UserProfileTabType.Like)
             ? LoadLikesAsync(user.Id, PageSize, 0, cancellationToken)
             : Task.FromResult<AppUserActionData?>(null);
 
@@ -329,7 +329,7 @@ internal sealed class UserService : PhoenixFeatureService
                 .Where(static t => t is not null)
                 .Select(static t => new UserProfileTab
                 {
-                    Type = t.Type,
+                    Type = ResolveTabType(t),
                     Name = t.Name,
                     Total = t.Total,
                 }),
@@ -369,14 +369,14 @@ internal sealed class UserService : PhoenixFeatureService
             {
                 NextOffset = collections?.NextOffset ?? 0,
                 HasMore = collections?.HasMore ?? false,
-                Total = Math.Max(collections?.Total ?? 0, TabTotal(metadata, 10)),
+                Total = Math.Max(collections?.Total ?? 0, TabTotal(metadata, (int)UserProfileTabType.Favorite)),
             },
             Likes = MapLikes(likes),
             LikesPage = new UserPageInfo
             {
                 NextOffset = likes?.NextOffset ?? 0,
                 HasMore = likes?.HasMore ?? false,
-                Total = Math.Max(likes?.Total ?? 0, TabTotal(metadata, 9)),
+                Total = Math.Max(likes?.Total ?? 0, TabTotal(metadata, (int)UserProfileTabType.Like)),
             },
             CircleItems = circlePage.Items,
             CirclePage = circlePage,
@@ -814,6 +814,45 @@ internal sealed class UserService : PhoenixFeatureService
         }
 
         return 0;
+    }
+
+    private static UserProfileTabType ResolveTabType(AppUserProfileTab tab)
+    {
+        if (
+            tab.Type is 23 or 16 or 8
+            || (!string.IsNullOrWhiteSpace(tab.Name) && tab.Name.Contains("作品", StringComparison.OrdinalIgnoreCase))
+        )
+        {
+            return UserProfileTabType.Work;
+        }
+
+        if (
+            tab.Type == (int)UserProfileTabType.Circle
+            || (!string.IsNullOrWhiteSpace(tab.Name) && tab.Name.Contains("圈", StringComparison.OrdinalIgnoreCase))
+        )
+        {
+            return UserProfileTabType.Circle;
+        }
+
+        if (
+            tab.Type == (int)UserProfileTabType.Favorite
+            || (!string.IsNullOrWhiteSpace(tab.Name) && tab.Name.Contains("收藏", StringComparison.OrdinalIgnoreCase))
+        )
+        {
+            return UserProfileTabType.Favorite;
+        }
+
+        if (
+            tab.Type == (int)UserProfileTabType.Like
+            || (!string.IsNullOrWhiteSpace(tab.Name) && tab.Name.Contains("赞", StringComparison.OrdinalIgnoreCase))
+        )
+        {
+            return UserProfileTabType.Like;
+        }
+
+        return Enum.IsDefined(typeof(UserProfileTabType), tab.Type)
+            ? (UserProfileTabType)tab.Type
+            : UserProfileTabType.Unknown;
     }
 
     private static void ValidateCount(int count)
