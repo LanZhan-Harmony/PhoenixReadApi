@@ -270,7 +270,7 @@ public sealed class PlaybackSignTests
             "fM/7alSEtKAwuvYpRnpVRluiNzxEMwABn8qIf2ZVgTMEGOtgxyq1160xPCWebesXJAL2Ub9R85sFkmKbgUjbtsWnQt/gM9FPRrovAUFlc7+Wj373HOREhQ3O1jEvMh8cc9Xg/hHjxlgC78a5S+nkSXAusUDHiyjcnnevuzJcA+pPOspvBXxoHZfXgwF1ZFSOn3kONIzjU4b4gXLTQ9TNzTP3OpgDixstk+E4v2IEe4jwpcGx5ixoA4aHUSLxLU1T1kbkXRAu0a2SGBhnQiHiI7VE8ka2OsFo/VdwdNsoubGwepH+TJkPWc2nD4HxFKOR9EU00a2oFWI5VZjjoUGDMxCczb8OYO0TgcgE4zsIQlu+Ynvi8fYQFx8bfUH+jV18eqEd5Evl0VjXaPaa35P+vfiW0/rJ6bNLzpARg8FeliIZDLfzCknfVuBft6MeMQlFVSpCMG44raCnG4342cZP1TqAGX3ZSFSHH05H1TP+RyzuZuzmUpRueGK0BV9DQubJZD16IA3w7DhYZaKkucKqJr1rxfupUY6MzTGJHQvOAB1ByqRCQAf7ZW+NvhgeK2gDad3aR4xxjNwtix2F4+BnBltuxOAhh+AdJ6J1iIwNVz62RtBo/BMPBlhkQhMYJKZjM/X//u/N//7vzSIR";
 
         string url =
-            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1?aid=8662&app_name=novelread&version_code=74332&version_name=7.4.3.32&channel=vivo_8662_64&device_platform=android&device_type=PGT-AN10&os_version=12&update_version_code=74332&iid=1483721089225898&cdid=test-cdid&device_id=1483721089221802&_rticket=1794887545022";
+            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1?aid=8662&app_name=novelread&version_code=74332&version_name=7.4.3.32&channel=vivo_8662_64&device_platform=android&device_type=WKL-AN20&os_version=17&update_version_code=74332&iid=1483721089225898&cdid=test-cdid&device_id=1483721089221802&_rticket=1794887545022";
         byte[] body = Convert.FromHexString("1f8b0800000000000000558fd14ec3300c45ffc5");
         uint ts = 1794887545;
         string deviceId = "1483721089221802";
@@ -357,7 +357,7 @@ public sealed class PlaybackSignTests
                 using HttpRequestMessage req = new(HttpMethod.Post, candUrl);
                 req.Headers.TryAddWithoutValidation(
                     "User-Agent",
-                    "com.phoenix.read/73932 (Linux; U; Android 12; zh_CN_#Hans; PGT-AN10; Build/V417IR;tt-ok/3.12.13.20)"
+                    "com.phoenix.read/73932 (Linux; U; Android 17; zh_CN_#Hans; WKL-AN20; Build/CP2A.260605.012; tt-ok/3.12.13.20)"
                 );
                 req.Headers.TryAddWithoutValidation("Accept", "application/json");
                 req.Headers.TryAddWithoutValidation("x-ss-stub", ssStub);

@@ -173,7 +173,7 @@ internal sealed class PhoenixReadAppTransport
         const string targetHost =
             "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1";
         const string playbackUa =
-            "com.phoenix.read/73932 (Linux; U; Android 12; zh_CN_#Hans; PGT-AN10; Build/V417IR;tt-ok/3.12.13.20)";
+            "com.phoenix.read/73932 (Linux; U; Android 17; zh_CN_#Hans; WKL-AN20; Build/CP2A.260605.012; tt-ok/3.12.13.20)";
 
         int rotations = 0;
         while (true)

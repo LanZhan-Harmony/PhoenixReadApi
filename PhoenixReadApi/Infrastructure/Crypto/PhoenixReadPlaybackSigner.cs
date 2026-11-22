@@ -176,8 +176,8 @@ internal static class PhoenixReadPlaybackSigner
     private static readonly byte[] StaticTzStr = "Asia/Shanghai,8"u8.ToArray();
     private static readonly byte[] StaticZhCnStr = "zh_CN"u8.ToArray();
     private static readonly byte[] StaticHonorStr = "HONOR"u8.ToArray();
-    private static readonly byte[] StaticOsVersionStr = "12"u8.ToArray();
-    private static readonly byte[] StaticDeviceTypeStr = "PGT-AN10"u8.ToArray();
+    private static readonly byte[] StaticOsVersionStr = "17"u8.ToArray();
+    private static readonly byte[] StaticDeviceTypeStr = "WKL-AN20"u8.ToArray();
 
     // 进程级稳定的 Nonce 与启动时间（与官方客户端行为对齐，防止被服务端风控判空）
     private static readonly string ProcessNonceBase64 = Convert.ToBase64String(
@@ -216,8 +216,8 @@ internal static class PhoenixReadPlaybackSigner
             .Append("&version_name=7.4.3.32")
             .Append("&channel=vivo_8662_64")
             .Append("&device_platform=android")
-            .Append("&device_type=PGT-AN10")
-            .Append("&os_version=12")
+            .Append("&device_type=WKL-AN20")
+            .Append("&os_version=17")
             .Append("&update_version_code=74332")
             .Append("&iid=")
             .Append(Uri.EscapeDataString(iid))
@@ -422,8 +422,8 @@ internal static class PhoenixReadPlaybackSigner
         byte[] f13 = HashF13V5(querySm3, bodyMd5, timestamp);
 
         byte[] flags = new byte[8];
-        const string osVersion = "12";
-        const string deviceType = "PGT-AN10";
+        const string osVersion = "17";
+        const string deviceType = "WKL-AN20";
 
         // Protobuf deviceInfo
         byte[] deviceInfo = EncodeDeviceInfo(deviceId, nonceB64, startMs, osVersion, deviceType);
