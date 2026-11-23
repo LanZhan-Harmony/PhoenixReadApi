@@ -95,21 +95,4 @@ internal static class PhoenixReadDeviceProfile
     /// <summary>App 接口统一拼接的前置查询参数串。</summary>
     public static readonly string StaticAppQueryPrefix =
         $"aid={Aid}&app_name={AppName}&version_code={VersionCode}&version_name={VersionName}&manifest_version_code={VersionCode}&update_version_code={VersionCode}&channel={Channel}&device_platform={DevicePlatform}&os=android&ssmix=a&device_type={DeviceModel}&device_brand={DeviceBrand}&language={Language}&os_api={OsApi}&os_version={OsVersion}&resolution={Resolution}&dpi={Dpi}&compliance_status=0&need_personal_recommend=1&player_so_load=1&is_android_pad_screen=0&rom_version={RomVersion}&dragon_device_type=phone&host_abi={CpuAbi}&pv_player={VersionCode}&ac={Access}";
-
-    // V5 播放协议专用客户端模板（官方逆向提取，与 license 646637794 强绑定，严禁随意修改）
-    public const string V5DeviceModel = "PGT-AN10";
-    public const string V5OsVersion = "12";
-    public const int V5VersionCode = 74332;
-    public const string V5VersionName = "7.4.3.32";
-    public const string V5Channel = "vivo_8662_64";
-    public const string V5PlaybackPlayerPath = "/novel/player/multi_video_model/player/v1";
-    public const string V5PlaybackFlatPath = "/novel/player/multi_video_model/v1";
-    public const string VideoTabPath = "/reading/bookapi/video_tab/multi_video_model/v1/";
-
-    public const string V5PlaybackUserAgent =
-        "com.phoenix.read/73932 (Linux; U; Android 12; zh_CN_#Hans; PGT-AN10; Build/V417IR;tt-ok/3.12.13.20)";
-
-    /// <summary>VideoTab 播放回退接口专用 User-Agent（与官方 7.4.3.32 Cronet 对齐）。</summary>
-    public const string VideoTabUserAgent =
-        "com.phoenix.read/73932 (Linux; U; Android 16; zh_CN; 25053RT47C; Build/BP2A.250605.031.A3; Cronet/TTNetVersion:04657795 2026-01-23 QuicVersion:c67e9834 2025-09-08)";
 }

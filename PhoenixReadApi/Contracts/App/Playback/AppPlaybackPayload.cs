@@ -12,6 +12,14 @@ internal sealed class AppPlaybackPayload
 
     [JsonPropertyName("dr_scene")]
     public string DrScene { get; init; } = "player";
+
+    [JsonPropertyName("video_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? VideoId { get; init; }
+
+    [JsonPropertyName("content_type")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int ContentType { get; init; }
 }
 
 internal sealed class AppPlaybackBizParam

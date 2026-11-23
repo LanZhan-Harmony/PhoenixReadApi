@@ -18,6 +18,7 @@ internal sealed class PhoenixReadDeviceManager
     private readonly SemaphoreSlim _deviceLock = new(1, 1);
     private DateTimeOffset _registerPausedUntil = DateTimeOffset.MinValue;
     private volatile string? _cachedAppQuery;
+    private volatile bool _isActivated;
 
     internal string DeviceId
     {
@@ -122,6 +123,11 @@ internal sealed class PhoenixReadDeviceManager
             && DeviceIdGenerator.IsValid(InstallId)
         )
         {
+            if (!_isActivated)
+            {
+                _isActivated = true;
+                _ = ActivateDeviceAsync(DeviceId, InstallId, cancellationToken);
+            }
             return;
         }
 
@@ -135,6 +141,11 @@ internal sealed class PhoenixReadDeviceManager
                 && DeviceIdGenerator.IsValid(InstallId)
             )
             {
+                if (!_isActivated)
+                {
+                    _isActivated = true;
+                    _ = ActivateDeviceAsync(DeviceId, InstallId, cancellationToken);
+                }
                 return;
             }
 
@@ -290,6 +301,7 @@ internal sealed class PhoenixReadDeviceManager
                     }
                     IsRegistered = true;
                     _registerPausedUntil = DateTimeOffset.MinValue;
+                    _isActivated = true;
                     _sessionStore.UpdateDeviceIdentity(
                         DeviceId,
                         InstallId,
@@ -298,12 +310,68 @@ internal sealed class PhoenixReadDeviceManager
                         IsRegistered,
                         openUdid
                     );
+
+                    // 设备注册完成后立即调用 app_alert_check 激活心跳，解除网关 (tt_agw) 对未激活匿名设备的静默拦截
+                    await ActivateDeviceAsync(DeviceId, InstallId, cancellationToken)
+                        .ConfigureAwait(false);
                 }
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _registerPausedUntil = DateTimeOffset.UtcNow.AddMinutes(5);
+        }
+    }
+
+    /// <summary>
+    /// 调用 /service/2/app_alert_check/ 激活新注册或已恢复的设备，使其在 tt_agw 网关生效。
+    /// </summary>
+    private async Task ActivateDeviceAsync(
+        string deviceId,
+        string installId,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!DeviceIdGenerator.IsValid(deviceId) || !DeviceIdGenerator.IsValid(installId))
+        {
+            return;
+        }
+
+        try
+        {
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            KeyValuePair<string, string>[] query =
+            [
+                new("aid", PhoenixReadDeviceProfile.Aid.ToString(CultureInfo.InvariantCulture)),
+                new("app_name", PhoenixReadDeviceProfile.AppName),
+                new("channel", PhoenixReadDeviceProfile.Channel),
+                new("device_id", deviceId),
+                new("iid", installId),
+                new("device_platform", PhoenixReadDeviceProfile.DevicePlatform),
+                new("os", "android"),
+                new("version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
+                new("version_name", PhoenixReadDeviceProfile.VersionName),
+                new("_rticket", nowMs.ToString(CultureInfo.InvariantCulture)),
+            ];
+
+            Uri activateUri = HttpUriHelper.CreateRawUri(
+                new Uri("https://log5-applog-lf.fqnovel.com/"),
+                "service/2/app_alert_check/",
+                query
+            );
+
+            using HttpRequestMessage request = new(HttpMethod.Get, activateUri);
+            request.Headers.TryAddWithoutValidation("User-Agent", _userAgent);
+
+            using HttpResponseMessage response = await _http
+                .SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+
+            _ = await _http.ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // 心跳激活失败不阻断流程
         }
     }
 }

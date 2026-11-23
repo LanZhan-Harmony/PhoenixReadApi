@@ -14,14 +14,16 @@ namespace PhoenixReadApi.Internal.Infrastructure.Http;
 internal sealed class PhoenixReadPlaybackTransport
 {
     private const string BaseHost = "https://api5-normal-sinfonlinea.fqnovel.com";
+    private const string VideoTabHost = "https://reading.snssdk.com";
     private const string PlayerPath = "/novel/player/multi_video_model/player/v1";
+    private const string PreloadPath = "/novel/player/multi_video_model/preload/v1";
     private const string FlatPath = "/novel/player/multi_video_model/v1";
     private const string VideoTabPath = "/reading/bookapi/video_tab/multi_video_model/v1/";
 
     /// <summary>
     /// 进程内记忆最近一次成功的 V5 路径。服务端反向切换时可动态尝试备用路径并在稳态下仅发 1 次请求。
     /// </summary>
-    private volatile static string? s_lastGoodPath;
+    private static volatile string? s_lastGoodPath;
 
     private readonly PhoenixReadHttpTransport _http;
     private readonly PhoenixReadApiOptions _options;
@@ -53,33 +55,14 @@ internal sealed class PhoenixReadPlaybackTransport
 
         await _http.EnsureClockSyncedAsync(cancellationToken).ConfigureAwait(false);
 
-        // 构造 V5 请求体（不带 dr_scene，兼容平铺 /v1 与 /player/v1）
-        AppPlaybackPayload payload = new()
-        {
-            BizParam = new AppPlaybackBizParam
-            {
-                DetailPageVersion = 0,
-                DeviceLevel = 1,
-                DisableDiggStat = false,
-                DisableVideoRelateBook = false,
-                NeedAllVideoDefinition = true,
-                NeedMp4Align = false,
-                UseOsPlayer = false,
-                UseServerDns = false,
-                VideoPlatform = 1024,
-            },
-            MixedVideoIdMap = new Dictionary<string, List<string>> { ["1004"] = [videoId] },
-        };
-
-        byte[] jsonBytes = JsonAotSerializer.SerializeToUtf8Bytes(payload);
-        byte[] gzipBody = PhoenixReadPlaybackSigner.CompressJavaGzip(jsonBytes);
-        byte[] bodyMd5 = MD5.HashData(gzipBody);
-        string stub = Convert.ToHexString(bodyMd5);
-
         // 按最近成功路径优先排序候选 V5 路径
         string goodPath = s_lastGoodPath ?? PlayerPath;
-        string[] orderedPaths =
-            goodPath == FlatPath ? [FlatPath, PlayerPath] : [PlayerPath, FlatPath];
+        string[] orderedPaths = goodPath switch
+        {
+            PreloadPath => [PreloadPath, PlayerPath, FlatPath],
+            FlatPath => [FlatPath, PlayerPath, PreloadPath],
+            _ => [PlayerPath, PreloadPath, FlatPath],
+        };
 
         string deviceId = _deviceManager.DeviceId;
         string installId = _deviceManager.InstallId;
@@ -104,9 +87,6 @@ internal sealed class PhoenixReadPlaybackTransport
                         deviceId,
                         installId,
                         cdid,
-                        gzipBody,
-                        bodyMd5,
-                        stub,
                         baseSec,
                         nowMs,
                         cancellationToken
@@ -130,7 +110,7 @@ internal sealed class PhoenixReadPlaybackTransport
             }
         }
 
-        // 2. 若两条 V5 路径均返回空响应或失败，尝试 video_tab GET 回退通道（openhongguo 验证通过）
+        // 2. 若所有 V5 路径均返回空响应或失败，尝试 video_tab GET 回退通道
         Exception? tabError;
         try
         {
@@ -172,14 +152,42 @@ internal sealed class PhoenixReadPlaybackTransport
         string deviceId,
         string installId,
         string cdid,
-        byte[] gzipBody,
-        byte[] bodyMd5,
-        string stub,
         uint baseSec,
         long nowMs,
         CancellationToken cancellationToken
     )
     {
+        // 按照官方最新抓包严格匹配 scene 与分组键：
+        // /player/v1 -> dr_scene="player", key="1004"
+        // /preload/v1 -> dr_scene="preload", key="1004"
+        string scene = path == PreloadPath ? "preload" : "player";
+        string groupKey = path == PreloadPath ? "1004" : (path == PlayerPath ? "1004" : "1");
+        string? egdi = _deviceManager.KlinkEgdi;
+        AppPlaybackPayload payload = new()
+        {
+            DrScene = scene,
+            BizParam = new AppPlaybackBizParam
+            {
+                DetailPageVersion = 0,
+                DeviceLevel = 3,
+                DisableDiggStat = false,
+                DisableVideoRelateBook = false,
+                NeedAllVideoDefinition = true,
+                NeedMp4Align = false,
+                UseOsPlayer = false,
+                UseServerDns = false,
+                VideoPlatform = 1024,
+            },
+            MixedVideoIdMap = new Dictionary<string, List<string>> { [groupKey] = [videoId] },
+            VideoId = videoId,
+            ContentType = 1,
+        };
+
+        byte[] jsonBytes = JsonAotSerializer.SerializeToUtf8Bytes(payload);
+        byte[] gzipBody = PhoenixReadPlaybackSigner.CompressJavaGzip(jsonBytes);
+        byte[] bodyMd5 = MD5.HashData(gzipBody);
+        string stub = Convert.ToHexString(bodyMd5);
+
         long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
             t =>
                 PhoenixReadPlaybackSigner.BuildPlaybackV5Url(
@@ -187,7 +195,8 @@ internal sealed class PhoenixReadPlaybackTransport
                     deviceId,
                     installId,
                     cdid,
-                    t
+                    t,
+                    egdi
                 ),
             bodyMd5,
             baseSec,
@@ -198,33 +207,57 @@ internal sealed class PhoenixReadPlaybackTransport
             deviceId,
             installId,
             cdid,
-            ticket
+            ticket,
+            egdi
         );
 
-        (string khronos, string helios, string medusa, _) = PhoenixReadPlaybackSigner.SignV5(
-            fullUrl,
-            gzipBody,
-            baseSec,
-            deviceId
-        );
+        (
+            string khronos,
+            string gorgon,
+            string helios,
+            string medusa,
+            string argus,
+            string ladon,
+            _
+        ) = PhoenixReadPlaybackSigner.SignV5(fullUrl, gzipBody, baseSec, deviceId);
 
         using HttpRequestMessage request = new(HttpMethod.Post, fullUrl);
-        // V5 播放请求不携带游客 Cookie
         request.Headers.TryAddWithoutValidation(
             "User-Agent",
-            PhoenixReadDeviceProfile.V5PlaybackUserAgent
+            PhoenixReadDeviceProfile.PlaybackUserAgent
         );
         request.Headers.TryAddWithoutValidation(
             "Accept",
             "application/json; charset=utf-8,application/x-protobuf"
         );
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
-        request.Headers.TryAddWithoutValidation("x-ss-dp", "8662");
+        request.Headers.TryAddWithoutValidation(
+            "x-ss-dp",
+            PhoenixReadDeviceProfile.Aid.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        );
         request.Headers.TryAddWithoutValidation("lc", "101");
+        request.Headers.TryAddWithoutValidation("sdk-version", "2");
+        request.Headers.TryAddWithoutValidation("passport-sdk-version", "5051452");
+        request.Headers.TryAddWithoutValidation("x-vc-bdturing-sdk-version", "4.0.3.cn");
+        request.Headers.TryAddWithoutValidation("x-tt-store-region", "cn-ah");
+        request.Headers.TryAddWithoutValidation("x-tt-store-region-src", "did");
+        request.Headers.TryAddWithoutValidation("x-ss-req-ticket", nowMs.ToString());
+        request.Headers.TryAddWithoutValidation(
+            "x-reading-request",
+            $"{nowMs}-{RandomNumberGenerator.GetInt32(100_000_000, 999_999_999)}"
+        );
         request.Headers.TryAddWithoutValidation("x-ss-stub", stub);
         request.Headers.TryAddWithoutValidation("x-khronos", khronos);
+        request.Headers.TryAddWithoutValidation("x-gorgon", gorgon);
         request.Headers.TryAddWithoutValidation("x-helios", helios);
         request.Headers.TryAddWithoutValidation("x-medusa", medusa);
+        request.Headers.TryAddWithoutValidation("x-argus", argus);
+        request.Headers.TryAddWithoutValidation("x-ladon", ladon);
+
+        if (_sessionStore.HasSession)
+        {
+            _sessionStore.ApplySession(request);
+        }
 
         request.Content = new ByteArrayContent(gzipBody);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
@@ -258,43 +291,55 @@ internal sealed class PhoenixReadPlaybackTransport
     )
     {
         Span<byte> zeroMd5 = stackalloc byte[16];
+        string? egdi = _deviceManager.KlinkEgdi;
         long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
             t =>
                 PhoenixReadPlaybackSigner.BuildVideoTabUrl(
-                    $"{BaseHost}{VideoTabPath}",
+                    $"{VideoTabHost}{VideoTabPath}",
                     videoId,
                     deviceId,
                     installId,
                     cdid,
-                    t
+                    t,
+                    egdi
                 ),
             zeroMd5,
             baseSec,
             nowMs
         );
         string tabUrl = PhoenixReadPlaybackSigner.BuildVideoTabUrl(
-            $"{BaseHost}{VideoTabPath}",
+            $"{VideoTabHost}{VideoTabPath}",
             videoId,
             deviceId,
             installId,
             cdid,
-            ticket
+            ticket,
+            egdi
         );
 
-        string khronos = XKhronosSigner.Format(baseSec);
-        string helios = XHeliosSigner.SignV5(baseSec);
-        string medusa = XMedusaSigner.SignV5(tabUrl, [], baseSec, deviceId);
+        (
+            string khronos,
+            string gorgon,
+            string helios,
+            string medusa,
+            string argus,
+            string ladon,
+            _
+        ) = PhoenixReadPlaybackSigner.SignV5(tabUrl, [], baseSec, deviceId);
 
         using HttpRequestMessage request = new(HttpMethod.Get, tabUrl);
-        // VideoTab 请求不携带 Cookie、Content-Type 或 x-ss-stub，只携带 V5 的 Medusa、Helios 和 X-Khronos 头
         request.Headers.TryAddWithoutValidation(
             "User-Agent",
-            PhoenixReadDeviceProfile.VideoTabUserAgent
+            PhoenixReadDeviceProfile.PlaybackUserAgent
         );
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("x-khronos", khronos);
+        request.Headers.TryAddWithoutValidation("x-gorgon", gorgon);
         request.Headers.TryAddWithoutValidation("x-helios", helios);
         request.Headers.TryAddWithoutValidation("x-medusa", medusa);
+        request.Headers.TryAddWithoutValidation("x-argus", argus);
+        request.Headers.TryAddWithoutValidation("x-ladon", ladon);
 
         (HttpResponseMessage response, byte[] bytes) = await _http
             .SendAndReadAsync(request, cancellationToken)
