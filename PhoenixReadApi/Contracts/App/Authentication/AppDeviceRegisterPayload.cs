@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
 namespace PhoenixReadApi.Internal.Contracts.App.Authentication;
 
@@ -44,70 +45,70 @@ internal sealed class AppDeviceRegisterOaid
 internal sealed class AppDeviceRegisterHeader
 {
     [JsonPropertyName("display_name")]
-    public string DisplayName { get; init; } = "红果免费短剧";
+    public string DisplayName { get; init; } = PhoenixReadDeviceProfile.DisplayName;
 
     [JsonPropertyName("update_version_code")]
-    public int UpdateVersionCode { get; init; } = 73932;
+    public int UpdateVersionCode { get; init; } = PhoenixReadDeviceProfile.VersionCode;
 
     [JsonPropertyName("manifest_version_code")]
-    public int ManifestVersionCode { get; init; } = 73932;
+    public int ManifestVersionCode { get; init; } = PhoenixReadDeviceProfile.VersionCode;
 
     [JsonPropertyName("app_version_minor")]
-    public string AppVersionMinor { get; init; } = "7.3.9.32";
+    public string AppVersionMinor { get; init; } = PhoenixReadDeviceProfile.VersionName;
 
     [JsonPropertyName("aid")]
-    public int Aid { get; init; } = 8662;
+    public int Aid { get; init; } = PhoenixReadDeviceProfile.Aid;
 
     [JsonPropertyName("channel")]
-    public string Channel { get; init; } = "update_64";
+    public string Channel { get; init; } = PhoenixReadDeviceProfile.Channel;
 
     [JsonPropertyName("package")]
-    public string Package { get; init; } = "com.phoenix.read";
+    public string Package { get; init; } = PhoenixReadDeviceProfile.PackageName;
 
     [JsonPropertyName("app_version")]
-    public string AppVersion { get; init; } = "7.3.9.32";
+    public string AppVersion { get; init; } = PhoenixReadDeviceProfile.VersionName;
 
     [JsonPropertyName("version_code")]
-    public int VersionCode { get; init; } = 73932;
+    public int VersionCode { get; init; } = PhoenixReadDeviceProfile.VersionCode;
 
     [JsonPropertyName("os")]
-    public string Os { get; init; } = "Android";
+    public string Os { get; init; } = PhoenixReadDeviceProfile.Os;
 
     [JsonPropertyName("os_version")]
-    public string OsVersion { get; init; } = "17";
+    public string OsVersion { get; init; } = PhoenixReadDeviceProfile.OsVersion;
 
     [JsonPropertyName("os_api")]
-    public int OsApi { get; init; } = 37;
+    public int OsApi { get; init; } = PhoenixReadDeviceProfile.OsApi;
 
     [JsonPropertyName("device_model")]
-    public string DeviceModel { get; init; } = "WKL-AN20";
+    public string DeviceModel { get; init; } = PhoenixReadDeviceProfile.DeviceModel;
 
     [JsonPropertyName("device_brand")]
-    public string DeviceBrand { get; init; } = "HONOR";
+    public string DeviceBrand { get; init; } = PhoenixReadDeviceProfile.DeviceBrand;
 
     [JsonPropertyName("device_manufacturer")]
-    public string DeviceManufacturer { get; init; } = "HONOR";
+    public string DeviceManufacturer { get; init; } = PhoenixReadDeviceProfile.DeviceManufacturer;
 
     [JsonPropertyName("cpu_abi")]
-    public string CpuAbi { get; init; } = "arm64-v8a";
+    public string CpuAbi { get; init; } = PhoenixReadDeviceProfile.CpuAbi;
 
     [JsonPropertyName("language")]
-    public string Language { get; init; } = "zh";
+    public string Language { get; init; } = PhoenixReadDeviceProfile.Language;
 
     [JsonPropertyName("timezone")]
-    public int Timezone { get; init; } = 8;
+    public int Timezone { get; init; } = PhoenixReadDeviceProfile.Timezone;
 
     [JsonPropertyName("access")]
-    public string Access { get; init; } = "wifi";
+    public string Access { get; init; } = PhoenixReadDeviceProfile.Access;
 
     [JsonPropertyName("region")]
-    public string Region { get; init; } = "CN";
+    public string Region { get; init; } = PhoenixReadDeviceProfile.Region;
 
     [JsonPropertyName("tz_name")]
-    public string TzName { get; init; } = "Asia/Shanghai";
+    public string TzName { get; init; } = PhoenixReadDeviceProfile.TzName;
 
     [JsonPropertyName("tz_offset")]
-    public int TzOffset { get; init; } = 28800;
+    public int TzOffset { get; init; } = PhoenixReadDeviceProfile.TzOffset;
 
     [JsonPropertyName("cdid")]
     public string Cdid { get; init; } = string.Empty;
@@ -134,7 +135,7 @@ internal sealed class AppDeviceRegisterHeader
     public string ReqId { get; init; } = string.Empty;
 
     [JsonPropertyName("device_platform")]
-    public string DevicePlatform { get; init; } = "android";
+    public string DevicePlatform { get; init; } = PhoenixReadDeviceProfile.DevicePlatform;
 
     [JsonPropertyName("guest_mode")]
     public int GuestMode { get; init; }
@@ -143,7 +144,7 @@ internal sealed class AppDeviceRegisterHeader
     public int IsSystemApp { get; init; }
 
     [JsonPropertyName("sdk_flavor")]
-    public string SdkFlavor { get; init; } = "china";
+    public string SdkFlavor { get; init; } = PhoenixReadDeviceProfile.SdkFlavor;
 
     [JsonPropertyName("device_id")]
     public string DeviceId { get; init; } = "0";

@@ -23,11 +23,19 @@ internal sealed class PhoenixReadClientRuntime : IDisposable
         PhoenixReadHttpTransport httpTransport = new(_httpClient, Options);
         AppTransport = new PhoenixReadAppTransport(httpTransport, Options);
         WebTransport = new PhoenixReadWebTransport(httpTransport, Options);
+        PlaybackTransport = new PhoenixReadPlaybackTransport(
+            httpTransport,
+            Options,
+            AppTransport.DeviceManager,
+            AppTransport.SessionStore
+        );
     }
 
     internal PhoenixReadApiOptions Options { get; }
 
     internal PhoenixReadAppTransport AppTransport { get; }
+
+    internal PhoenixReadPlaybackTransport PlaybackTransport { get; }
 
     internal PhoenixReadWebTransport WebTransport { get; }
 

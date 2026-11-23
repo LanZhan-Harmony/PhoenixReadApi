@@ -11,8 +11,8 @@ namespace PhoenixReadApi.Internal.Features.User;
 
 using Drama = PhoenixReadApi.Drama;
 using User = PhoenixReadApi.User;
-using UserReview = PhoenixReadApi.UserReview;
-using UserWork = PhoenixReadApi.UserWork;
+using UserReview = UserReview;
+using UserWork = UserWork;
 
 /// <summary>加载任意公开账号的主页及其公开内容。</summary>
 internal sealed class UserService : PhoenixFeatureService
@@ -256,7 +256,9 @@ internal sealed class UserService : PhoenixFeatureService
         Task<CirclePage> circleTask = tabTypes.Contains((int)UserProfileTabType.Circle)
             ? _circleService.GetUserCircleAsync(user.Id, PageSize, string.Empty, cancellationToken)
             : Task.FromResult(new CirclePage());
-        Task<AppUserShelfData?> collectionsTask = tabTypes.Contains((int)UserProfileTabType.Favorite)
+        Task<AppUserShelfData?> collectionsTask = tabTypes.Contains(
+            (int)UserProfileTabType.Favorite
+        )
             ? LoadCollectionsAsync(user.Id, PageSize, 0, cancellationToken)
             : Task.FromResult<AppUserShelfData?>(null);
         Task<AppUserActionData?> likesTask = tabTypes.Contains((int)UserProfileTabType.Like)
@@ -369,14 +371,20 @@ internal sealed class UserService : PhoenixFeatureService
             {
                 NextOffset = collections?.NextOffset ?? 0,
                 HasMore = collections?.HasMore ?? false,
-                Total = Math.Max(collections?.Total ?? 0, TabTotal(metadata, (int)UserProfileTabType.Favorite)),
+                Total = Math.Max(
+                    collections?.Total ?? 0,
+                    TabTotal(metadata, (int)UserProfileTabType.Favorite)
+                ),
             },
             Likes = MapLikes(likes),
             LikesPage = new UserPageInfo
             {
                 NextOffset = likes?.NextOffset ?? 0,
                 HasMore = likes?.HasMore ?? false,
-                Total = Math.Max(likes?.Total ?? 0, TabTotal(metadata, (int)UserProfileTabType.Like)),
+                Total = Math.Max(
+                    likes?.Total ?? 0,
+                    TabTotal(metadata, (int)UserProfileTabType.Like)
+                ),
             },
             CircleItems = circlePage.Items,
             CirclePage = circlePage,
@@ -445,11 +453,8 @@ internal sealed class UserService : PhoenixFeatureService
             .GetAsync<AppUserShelfData>(
                 "/reading/bookapi/bookshelf/video/info/v",
                 [
-                    new("count", count.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                    new(
-                        "offset",
-                        offset.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    ),
+                    new("count", count.ToString(CultureInfo.InvariantCulture)),
+                    new("offset", offset.ToString(CultureInfo.InvariantCulture)),
                     new("target_user_id", userId),
                 ],
                 cancellationToken
@@ -469,13 +474,10 @@ internal sealed class UserService : PhoenixFeatureService
             .GetAsync<AppUserActionData>(
                 "/reading/ugc/action/mget/v",
                 [
-                    new("count", count.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new("count", count.ToString(CultureInfo.InvariantCulture)),
                     new("object_type_list", "6,15,10"),
                     new("target_user_id", userId),
-                    new(
-                        "offset",
-                        offset.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    ),
+                    new("offset", offset.ToString(CultureInfo.InvariantCulture)),
                     new("action_type", "3"),
                 ],
                 cancellationToken
@@ -519,7 +521,7 @@ internal sealed class UserService : PhoenixFeatureService
                 long viewCount = record.Video.Stat?.ViewCount ?? 0;
                 long followCount = record.Video.Stat?.FollowedCount ?? 0;
 
-                Drama drama = new Drama
+                Drama drama = new()
                 {
                     Id = id,
                     Title = ValueNormalizer.First(common.Title, id),
@@ -565,7 +567,7 @@ internal sealed class UserService : PhoenixFeatureService
                     ]
                     : [];
 
-                Drama reviewedDrama = new Drama
+                Drama reviewedDrama = new()
                 {
                     Id = dramaId,
                     Title = ValueNormalizer.First(bookInfo.BookName, dramaId),
@@ -575,7 +577,7 @@ internal sealed class UserService : PhoenixFeatureService
                     Tags = dramaTags,
                 };
 
-                UserReview userReview = new UserReview
+                UserReview userReview = new()
                 {
                     Id = id,
                     Drama = reviewedDrama,
@@ -617,7 +619,7 @@ internal sealed class UserService : PhoenixFeatureService
                     {
                         string countPart = text[..^3].Trim();
                         if (
-                            countPart.EndsWith("万", StringComparison.Ordinal)
+                            countPart.EndsWith('万')
                             && double.TryParse(
                                 countPart[..^1],
                                 CultureInfo.InvariantCulture,
@@ -646,10 +648,10 @@ internal sealed class UserService : PhoenixFeatureService
                     onlineDate = DateTimeOffset
                         .FromUnixTimeSeconds(sub.SchedulePublishTime)
                         .ToOffset(TimeSpan.FromHours(8))
-                        .ToString("yyyy-MM-dd");
+                        .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 }
 
-                Drama drama = new Drama
+                Drama drama = new()
                 {
                     Id = id,
                     Title = ValueNormalizer.First(sub.Name, id),
@@ -820,7 +822,10 @@ internal sealed class UserService : PhoenixFeatureService
     {
         if (
             tab.Type is 23 or 16 or 8
-            || (!string.IsNullOrWhiteSpace(tab.Name) && tab.Name.Contains("作品", StringComparison.OrdinalIgnoreCase))
+            || (
+                !string.IsNullOrWhiteSpace(tab.Name)
+                && tab.Name.Contains("作品", StringComparison.OrdinalIgnoreCase)
+            )
         )
         {
             return UserProfileTabType.Work;
@@ -828,7 +833,10 @@ internal sealed class UserService : PhoenixFeatureService
 
         if (
             tab.Type == (int)UserProfileTabType.Circle
-            || (!string.IsNullOrWhiteSpace(tab.Name) && tab.Name.Contains("圈", StringComparison.OrdinalIgnoreCase))
+            || (
+                !string.IsNullOrWhiteSpace(tab.Name)
+                && tab.Name.Contains('圈', StringComparison.OrdinalIgnoreCase)
+            )
         )
         {
             return UserProfileTabType.Circle;
@@ -836,7 +844,10 @@ internal sealed class UserService : PhoenixFeatureService
 
         if (
             tab.Type == (int)UserProfileTabType.Favorite
-            || (!string.IsNullOrWhiteSpace(tab.Name) && tab.Name.Contains("收藏", StringComparison.OrdinalIgnoreCase))
+            || (
+                !string.IsNullOrWhiteSpace(tab.Name)
+                && tab.Name.Contains("收藏", StringComparison.OrdinalIgnoreCase)
+            )
         )
         {
             return UserProfileTabType.Favorite;
@@ -844,7 +855,10 @@ internal sealed class UserService : PhoenixFeatureService
 
         if (
             tab.Type == (int)UserProfileTabType.Like
-            || (!string.IsNullOrWhiteSpace(tab.Name) && tab.Name.Contains("赞", StringComparison.OrdinalIgnoreCase))
+            || (
+                !string.IsNullOrWhiteSpace(tab.Name)
+                && tab.Name.Contains('赞', StringComparison.OrdinalIgnoreCase)
+            )
         )
         {
             return UserProfileTabType.Like;

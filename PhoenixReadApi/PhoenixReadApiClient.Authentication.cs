@@ -66,5 +66,5 @@ public sealed partial class PhoenixReadApiClient
     /// <summary>显式重置并重新注册匿名设备标识（当遭遇服务端匿名播放次数限制时可使用）。</summary>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     public Task ResetDeviceAsync(CancellationToken cancellationToken = default) =>
-        _runtime.AppTransport.ResetDeviceAsync(cancellationToken);
+        Runtime.AppTransport.ResetDeviceAsync(cancellationToken);
 }

@@ -31,7 +31,7 @@ internal sealed class FlexibleSearchBookListConverter
             }
             return result;
         }
-        else if (root.ValueKind == JsonValueKind.Object)
+        if (root.ValueKind == JsonValueKind.Object)
         {
             AppSearchBookDto? item = JsonAotSerializer.Deserialize<AppSearchBookDto>(root);
             return item is not null ? [item] : [];

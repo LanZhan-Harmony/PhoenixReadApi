@@ -28,7 +28,6 @@ namespace PhoenixReadApi;
 /// </remarks>
 public sealed partial class PhoenixReadApiClient : IDisposable
 {
-    private readonly PhoenixReadClientRuntime _runtime;
     private readonly CatalogService _catalog;
     private readonly DramaService _drama;
     private readonly SearchService _search;
@@ -49,7 +48,7 @@ public sealed partial class PhoenixReadApiClient : IDisposable
     private readonly DailyReleaseService _dailyRelease;
     private readonly NovelCategoryService _novelCategory;
 
-    internal PhoenixReadClientRuntime Runtime => _runtime;
+    internal PhoenixReadClientRuntime Runtime { get; }
     private readonly NotificationService _notification;
     private readonly EmoticonService _emoticon;
     private readonly InteractionService _interaction;
@@ -100,29 +99,29 @@ public sealed partial class PhoenixReadApiClient : IDisposable
         bool ownsHttpClient
     )
     {
-        _runtime = new PhoenixReadClientRuntime(httpClient, options, ownsHttpClient);
-        _catalog = new CatalogService(_runtime);
-        _drama = new DramaService(_runtime);
-        _search = new SearchService(_runtime);
-        _playback = new PlaybackService(_runtime);
-        _danmaku = new DanmakuService(_runtime);
-        _comment = new CommentService(_runtime);
-        _circle = new CircleService(_runtime, _comment);
-        _user = new UserService(_runtime, _circle);
-        _history = new HistoryService(_runtime);
-        _favorite = new FavoriteService(_runtime);
-        _like = new LikeService(_runtime);
-        _follow = new FollowService(_runtime);
-        _reservation = new ReservationService(_runtime);
-        _share = new ShareService(_runtime);
-        _authentication = new AuthenticationService(_runtime);
-        _discover = new DiscoverService(_runtime);
-        _shortDramaFilter = new ShortDramaFilterService(_runtime);
-        _dailyRelease = new DailyReleaseService(_runtime);
-        _novelCategory = new NovelCategoryService(_runtime);
-        _notification = new NotificationService(_runtime);
-        _emoticon = new EmoticonService(_runtime);
-        _interaction = new InteractionService(_runtime);
+        Runtime = new PhoenixReadClientRuntime(httpClient, options, ownsHttpClient);
+        _catalog = new CatalogService(Runtime);
+        _drama = new DramaService(Runtime);
+        _search = new SearchService(Runtime);
+        _playback = new PlaybackService(Runtime);
+        _danmaku = new DanmakuService(Runtime);
+        _comment = new CommentService(Runtime);
+        _circle = new CircleService(Runtime, _comment);
+        _user = new UserService(Runtime, _circle);
+        _history = new HistoryService(Runtime);
+        _favorite = new FavoriteService(Runtime);
+        _like = new LikeService(Runtime);
+        _follow = new FollowService(Runtime);
+        _reservation = new ReservationService(Runtime);
+        _share = new ShareService(Runtime);
+        _authentication = new AuthenticationService(Runtime);
+        _discover = new DiscoverService(Runtime);
+        _shortDramaFilter = new ShortDramaFilterService(Runtime);
+        _dailyRelease = new DailyReleaseService(Runtime);
+        _novelCategory = new NovelCategoryService(Runtime);
+        _notification = new NotificationService(Runtime);
+        _emoticon = new EmoticonService(Runtime);
+        _interaction = new InteractionService(Runtime);
     }
 
     /// <summary>释放 API 客户端使用的资源。</summary>
@@ -130,5 +129,5 @@ public sealed partial class PhoenixReadApiClient : IDisposable
     /// 如果客户端是通过默认构造函数创建的，调用此方法会释放内部 HttpClient；如果传入了外部 HttpClient，
     /// 只释放客户端自身的运行时状态，不会释放外部 HttpClient。重复调用是安全的。
     /// </remarks>
-    public void Dispose() => _runtime.Dispose();
+    public void Dispose() => Runtime.Dispose();
 }

@@ -257,7 +257,7 @@ internal sealed class FlexibleVideoListConverter : JsonConverter<IReadOnlyList<D
             }
             return result;
         }
-        else if (root.ValueKind == JsonValueKind.Object)
+        if (root.ValueKind == JsonValueKind.Object)
         {
             List<DramaEpisodeDto> result = [];
             foreach (JsonProperty item in root.EnumerateObject())
@@ -314,7 +314,7 @@ internal sealed class FlexibleDramaListConverter : JsonConverter<IReadOnlyList<D
             }
             return result;
         }
-        else if (root.ValueKind == JsonValueKind.Object)
+        if (root.ValueKind == JsonValueKind.Object)
         {
             List<DramaDto> result = [];
             foreach (JsonProperty item in root.EnumerateObject())
@@ -484,7 +484,13 @@ internal sealed class DramaTagListConverter : JsonConverter<IReadOnlyList<DramaT
                 }
                 return;
             case JsonValueKind.Object:
-                foreach (string name in new[] { "name", "title", "label", "tag" })
+                foreach (string name in new[]
+                         {
+                             "name",
+                             "title",
+                             "label",
+                             "tag"
+                         })
                 {
                     if (value.TryGetProperty(name, out JsonElement item))
                     {
@@ -509,7 +515,10 @@ internal sealed class DramaTagListConverter : JsonConverter<IReadOnlyList<DramaT
         {
             if (item.Length > 0 && result.All(existing => existing.Name != item))
             {
-                result.Add(new DramaTagDto { Name = item });
+                result.Add(new DramaTagDto
+                {
+                    Name = item
+                });
             }
         }
     }
@@ -542,7 +551,7 @@ internal sealed class FlexibleMediaVariantListConverter
             }
             return result;
         }
-        else if (root.ValueKind == JsonValueKind.Object)
+        if (root.ValueKind == JsonValueKind.Object)
         {
             List<AppMediaVariantDto> result = [];
             foreach (JsonProperty item in root.EnumerateObject())
@@ -634,7 +643,13 @@ internal sealed class CategorySchemaConverter : JsonConverter<IReadOnlyList<stri
 
         if (root.ValueKind == JsonValueKind.Object)
         {
-            foreach (string name in new[] { "name", "title", "label", "tag" })
+            foreach (string name in new[]
+                     {
+                         "name",
+                         "title",
+                         "label",
+                         "tag"
+                     })
             {
                 if (
                     root.TryGetProperty(name, out JsonElement value)
@@ -740,7 +755,10 @@ internal sealed class FlexibleCommentImageDataListConverter
                 );
             }
 
-            return new AppCommentImageDataListDto { ImageData = items };
+            return new AppCommentImageDataListDto
+            {
+                ImageData = items
+            };
         }
 
         return new AppCommentImageDataListDto();

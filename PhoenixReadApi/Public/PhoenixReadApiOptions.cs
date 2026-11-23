@@ -1,4 +1,5 @@
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
+using PhoenixReadApi.Internal.Infrastructure.Runtime;
 
 namespace PhoenixReadApi;
 
@@ -56,8 +57,7 @@ public sealed class PhoenixReadApiOptions
     public string? InstallId { get; init; }
 
     /// <summary>发送请求时使用的应用 User-Agent。</summary>
-    public string UserAgent { get; init; } =
-        "com.phoenix.read/73932 (Linux; U; Android 17; zh_CN; WKL-AN20; Build/CP2A.260605.012; Cronet/TTNetVersion:8d40f833 2026-03-03 QuicVersion:21ac1950 2025-11-18)";
+    public string UserAgent { get; init; } = PhoenixReadDeviceProfile.DefaultUserAgent;
 
     internal PhoenixReadApiOptions Normalize()
     {
@@ -93,7 +93,7 @@ public sealed class PhoenixReadApiOptions
             DeviceId = NormalizeNumericId(DeviceId) ?? DeviceIdGenerator.Create(),
             InstallId = NormalizeNumericId(InstallId) ?? DeviceIdGenerator.Create(),
             UserAgent = string.IsNullOrWhiteSpace(UserAgent)
-                ? "com.phoenix.read/73932 (Linux; U; Android 17; zh_CN; WKL-AN20; Build/UKQ1.230804.001; Cronet/TTNetVersion:8d40f833 2026-03-03 QuicVersion:21ac1950 2025-11-18)"
+                ? PhoenixReadDeviceProfile.DefaultUserAgent
                 : UserAgent.Trim(),
         };
     }

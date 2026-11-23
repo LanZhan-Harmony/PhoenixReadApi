@@ -20,6 +20,8 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
 
     protected PhoenixReadAppTransport _appTransport => Runtime.AppTransport;
 
+    protected PhoenixReadPlaybackTransport _playbackTransport => Runtime.PlaybackTransport;
+
     protected PhoenixReadWebTransport _webTransport => Runtime.WebTransport;
 
     protected Task<string> GetTextAsync(

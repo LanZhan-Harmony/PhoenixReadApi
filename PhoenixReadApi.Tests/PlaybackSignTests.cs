@@ -270,7 +270,7 @@ public sealed class PlaybackSignTests
             "fM/7alSEtKAwuvYpRnpVRluiNzxEMwABn8qIf2ZVgTMEGOtgxyq1160xPCWebesXJAL2Ub9R85sFkmKbgUjbtsWnQt/gM9FPRrovAUFlc7+Wj373HOREhQ3O1jEvMh8cc9Xg/hHjxlgC78a5S+nkSXAusUDHiyjcnnevuzJcA+pPOspvBXxoHZfXgwF1ZFSOn3kONIzjU4b4gXLTQ9TNzTP3OpgDixstk+E4v2IEe4jwpcGx5ixoA4aHUSLxLU1T1kbkXRAu0a2SGBhnQiHiI7VE8ka2OsFo/VdwdNsoubGwepH+TJkPWc2nD4HxFKOR9EU00a2oFWI5VZjjoUGDMxCczb8OYO0TgcgE4zsIQlu+Ynvi8fYQFx8bfUH+jV18eqEd5Evl0VjXaPaa35P+vfiW0/rJ6bNLzpARg8FeliIZDLfzCknfVuBft6MeMQlFVSpCMG44raCnG4342cZP1TqAGX3ZSFSHH05H1TP+RyzuZuzmUpRueGK0BV9DQubJZD16IA3w7DhYZaKkucKqJr1rxfupUY6MzTGJHQvOAB1ByqRCQAf7ZW+NvhgeK2gDad3aR4xxjNwtix2F4+BnBltuxOAhh+AdJ6J1iIwNVz62RtBo/BMPBlhkQhMYJKZjM/X//u/N//7vzSIR";
 
         string url =
-            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1?aid=8662&app_name=novelread&version_code=74332&version_name=7.4.3.32&channel=vivo_8662_64&device_platform=android&device_type=WKL-AN20&os_version=17&update_version_code=74332&iid=1483721089225898&cdid=test-cdid&device_id=1483721089221802&_rticket=1794887545022";
+            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1?aid=8662&app_name=novelread&version_code=74332&version_name=7.4.3.32&channel=vivo_8662_64&device_platform=android&device_type=PGT-AN10&os_version=12&update_version_code=74332&iid=1483721089225898&cdid=test-cdid&device_id=1483721089221802&_rticket=1794887545022";
         byte[] body = Convert.FromHexString("1f8b0800000000000000558fd14ec3300c45ffc5");
         uint ts = 1794887545;
         string deviceId = "1483721089221802";
@@ -289,7 +289,9 @@ public sealed class PlaybackSignTests
             startMs,
             msgRandom,
             nonce,
-            packRand
+            packRand,
+            osVersion: "12",
+            deviceType: "PGT-AN10"
         );
 
         await Assert.That(csharpMedusa).IsEqualTo(expectedMedusa);
@@ -331,63 +333,126 @@ public sealed class PlaybackSignTests
             ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         long baseSec = serverMs / 1000;
 
-        string targetHost =
-            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1";
+        string[] candidateHosts =
+        [
+            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1",
+            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/v1",
+        ];
         string installId = "1483721089225898";
         string cdid = "test-cdid";
 
+        byte[] bodyMd5 = System.Security.Cryptography.MD5.HashData(gzipBody);
         byte[]? successBytes = null;
-        int[] tsDeltas = [0, 1, -1, 2];
-        foreach (int delta in tsDeltas)
+        string? lastErr = null;
+        foreach (string targetHost in candidateHosts)
         {
-            uint candTs = (uint)(baseSec + delta);
-            for (int off = 0; off < 64; off++)
+            string urlPrefix = PhoenixReadPlaybackSigner.BuildPlaybackUrlPrefix(
+                targetHost,
+                deviceId,
+                installId,
+                cdid
+            );
+            long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
+                urlPrefix,
+                bodyMd5,
+                (uint)baseSec,
+                baseSec * 1000
+            );
+            string candUrl = $"{urlPrefix}{ticket}";
+            (string? khronos, string? helios, string? medusa, string? ssStub) =
+                PhoenixReadPlaybackSigner.SignV5(candUrl, gzipBody, (uint)baseSec, deviceId);
+
+            using HttpRequestMessage req = new(HttpMethod.Post, candUrl);
+            req.Headers.TryAddWithoutValidation(
+                "User-Agent",
+                PhoenixReadApi
+                    .Internal
+                    .Infrastructure
+                    .Runtime
+                    .PhoenixReadDeviceProfile
+                    .PlaybackUserAgent
+            );
+            req.Headers.TryAddWithoutValidation("Accept", "application/json");
+            req.Headers.TryAddWithoutValidation("x-ss-stub", ssStub);
+            req.Headers.TryAddWithoutValidation("x-khronos", khronos);
+            req.Headers.TryAddWithoutValidation("x-helios", helios);
+            req.Headers.TryAddWithoutValidation("x-medusa", medusa);
+
+            req.Content = new ByteArrayContent(gzipBody);
+            req.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                "application/json"
+            )
             {
-                long ticket = ((long)candTs * 1000) + off;
-                string candUrl = PhoenixReadPlaybackSigner.BuildPlaybackUrl(
-                    targetHost,
-                    deviceId,
-                    installId,
-                    cdid,
-                    ticket
-                );
-                (string? khronos, string? helios, string? medusa, string? ssStub) =
-                    PhoenixReadPlaybackSigner.SignV5(candUrl, gzipBody, candTs, deviceId);
+                CharSet = "utf-8",
+            };
+            req.Content.Headers.ContentEncoding.Add("gzip");
 
-                using HttpRequestMessage req = new(HttpMethod.Post, candUrl);
-                req.Headers.TryAddWithoutValidation(
-                    "User-Agent",
-                    "com.phoenix.read/73932 (Linux; U; Android 17; zh_CN_#Hans; WKL-AN20; Build/CP2A.260605.012; tt-ok/3.12.13.20)"
-                );
-                req.Headers.TryAddWithoutValidation("Accept", "application/json");
-                req.Headers.TryAddWithoutValidation("x-ss-stub", ssStub);
-                req.Headers.TryAddWithoutValidation("x-khronos", khronos);
-                req.Headers.TryAddWithoutValidation("x-helios", helios);
-                req.Headers.TryAddWithoutValidation("x-medusa", medusa);
-
-                req.Content = new ByteArrayContent(gzipBody);
-                req.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
-                    "application/json"
-                )
-                {
-                    CharSet = "utf-8",
-                };
-                req.Content.Headers.ContentEncoding.Add("gzip");
-
-                using HttpResponseMessage res = await client.SendAsync(req);
-                byte[] bytes = await res.Content.ReadAsByteArrayAsync();
-                if (bytes.Length > 1000)
-                {
-                    successBytes = bytes;
-                    break;
-                }
-                await Task.Delay(20);
-            }
-
-            if (successBytes is not null)
+            using HttpResponseMessage res = await client.SendAsync(req);
+            byte[] bytes = await res.Content.ReadAsByteArrayAsync();
+            if (bytes.Length > 1000)
             {
+                successBytes = bytes;
                 break;
             }
+            lastErr =
+                $"HTTP {(int)res.StatusCode}: {Encoding.UTF8.GetString(bytes)} (len={bytes.Length}) for {candUrl}";
+        }
+
+        if (successBytes is null)
+        {
+            const string liveVideoId = "7484637255605160985";
+            Span<byte> zeroMd5 = stackalloc byte[16];
+            long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
+                t =>
+                    PhoenixReadPlaybackSigner.BuildVideoTabUrl(
+                        "https://api5-normal-sinfonlinea.fqnovel.com/reading/bookapi/video_tab/multi_video_model/v1/",
+                        liveVideoId,
+                        deviceId,
+                        installId,
+                        cdid,
+                        t
+                    ),
+                zeroMd5,
+                (uint)baseSec,
+                baseSec * 1000
+            );
+            string tabUrl = PhoenixReadPlaybackSigner.BuildVideoTabUrl(
+                "https://api5-normal-sinfonlinea.fqnovel.com/reading/bookapi/video_tab/multi_video_model/v1/",
+                liveVideoId,
+                deviceId,
+                installId,
+                cdid,
+                ticket
+            );
+            string khronos = XKhronosSigner.Format((uint)baseSec);
+            string helios = XHeliosSigner.SignV5((uint)baseSec);
+            string medusa = XMedusaSigner.SignV5(tabUrl, [], (uint)baseSec, deviceId);
+
+            using HttpRequestMessage req = new(HttpMethod.Get, tabUrl);
+            req.Headers.TryAddWithoutValidation(
+                "User-Agent",
+                PhoenixReadApi.Internal.Infrastructure.Runtime.PhoenixReadDeviceProfile.VideoTabUserAgent
+            );
+            req.Headers.TryAddWithoutValidation("Accept", "application/json");
+            req.Headers.TryAddWithoutValidation("x-khronos", khronos);
+            req.Headers.TryAddWithoutValidation("x-helios", helios);
+            req.Headers.TryAddWithoutValidation("x-medusa", medusa);
+
+            using HttpResponseMessage res = await client.SendAsync(req);
+            byte[] bytes = await res.Content.ReadAsByteArrayAsync();
+            if (bytes.Length > 1000)
+            {
+                successBytes = bytes;
+            }
+            else
+            {
+                lastErr += $" | VideoTab len={bytes.Length}";
+            }
+        }
+
+        if (successBytes is null)
+        {
+            throw new Exception("Live probe failed: " + lastErr);
         }
 
         await Assert.That(successBytes).IsNotNull();

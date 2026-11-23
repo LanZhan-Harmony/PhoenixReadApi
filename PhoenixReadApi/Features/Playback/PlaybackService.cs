@@ -31,35 +31,25 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        Exception? appError;
         try
         {
             return await ResolveAppMediaAsync(videoId, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception exception) when (IsRecoverable(exception))
-        {
-            appError = exception;
-        }
-
-        Exception? webError = null;
-        if (_options.EnableWebFallback)
+        catch (PhoenixReadApiException ex) when (dramaId.Length > 0)
         {
             try
             {
-                return await ResolveWebMediaAsync(dramaId, videoId, cancellationToken)
-                    .ConfigureAwait(false);
+                return await ResolveWebMediaAsync(dramaId, videoId, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception exception) when (IsRecoverable(exception))
+            catch (Exception webEx)
             {
-                webError = exception;
+                throw new PhoenixReadApiFallbackException(
+                    $"App 与 Web 媒体接口均解析失败 (App: {ex.Message}, Web: {webEx.Message})",
+                    "media",
+                    webEx
+                );
             }
         }
-
-        throw new PhoenixReadApiFallbackException(
-            "无法获取该分集的播放信息。",
-            "media",
-            webError ?? appError
-        );
     }
 
     private async Task<IReadOnlyList<PlaybackMedia>> ResolveAppMediaAsync(
@@ -67,8 +57,8 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
-        AppResponse<AppPlaybackData> result = await _appTransport
-            .PostPlaybackAsync(videoId, cancellationToken)
+        AppResponse<AppPlaybackData> result = await _playbackTransport
+            .GetPlaybackDataAsync(videoId, cancellationToken)
             .ConfigureAwait(false);
 
         AppPlaybackData? data = result.Data;

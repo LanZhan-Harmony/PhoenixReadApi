@@ -1,10 +1,8 @@
 using System.Globalization;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
-using PhoenixReadApi.Internal.Contracts.App.Playback;
 using PhoenixReadApi.Internal.Contracts.App.Search;
 using PhoenixReadApi.Internal.Contracts.Web.Authentication;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
@@ -18,22 +16,24 @@ internal sealed class PhoenixReadAppTransport
 {
     private readonly PhoenixReadHttpTransport _http;
     private readonly PhoenixReadApiOptions _options;
-    private readonly PhoenixReadSessionStore _sessionStore;
-    private readonly PhoenixReadDeviceManager _deviceManager;
     private readonly PhoenixReadPassportTransport _passportTransport;
     private long _deviceCooldownUntilUnixMilliseconds;
+
+    internal PhoenixReadDeviceManager DeviceManager { get; }
+
+    internal PhoenixReadSessionStore SessionStore { get; }
 
     internal PhoenixReadAppTransport(PhoenixReadHttpTransport http, PhoenixReadApiOptions options)
     {
         _http = http;
         _options = options;
-        _sessionStore = new PhoenixReadSessionStore(options);
-        _deviceManager = new PhoenixReadDeviceManager(http, options.UserAgent, _sessionStore);
+        SessionStore = new PhoenixReadSessionStore(options);
+        DeviceManager = new PhoenixReadDeviceManager(http, options.UserAgent, SessionStore);
         _passportTransport = new PhoenixReadPassportTransport(
             http,
             options,
-            _deviceManager,
-            _sessionStore
+            DeviceManager,
+            SessionStore
         );
     }
 
@@ -44,7 +44,9 @@ internal sealed class PhoenixReadAppTransport
         CancellationToken cancellationToken
     )
     {
-        await _deviceManager.EnsureRegisteredAsync(forceNew: false, cancellationToken).ConfigureAwait(false);
+        await DeviceManager
+            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
+            .ConfigureAwait(false);
         await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
         Uri requestUri = BuildAppRequestUri(path, query);
         using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
@@ -52,10 +54,15 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-        _sessionStore.ApplySession(request);
-        PhoenixReadRequestSigner.SignPlayer(request, [], _deviceManager.DeviceId, DateTimeOffset.UtcNow);
+        SessionStore.ApplySession(request);
+        PhoenixReadRequestSigner.SignPlayer(
+            request,
+            [],
+            DeviceManager.DeviceId,
+            DateTimeOffset.UtcNow
+        );
         (HttpResponseMessage response, byte[] bytes) = await _http
-            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
+            .SendAndReadAsync(request, cancellationToken, SessionStore.CaptureSession)
             .ConfigureAwait(false);
         response.Dispose();
         return Encoding.UTF8.GetString(bytes);
@@ -70,7 +77,9 @@ internal sealed class PhoenixReadAppTransport
         int? serverChannel = 1000
     )
     {
-        await _deviceManager.EnsureRegisteredAsync(forceNew: false, cancellationToken).ConfigureAwait(false);
+        await DeviceManager
+            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
+            .ConfigureAwait(false);
         await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
         Uri requestUri = BuildAppRequestUri(path, []);
         using HttpRequestMessage request = new(HttpMethod.Post, requestUri);
@@ -78,17 +87,31 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-        request.Headers.TryAddWithoutValidation("Comment-Source", commentSource.ToString(CultureInfo.InvariantCulture));
+        request.Headers.TryAddWithoutValidation(
+            "Comment-Source",
+            commentSource.ToString(CultureInfo.InvariantCulture)
+        );
         if (serverChannel.HasValue)
         {
-            request.Headers.TryAddWithoutValidation("Server-Channel", serverChannel.Value.ToString(CultureInfo.InvariantCulture));
+            request.Headers.TryAddWithoutValidation(
+                "Server-Channel",
+                serverChannel.Value.ToString(CultureInfo.InvariantCulture)
+            );
         }
         request.Content = new ByteArrayContent(body);
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
-        _sessionStore.ApplySession(request);
-        PhoenixReadRequestSigner.SignPlayer(request, body, _deviceManager.DeviceId, DateTimeOffset.UtcNow);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+        {
+            CharSet = "utf-8",
+        };
+        SessionStore.ApplySession(request);
+        PhoenixReadRequestSigner.SignPlayer(
+            request,
+            body,
+            DeviceManager.DeviceId,
+            DateTimeOffset.UtcNow
+        );
         (HttpResponseMessage response, byte[] bytes) = await _http
-            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
+            .SendAndReadAsync(request, cancellationToken, SessionStore.CaptureSession)
             .ConfigureAwait(false);
         response.Dispose();
         return Encoding.UTF8.GetString(bytes);
@@ -132,176 +155,6 @@ internal sealed class PhoenixReadAppTransport
             RetryPolicy.IsTransient,
             cancellationToken
         );
-    }
-
-    /// <summary>使用 V5 协议获取分集的播放模型（/novel/player/multi_video_model/player/v1）。</summary>
-    internal async Task<AppResponse<AppPlaybackData>> PostPlaybackAsync(
-        string videoId,
-        CancellationToken cancellationToken
-    )
-    {
-        await _deviceManager
-            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
-            .ConfigureAwait(false);
-
-        await _http.EnsureClockSyncedAsync(cancellationToken).ConfigureAwait(false);
-
-        await AwaitDeviceCooldownAsync(cancellationToken).ConfigureAwait(false);
-
-        AppPlaybackPayload payload = new()
-        {
-            BizParam = new AppPlaybackBizParam
-            {
-                DetailPageVersion = 0,
-                DeviceLevel = 1,
-                DisableDiggStat = false,
-                DisableVideoRelateBook = false,
-                NeedAllVideoDefinition = true,
-                NeedMp4Align = false,
-                UseOsPlayer = false,
-                UseServerDns = false,
-                VideoPlatform = 1024,
-            },
-            MixedVideoIdMap = new Dictionary<string, List<string>> { ["1004"] = [videoId] },
-            DrScene = "player",
-        };
-
-        byte[] jsonBytes = JsonAotSerializer.SerializeToUtf8Bytes(payload);
-        byte[] gzipBody = PhoenixReadPlaybackSigner.CompressJavaGzip(jsonBytes);
-        string stub = Convert.ToHexString(MD5.HashData(gzipBody));
-
-        const string targetHost =
-            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1";
-        const string playbackUa =
-            "com.phoenix.read/73932 (Linux; U; Android 17; zh_CN_#Hans; WKL-AN20; Build/CP2A.260605.012; tt-ok/3.12.13.20)";
-
-        int rotations = 0;
-        while (true)
-        {
-            string deviceId = _deviceManager.DeviceId;
-            string installId = _deviceManager.InstallId;
-            string cdid = string.IsNullOrWhiteSpace(_deviceManager.Cdid)
-                ? Guid.NewGuid().ToString()
-                : _deviceManager.Cdid;
-
-            string urlPrefix = PhoenixReadPlaybackSigner.BuildPlaybackUrlPrefix(
-                targetHost,
-                deviceId,
-                installId,
-                cdid
-            );
-
-            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + _http.ServerClockOffsetMs;
-            long baseSec = nowMs / 1000;
-
-            int[] tsDeltas = [0, 1, -1, 2];
-            AppResponse<AppPlaybackData>? successResult = null;
-
-            foreach (int delta in tsDeltas)
-            {
-                uint ts = (uint)(baseSec + delta);
-                string khronos = ts.ToString(CultureInfo.InvariantCulture);
-                string helios = PhoenixReadPlaybackSigner.GenerateHelios(ts);
-
-                for (int off = 0; off < 64; off++)
-                {
-                    long ticket = (long)ts * 1000 + off;
-                    string fullUrl = $"{urlPrefix}{ticket}";
-                    string medusa = PhoenixReadPlaybackSigner.GenerateMedusa(fullUrl, gzipBody, ts, deviceId);
-
-                    using HttpRequestMessage request = new(HttpMethod.Post, fullUrl);
-                    request.Headers.TryAddWithoutValidation("User-Agent", playbackUa);
-                    request.Headers.TryAddWithoutValidation("Accept", "application/json");
-                    request.Headers.TryAddWithoutValidation("x-ss-stub", stub);
-                    request.Headers.TryAddWithoutValidation("x-khronos", khronos);
-                    request.Headers.TryAddWithoutValidation("x-helios", helios);
-                    request.Headers.TryAddWithoutValidation("x-medusa", medusa);
-
-                    request.Content = new ByteArrayContent(gzipBody);
-                    request.Content.Headers.ContentType = new MediaTypeHeaderValue(
-                        "application/json"
-                    )
-                    {
-                        CharSet = "utf-8",
-                    };
-                    request.Content.Headers.ContentEncoding.Add("gzip");
-
-                    (HttpResponseMessage response, byte[] bytes) = await _http
-                        .SendAndReadAsync(request, cancellationToken)
-                        .ConfigureAwait(false);
-
-                    using (response)
-                    {
-                        if (response.IsSuccessStatusCode && bytes.Length > 0)
-                        {
-                            try
-                            {
-                                AppResponse<AppPlaybackData>? result =
-                                    JsonAotSerializer.Deserialize<AppResponse<AppPlaybackData>>(
-                                        bytes
-                                    );
-                                bool hasData =
-                                    result?.Data is not null
-                                    && (
-                                        result.Data.Group1004 is { Count: > 0 }
-                                        || result.Data.VideoModelData is { Count: > 0 }
-                                        || result.Data.AdditionalData is { Count: > 0 }
-                                        || result.Data.VideoModel.Variants.Count > 0
-                                        || result.Data.VideoList.Count > 0
-                                    );
-
-                                if (
-                                    result is not null
-                                    && (
-                                        string.IsNullOrWhiteSpace(result.Code) || result.Code == "0"
-                                    )
-                                    && hasData
-                                )
-                                {
-                                    successResult = result;
-                                    break;
-                                }
-                            }
-                            catch (JsonException)
-                            {
-                                // continue trying other candidates
-                            }
-                        }
-                    }
-
-                    if (successResult is not null)
-                    {
-                        break;
-                    }
-
-                    await Task.Delay(20, cancellationToken).ConfigureAwait(false);
-                }
-
-                if (successResult is not null)
-                {
-                    break;
-                }
-            }
-
-            if (successResult is not null)
-            {
-                return successResult;
-            }
-
-            if (rotations < 2)
-            {
-                rotations++;
-                await _deviceManager
-                    .EnsureRegisteredAsync(forceNew: true, cancellationToken)
-                    .ConfigureAwait(false);
-                continue;
-            }
-
-            throw new PhoenixReadApiResponseException(
-                "红果 App 播放接口未返回有效数据。",
-                "/novel/player/multi_video_model/player/v1"
-            );
-        }
     }
 
     internal Task<AppResponse<TResponse>> GetAsync<TResponse>(
@@ -377,30 +230,26 @@ internal sealed class PhoenixReadAppTransport
     internal Task FollowRedirectAsync(string redirectUrl, CancellationToken cancellationToken) =>
         _passportTransport.FollowRedirectAsync(redirectUrl, cancellationToken);
 
-    internal bool HasSession => _sessionStore.HasSession;
+    internal bool HasSession => SessionStore.HasSession;
 
-    internal AuthenticatedUser RestoredUser => _sessionStore.RestoredUser;
+    internal AuthenticatedUser RestoredUser => SessionStore.RestoredUser;
 
     internal void SaveAuthenticatedUser(AuthenticatedUser user) =>
-        _sessionStore.SaveAuthenticatedUser(user);
+        SessionStore.SaveAuthenticatedUser(user);
 
     internal void SaveAuthenticationMetadata(
         string verificationTicket,
         string maskedPhone,
         int retryAfterSeconds
     ) =>
-        _sessionStore.SaveAuthenticationMetadata(
-            verificationTicket,
-            maskedPhone,
-            retryAfterSeconds
-        );
+        SessionStore.SaveAuthenticationMetadata(verificationTicket, maskedPhone, retryAfterSeconds);
 
-    internal void ClearSession() => _sessionStore.ClearSession();
+    internal void ClearSession() => SessionStore.ClearSession();
 
-    internal bool IsAuthenticated => _sessionStore.HasSession;
+    internal bool IsAuthenticated => SessionStore.HasSession;
 
     internal Task ResetDeviceAsync(CancellationToken cancellationToken) =>
-        _deviceManager.ResetDeviceAsync(cancellationToken);
+        DeviceManager.ResetDeviceAsync(cancellationToken);
 
     private async Task<AppResponse<TResponse>> SendGetOnceAsync<TResponse>(
         string path,
@@ -414,7 +263,7 @@ internal sealed class PhoenixReadAppTransport
         );
         if (!isBookmallTab)
         {
-            await _deviceManager
+            await DeviceManager
                 .EnsureRegisteredAsync(forceNew: false, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -430,20 +279,20 @@ internal sealed class PhoenixReadAppTransport
             request.Headers.TryAddWithoutValidation("Accept", "application/json");
             request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
             request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-            _sessionStore.ApplySession(request);
+            SessionStore.ApplySession(request);
 
             if (!isBookmallTab)
             {
                 PhoenixReadRequestSigner.SignPlayer(
                     request,
                     [],
-                    _deviceManager.DeviceId,
+                    DeviceManager.DeviceId,
                     DateTimeOffset.UtcNow
                 );
             }
 
             (HttpResponseMessage response, byte[] bytes) = await _http
-                .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
+                .SendAndReadAsync(request, cancellationToken, SessionStore.CaptureSession)
                 .ConfigureAwait(false);
             using (response)
             {
@@ -454,7 +303,7 @@ internal sealed class PhoenixReadAppTransport
                 )
                 {
                     rotations++;
-                    await _deviceManager
+                    await DeviceManager
                         .EnsureRegisteredAsync(forceNew: true, cancellationToken)
                         .ConfigureAwait(false);
                     continue;
@@ -507,7 +356,7 @@ internal sealed class PhoenixReadAppTransport
         CancellationToken cancellationToken
     )
     {
-        await _deviceManager
+        await DeviceManager
             .EnsureRegisteredAsync(forceNew: false, cancellationToken)
             .ConfigureAwait(false);
 
@@ -517,16 +366,16 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-        _sessionStore.ApplySession(request);
+        SessionStore.ApplySession(request);
         PhoenixReadRequestSigner.SignPlayer(
             request,
             [],
-            _deviceManager.DeviceId,
+            DeviceManager.DeviceId,
             DateTimeOffset.UtcNow
         );
 
         (HttpResponseMessage response, byte[] bytes) = await _http
-            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
+            .SendAndReadAsync(request, cancellationToken, SessionStore.CaptureSession)
             .ConfigureAwait(false);
         using (response)
         {
@@ -571,7 +420,7 @@ internal sealed class PhoenixReadAppTransport
         CancellationToken cancellationToken
     )
     {
-        await _deviceManager
+        await DeviceManager
             .EnsureRegisteredAsync(forceNew: false, cancellationToken)
             .ConfigureAwait(false);
 
@@ -581,16 +430,16 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-        _sessionStore.ApplySession(request);
+        SessionStore.ApplySession(request);
         PhoenixReadRequestSigner.SignPlayer(
             request,
             [],
-            _deviceManager.DeviceId,
+            DeviceManager.DeviceId,
             DateTimeOffset.UtcNow
         );
 
         (HttpResponseMessage response, byte[] bytes) = await _http
-            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
+            .SendAndReadAsync(request, cancellationToken, SessionStore.CaptureSession)
             .ConfigureAwait(false);
         using (response)
         {
@@ -631,7 +480,7 @@ internal sealed class PhoenixReadAppTransport
         CancellationToken cancellationToken
     )
     {
-        await _deviceManager
+        await DeviceManager
             .EnsureRegisteredAsync(forceNew: false, cancellationToken)
             .ConfigureAwait(false);
 
@@ -645,18 +494,18 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-        _sessionStore.ApplySession(request);
+        SessionStore.ApplySession(request);
 
         request.Content = content;
         PhoenixReadRequestSigner.SignPlayer(
             request,
             [],
-            _deviceManager.DeviceId,
+            DeviceManager.DeviceId,
             DateTimeOffset.UtcNow
         );
 
         (HttpResponseMessage response, byte[] bytes) = await _http
-            .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
+            .SendAndReadAsync(request, cancellationToken, SessionStore.CaptureSession)
             .ConfigureAwait(false);
         using (response)
         {
@@ -716,7 +565,7 @@ internal sealed class PhoenixReadAppTransport
 
         if (!commentRequest && !isPassport && !isBookmallTab)
         {
-            await _deviceManager
+            await DeviceManager
                 .EnsureRegisteredAsync(forceNew: false, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -736,7 +585,7 @@ internal sealed class PhoenixReadAppTransport
             request.Headers.TryAddWithoutValidation("Accept", "application/json");
             request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
             request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
-            _sessionStore.ApplySession(request);
+            SessionStore.ApplySession(request);
             if (commentRequest)
             {
                 request.Headers.TryAddWithoutValidation("lc", "101");
@@ -777,11 +626,11 @@ internal sealed class PhoenixReadAppTransport
             }
             else
             {
-                PhoenixReadRequestSigner.SignPlayer(request, body, _deviceManager.DeviceId, now);
+                PhoenixReadRequestSigner.SignPlayer(request, body, DeviceManager.DeviceId, now);
             }
 
             (HttpResponseMessage response, byte[] bytes) = await _http
-                .SendAndReadAsync(request, cancellationToken, _sessionStore.CaptureSession)
+                .SendAndReadAsync(request, cancellationToken, SessionStore.CaptureSession)
                 .ConfigureAwait(false);
             using (response)
             {
@@ -794,7 +643,7 @@ internal sealed class PhoenixReadAppTransport
                 )
                 {
                     rotations++;
-                    await _deviceManager
+                    await DeviceManager
                         .EnsureRegisteredAsync(forceNew: true, cancellationToken)
                         .ConfigureAwait(false);
                     continue;
@@ -860,9 +709,9 @@ internal sealed class PhoenixReadAppTransport
         }
         sb.Append(path);
 
-    AppendQuery:
+        AppendQuery:
         sb.Append('?');
-        _deviceManager.AppendAppQuery(sb);
+        DeviceManager.AppendAppQuery(sb);
 
         if (extraQuery is not null)
         {

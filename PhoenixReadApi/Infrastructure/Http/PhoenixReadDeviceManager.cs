@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using PhoenixReadApi.Internal.Contracts.App.Authentication;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
+using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Infrastructure.Http;
@@ -77,8 +78,7 @@ internal sealed class PhoenixReadDeviceManager
         IsRegistered = sessionStore.IsRegistered;
     }
 
-    internal const string StaticAppQueryPrefix =
-        "aid=8662&app_name=novelread&version_code=73932&version_name=7.3.9.32&manifest_version_code=73932&update_version_code=73932&channel=update_64&device_platform=android&os=android&ssmix=a&device_type=WKL-AN20&device_brand=HONOR&language=zh&os_api=37&os_version=17&resolution=1320*2868&dpi=360&compliance_status=0&need_personal_recommend=1&player_so_load=1&is_android_pad_screen=0&rom_version=CP2A.260605.012&dragon_device_type=phone&host_abi=arm64-v8a&pv_player=73932&ac=wifi";
+    internal static readonly string StaticAppQueryPrefix = PhoenixReadDeviceProfile.StaticAppQueryPrefix;
 
     internal void AppendAppQuery(StringBuilder sb)
     {
@@ -210,24 +210,24 @@ internal sealed class PhoenixReadDeviceManager
             [
                 new("req_id", reqId),
                 new("tt_data", "a"),
-                new("aid", "8662"),
-                new("app_name", "novelread"),
-                new("version_code", "73932"),
-                new("version_name", "7.3.9.32"),
-                new("manifest_version_code", "73932"),
-                new("update_version_code", "73932"),
-                new("channel", "update_64"),
-                new("device_platform", "android"),
+                new("aid", PhoenixReadDeviceProfile.Aid.ToString(CultureInfo.InvariantCulture)),
+                new("app_name", PhoenixReadDeviceProfile.AppName),
+                new("version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
+                new("version_name", PhoenixReadDeviceProfile.VersionName),
+                new("manifest_version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
+                new("update_version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
+                new("channel", PhoenixReadDeviceProfile.Channel),
+                new("device_platform", PhoenixReadDeviceProfile.DevicePlatform),
                 new("os", "android"),
                 new("ssmix", "a"),
-                new("device_type", "WKL-AN20"),
-                new("device_brand", "HONOR"),
-                new("language", "zh"),
-                new("os_api", "37"),
-                new("os_version", "17"),
-                new("resolution", "1320*2868"),
-                new("dpi", "360"),
-                new("ac", "wifi"),
+                new("device_type", PhoenixReadDeviceProfile.DeviceModel),
+                new("device_brand", PhoenixReadDeviceProfile.DeviceBrand),
+                new("language", PhoenixReadDeviceProfile.Language),
+                new("os_api", PhoenixReadDeviceProfile.OsApi.ToString(CultureInfo.InvariantCulture)),
+                new("os_version", PhoenixReadDeviceProfile.OsVersion),
+                new("resolution", PhoenixReadDeviceProfile.Resolution),
+                new("dpi", PhoenixReadDeviceProfile.Dpi.ToString(CultureInfo.InvariantCulture)),
+                new("ac", PhoenixReadDeviceProfile.Access),
                 new("_rticket", nowMs.ToString(CultureInfo.InvariantCulture)),
             ];
 

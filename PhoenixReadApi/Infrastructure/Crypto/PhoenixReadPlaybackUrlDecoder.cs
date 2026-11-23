@@ -107,12 +107,7 @@ internal static class PhoenixReadPlaybackUrlDecoder
 
         if (raw[0] == 0xa8)
         {
-            if (raw.Length < 20 || raw[2] != 1 || raw[3] != 0 || (raw.Length - 4) % 16 != 0)
-            {
-                return string.Empty;
-            }
-
-            if (string.IsNullOrWhiteSpace(keySeed))
+            if (raw.Length < 20 || raw[2] != 1 || raw[3] != 0 || (raw.Length - 4) % 16 != 0 || string.IsNullOrWhiteSpace(keySeed))
             {
                 return string.Empty;
             }
@@ -154,7 +149,7 @@ internal static class PhoenixReadPlaybackUrlDecoder
             }
 
             int padding = plaintext[^1];
-            if (padding > 0 && padding <= 16)
+            if (padding is > 0 and <= 16)
             {
                 raw = plaintext[..^padding];
             }

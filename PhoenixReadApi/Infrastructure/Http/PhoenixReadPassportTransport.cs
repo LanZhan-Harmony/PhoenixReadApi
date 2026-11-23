@@ -4,6 +4,7 @@ using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.Web.Authentication;
 using PhoenixReadApi.Internal.Infrastructure.Crypto;
+using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Infrastructure.Http;
@@ -151,32 +152,32 @@ internal sealed class PhoenixReadPassportTransport
             new("klink_egdi", _deviceManager.KlinkEgdi),
             new("iid", _deviceManager.InstallId),
             new("device_id", _deviceManager.DeviceId),
-            new("ac", "wifi"),
-            new("channel", "update_64"),
-            new("aid", "8662"),
-            new("app_name", "novelread"),
-            new("version_code", "73932"),
-            new("version_name", "7.3.9.32"),
-            new("device_platform", "android"),
+            new("ac", PhoenixReadDeviceProfile.Access),
+            new("channel", PhoenixReadDeviceProfile.Channel),
+            new("aid", PhoenixReadDeviceProfile.Aid.ToString(CultureInfo.InvariantCulture)),
+            new("app_name", PhoenixReadDeviceProfile.AppName),
+            new("version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
+            new("version_name", PhoenixReadDeviceProfile.VersionName),
+            new("device_platform", PhoenixReadDeviceProfile.DevicePlatform),
             new("os", "android"),
             new("ssmix", "a"),
-            new("device_type", "WKL-AN20"),
-            new("device_brand", "HONOR"),
-            new("language", "zh"),
-            new("os_api", "37"),
-            new("os_version", "17"),
-            new("manifest_version_code", "73932"),
-            new("resolution", "1320*2868"),
-            new("dpi", "360"),
-            new("update_version_code", "73932"),
+            new("device_type", PhoenixReadDeviceProfile.DeviceModel),
+            new("device_brand", PhoenixReadDeviceProfile.DeviceBrand),
+            new("language", PhoenixReadDeviceProfile.Language),
+            new("os_api", PhoenixReadDeviceProfile.OsApi.ToString(CultureInfo.InvariantCulture)),
+            new("os_version", PhoenixReadDeviceProfile.OsVersion),
+            new("manifest_version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
+            new("resolution", PhoenixReadDeviceProfile.Resolution),
+            new("dpi", PhoenixReadDeviceProfile.Dpi.ToString(CultureInfo.InvariantCulture)),
+            new("update_version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
             new("_rticket", ticket.ToString(CultureInfo.InvariantCulture)),
-            new("host_abi", "arm64-v8a"),
+            new("host_abi", PhoenixReadDeviceProfile.CpuAbi),
             new("dragon_device_type", "phone"),
-            new("pv_player", "73932"),
+            new("pv_player", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
             new("compliance_status", "0"),
             new("need_personal_recommend", "1"),
             new("player_so_load", "1"),
-            new("rom_version", "CP2A.260605.012"),
+            new("rom_version", PhoenixReadDeviceProfile.RomVersion),
             new("cdid", _deviceManager.Cdid),
             new("okhttp_version", "4.2.243.31-douyin"),
             new("use_store_region_cookie", "1"),
@@ -198,32 +199,32 @@ internal sealed class PhoenixReadPassportTransport
         Add("klink_egdi", _deviceManager.KlinkEgdi);
         Add("iid", _deviceManager.InstallId);
         Add("device_id", _deviceManager.DeviceId);
-        Add("ac", "wifi");
-        Add("channel", "update_64");
-        Add("aid", "8662");
-        Add("app_name", "novelread");
-        Add("version_code", "73932");
-        Add("version_name", "7.3.9.32");
-        Add("device_platform", "android");
+        Add("ac", PhoenixReadDeviceProfile.Access);
+        Add("channel", PhoenixReadDeviceProfile.Channel);
+        Add("aid", PhoenixReadDeviceProfile.Aid.ToString(CultureInfo.InvariantCulture));
+        Add("app_name", PhoenixReadDeviceProfile.AppName);
+        Add("version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture));
+        Add("version_name", PhoenixReadDeviceProfile.VersionName);
+        Add("device_platform", PhoenixReadDeviceProfile.DevicePlatform);
         Add("os", "android");
         Add("ssmix", "a");
-        Add("device_type", "WKL-AN20");
-        Add("device_brand", "HONOR");
-        Add("language", "zh");
-        Add("os_api", "37");
-        Add("os_version", "17");
-        Add("manifest_version_code", "73932");
-        Add("resolution", "1320*2868");
-        Add("dpi", "360");
-        Add("update_version_code", "73932");
+        Add("device_type", PhoenixReadDeviceProfile.DeviceModel);
+        Add("device_brand", PhoenixReadDeviceProfile.DeviceBrand);
+        Add("language", PhoenixReadDeviceProfile.Language);
+        Add("os_api", PhoenixReadDeviceProfile.OsApi.ToString(CultureInfo.InvariantCulture));
+        Add("os_version", PhoenixReadDeviceProfile.OsVersion);
+        Add("manifest_version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture));
+        Add("resolution", PhoenixReadDeviceProfile.Resolution);
+        Add("dpi", PhoenixReadDeviceProfile.Dpi.ToString(CultureInfo.InvariantCulture));
+        Add("update_version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture));
         Add("_rticket", ticket.ToString(CultureInfo.InvariantCulture));
         Add("normal_session_cnt_in_day", "1");
         Add("gender", "0");
         Add("cold_start_session_cnt_in_day", "1");
-        Add("host_abi", "arm64-v8a");
+        Add("host_abi", PhoenixReadDeviceProfile.CpuAbi);
         Add("dragon_device_type", "phone");
         Add("sys_mini_window", "0");
-        Add("pv_player", "73932");
+        Add("pv_player", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture));
         Add("app_mini_window", "0");
         Add("normal_session_id", _deviceManager.Cdid + "#1");
         Add("compliance_status", "0");
