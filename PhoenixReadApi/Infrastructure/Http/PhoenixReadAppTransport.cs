@@ -190,12 +190,14 @@ internal sealed class PhoenixReadAppTransport
     internal Task<TResponse> GetRootAsync<TResponse>(
         string path,
         IEnumerable<KeyValuePair<string, string>> query,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool skipDeviceAndSignature = false
     ) =>
         _options.RetryCount <= 1
-            ? SendRootOnceAsync<TResponse>(path, query, cancellationToken)
+            ? SendRootOnceAsync<TResponse>(path, query, cancellationToken, skipDeviceAndSignature)
             : RetryPolicy.ExecuteAsync(
-                (_, token) => SendRootOnceAsync<TResponse>(path, query, token),
+                (_, token) =>
+                    SendRootOnceAsync<TResponse>(path, query, token, skipDeviceAndSignature),
                 _options.RetryCount,
                 RetryPolicy.IsTransient,
                 cancellationToken
@@ -417,12 +419,16 @@ internal sealed class PhoenixReadAppTransport
     private async Task<TResponse> SendRootOnceAsync<TResponse>(
         string path,
         IEnumerable<KeyValuePair<string, string>> query,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool skipDeviceAndSignature = false
     )
     {
-        await DeviceManager
-            .EnsureRegisteredAsync(forceNew: false, cancellationToken)
-            .ConfigureAwait(false);
+        if (!skipDeviceAndSignature)
+        {
+            await DeviceManager
+                .EnsureRegisteredAsync(forceNew: false, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         Uri requestUri = BuildAppRequestUri(path, query);
         using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
@@ -431,12 +437,15 @@ internal sealed class PhoenixReadAppTransport
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation("Sdk-Version", "2");
         SessionStore.ApplySession(request);
-        PhoenixReadRequestSigner.SignPlayer(
-            request,
-            [],
-            DeviceManager.DeviceId,
-            DateTimeOffset.UtcNow
-        );
+        if (!skipDeviceAndSignature)
+        {
+            PhoenixReadRequestSigner.SignPlayer(
+                request,
+                [],
+                DeviceManager.DeviceId,
+                DateTimeOffset.UtcNow
+            );
+        }
 
         (HttpResponseMessage response, byte[] bytes) = await _http
             .SendAndReadAsync(request, cancellationToken, SessionStore.CaptureSession)

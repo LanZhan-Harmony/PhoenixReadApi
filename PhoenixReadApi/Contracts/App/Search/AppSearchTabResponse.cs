@@ -80,6 +80,10 @@ internal sealed class AppSearchBookDto
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string BookName { get; init; } = string.Empty;
 
+    [JsonPropertyName("book_short_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookShortName { get; init; } = string.Empty;
+
     [JsonPropertyName("abstract")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Abstract { get; init; } = string.Empty;
@@ -99,6 +103,18 @@ internal sealed class AppSearchBookDto
     [JsonPropertyName("read_count")]
     [JsonConverter(typeof(FlexibleLongConverter))]
     public long ReadCount { get; init; }
+
+    [JsonPropertyName("creation_status")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string CreationStatus { get; init; } = string.Empty;
+
+    [JsonPropertyName("tags")]
+    [JsonConverter(typeof(DramaTagListConverter))]
+    public IReadOnlyList<DramaTagDto> Tags { get; init; } = [];
+
+    [JsonPropertyName("category_schema")]
+    [JsonConverter(typeof(CategorySchemaConverter))]
+    public IReadOnlyList<string> CategorySchema { get; init; } = [];
 }
 
 /// <summary>搜索结果中的明星、创作者或演员用户 DTO。</summary>

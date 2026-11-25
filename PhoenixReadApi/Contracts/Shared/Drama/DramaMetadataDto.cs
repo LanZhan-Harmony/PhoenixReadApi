@@ -35,6 +35,36 @@ internal sealed class DramaSubtitleDto
     [JsonPropertyName("content")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Content { get; init; } = string.Empty;
+
+    [JsonPropertyName("data_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int DataType { get; init; }
+}
+
+internal sealed class DramaRecTagDto
+{
+    [JsonPropertyName("content")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Content { get; init; } = string.Empty;
+
+    [JsonPropertyName("data_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int DataType { get; init; }
+
+    [JsonPropertyName("rec_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int RecType { get; init; }
+
+    [JsonPropertyName("recommend_reason")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string RecommendReason { get; init; } = string.Empty;
+}
+
+internal sealed class DramaTagInfoDto
+{
+    [JsonPropertyName("text")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Text { get; init; } = string.Empty;
 }
 
 internal sealed class DramaPayInfoDto

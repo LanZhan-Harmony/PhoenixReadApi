@@ -40,7 +40,8 @@ internal sealed class DiscoverService : PhoenixFeatureService
                     new("client_req_type", "3"),
                     new("user_is_login", "0"),
                 ],
-                cancellationToken
+                cancellationToken,
+                skipDeviceAndSignature: true
             )
             .ConfigureAwait(false);
 
@@ -71,75 +72,49 @@ internal sealed class DiscoverService : PhoenixFeatureService
         string nextCursor = string.Empty;
         bool hasMore = false;
 
-        // 若存在瀑布流 continuation，则自动预拉取首批 change 瀑布流
         if (continuation is not null && !string.IsNullOrWhiteSpace(continuation.CellId))
         {
-            try
+            if (dramas.Count == 0 && novels.Count == 0)
             {
-                AppBookmallCellChangeResponse changeResponse = await FetchCellChangeCoreAsync(
-                        continuation,
-                        cancellationToken
-                    )
-                    .ConfigureAwait(false);
-
-                foreach (DramaDto dto in changeResponse.Data.CellView.VideoData ?? [])
+                // Tab 首屏未直接携带条目时才拉取首批 change 瀑布流，避免常规请求多一次往返
+                try
                 {
-                    Drama drama = DramaMapper.FromDto(dto, "短剧");
-                    if (drama.Id.Length > 0 && seenDramas.Add(drama.Id))
+                    AppBookmallCellChangeResponse changeResponse = await FetchCellChangeCoreAsync(
+                            continuation,
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+
+                    ExtractCellView(
+                        changeResponse.Data.CellView,
+                        dramas,
+                        novels,
+                        seenDramas,
+                        seenNovels
+                    );
+
+                    hasMore = changeResponse.Data.HasMore;
+                    if (hasMore && changeResponse.Data.NextOffset > continuation.Offset)
                     {
-                        dramas.Add(drama);
+                        DiscoverCellChangeState nextState = continuation with
+                        {
+                            Offset = changeResponse.Data.NextOffset,
+                            SessionId = !string.IsNullOrWhiteSpace(changeResponse.Data.SessionId)
+                                ? changeResponse.Data.SessionId
+                                : continuation.SessionId,
+                        };
+                        nextCursor = EncodeCursor(nextState);
                     }
                 }
-
-                foreach (AppBookmallCellDto cell in changeResponse.Data.CellView.CellData ?? [])
+                catch (Exception)
                 {
-                    ExtractCellContent(cell, dramas, novels, seenDramas, seenNovels);
-                }
-
-                foreach (AppSearchBookDto book in changeResponse.Data.CellView.BookData ?? [])
-                {
-                    if (
-                        book is null
-                        || string.IsNullOrWhiteSpace(book.BookId)
-                        || string.IsNullOrWhiteSpace(book.BookName)
-                    )
-                    {
-                        continue;
-                    }
-
-                    if (seenNovels.Add(book.BookId))
-                    {
-                        novels.Add(
-                            new Novel
-                            {
-                                Id = book.BookId,
-                                Title = book.BookName,
-                                Author = book.Author,
-                                Description = book.Abstract,
-                                CoverUrl = book.CoverUrl,
-                                SerialCount = book.SerialCount,
-                                ReadCount = book.ReadCount,
-                            }
-                        );
-                    }
-                }
-
-                hasMore = changeResponse.Data.HasMore;
-                if (hasMore && changeResponse.Data.NextOffset > 0)
-                {
-                    DiscoverCellChangeState nextState = continuation with
-                    {
-                        Offset = changeResponse.Data.NextOffset,
-                        SessionId = !string.IsNullOrWhiteSpace(changeResponse.Data.SessionId)
-                            ? changeResponse.Data.SessionId
-                            : continuation.SessionId,
-                    };
-                    nextCursor = EncodeCursor(nextState);
+                    // 首批 change 失败时回退为已有 tab 内容
                 }
             }
-            catch (Exception)
+            else
             {
-                // 首批 change 失败时回退为已有 tab 内容
+                hasMore = true;
+                nextCursor = EncodeCursor(continuation);
             }
         }
 
@@ -148,7 +123,7 @@ internal sealed class DiscoverService : PhoenixFeatureService
             Dramas = dramas,
             Novels = novels,
             Cursor = nextCursor,
-            HasMore = hasMore || dramas.Count > 0 || novels.Count > 0,
+            HasMore = hasMore,
         };
     }
 
@@ -169,47 +144,7 @@ internal sealed class DiscoverService : PhoenixFeatureService
         HashSet<string> seenDramas = [with(StringComparer.Ordinal)];
         HashSet<string> seenNovels = [with(StringComparer.Ordinal)];
 
-        foreach (DramaDto dto in changeResponse.Data.CellView.VideoData ?? [])
-        {
-            Drama drama = DramaMapper.FromDto(dto, "短剧");
-            if (drama.Id.Length > 0 && seenDramas.Add(drama.Id))
-            {
-                dramas.Add(drama);
-            }
-        }
-
-        foreach (AppBookmallCellDto cell in changeResponse.Data.CellView.CellData ?? [])
-        {
-            ExtractCellContent(cell, dramas, novels, seenDramas, seenNovels);
-        }
-
-        foreach (AppSearchBookDto book in changeResponse.Data.CellView.BookData ?? [])
-        {
-            if (
-                book is null
-                || string.IsNullOrWhiteSpace(book.BookId)
-                || string.IsNullOrWhiteSpace(book.BookName)
-            )
-            {
-                continue;
-            }
-
-            if (seenNovels.Add(book.BookId))
-            {
-                novels.Add(
-                    new Novel
-                    {
-                        Id = book.BookId,
-                        Title = book.BookName,
-                        Author = book.Author,
-                        Description = book.Abstract,
-                        CoverUrl = book.CoverUrl,
-                        SerialCount = book.SerialCount,
-                        ReadCount = book.ReadCount,
-                    }
-                );
-            }
-        }
+        ExtractCellView(changeResponse.Data.CellView, dramas, novels, seenDramas, seenNovels);
 
         string nextCursor = string.Empty;
         if (changeResponse.Data.HasMore && changeResponse.Data.NextOffset > state.Offset)
@@ -229,7 +164,7 @@ internal sealed class DiscoverService : PhoenixFeatureService
             Dramas = dramas,
             Novels = novels,
             Cursor = nextCursor,
-            HasMore = changeResponse.Data.HasMore,
+            HasMore = changeResponse.Data.HasMore && nextCursor.Length > 0,
         };
     }
 
@@ -263,6 +198,35 @@ internal sealed class DiscoverService : PhoenixFeatureService
         );
     }
 
+    private static void ExtractCellView(
+        AppBookmallCellViewDto? cellView,
+        List<Drama> dramas,
+        List<Novel> novels,
+        HashSet<string> seenDramas,
+        HashSet<string> seenNovels
+    )
+    {
+        if (cellView is null)
+        {
+            return;
+        }
+
+        foreach (DramaDto dto in cellView.VideoData ?? [])
+        {
+            AddDramaFromDto(dto, dramas, seenDramas);
+        }
+
+        foreach (AppBookmallCellDto cell in cellView.CellData ?? [])
+        {
+            ExtractCellContent(cell, dramas, novels, seenDramas, seenNovels);
+        }
+
+        foreach (AppSearchBookDto book in cellView.BookData ?? [])
+        {
+            AddNovel(book, novels, seenNovels);
+        }
+    }
+
     private static void ExtractCellContent(
         AppBookmallCellDto cell,
         List<Drama> dramas,
@@ -278,50 +242,139 @@ internal sealed class DiscoverService : PhoenixFeatureService
 
         foreach (DramaDto dto in cell.VideoData ?? [])
         {
-            if (dto is null)
-            {
-                continue;
-            }
+            AddDramaFromDto(dto, dramas, seenDramas);
+        }
 
-            Drama drama = DramaMapper.FromDto(dto, "短剧");
-            if (drama.Id.Length > 0 && seenDramas.Add(drama.Id))
+        if (cell.VideoDetail is { } directDetail)
+        {
+            if (directDetail.VideoDetailList is { Count: > 0 } nestedDetails)
             {
-                dramas.Add(drama);
+                foreach (DramaVideoDetailDto item in nestedDetails)
+                {
+                    AddDramaFromDetail(item, dramas, seenDramas);
+                }
+            }
+            else
+            {
+                AddDramaFromDetail(directDetail, dramas, seenDramas);
             }
         }
 
         foreach (AppSearchBookDto book in cell.BookData ?? [])
         {
-            if (
-                book is null
-                || string.IsNullOrWhiteSpace(book.BookId)
-                || string.IsNullOrWhiteSpace(book.BookName)
-            )
-            {
-                continue;
-            }
-
-            if (seenNovels.Add(book.BookId))
-            {
-                novels.Add(
-                    new Novel
-                    {
-                        Id = book.BookId,
-                        Title = book.BookName,
-                        Author = book.Author,
-                        Description = book.Abstract,
-                        CoverUrl = book.CoverUrl,
-                        SerialCount = book.SerialCount,
-                        ReadCount = book.ReadCount,
-                    }
-                );
-            }
+            AddNovel(book, novels, seenNovels);
         }
 
         foreach (AppBookmallCellDto nested in cell.CellData ?? [])
         {
             ExtractCellContent(nested, dramas, novels, seenDramas, seenNovels);
         }
+    }
+
+    private static void AddDramaFromDto(
+        DramaDto? dto,
+        List<Drama> dramas,
+        HashSet<string> seenDramas
+    )
+    {
+        if (dto is null)
+        {
+            return;
+        }
+
+        Drama drama = DramaMapper.FromDto(dto, "短剧");
+        if (drama.Id.Length > 0 && seenDramas.Add(drama.Id))
+        {
+            dramas.Add(drama);
+        }
+    }
+
+    private static void AddDramaFromDetail(
+        DramaVideoDetailDto? detail,
+        List<Drama> dramas,
+        HashSet<string> seenDramas
+    )
+    {
+        if (detail is null)
+        {
+            return;
+        }
+
+        Drama drama = DramaMapper.FromVideoDetail(detail, "短剧");
+        if (drama.Id.Length > 0 && seenDramas.Add(drama.Id))
+        {
+            dramas.Add(drama);
+        }
+    }
+
+    private static void AddNovel(
+        AppSearchBookDto? book,
+        List<Novel> novels,
+        HashSet<string> seenNovels
+    )
+    {
+        if (
+            book is null
+            || string.IsNullOrWhiteSpace(book.BookId)
+            || string.IsNullOrWhiteSpace(book.BookName)
+        )
+        {
+            return;
+        }
+
+        if (!seenNovels.Add(book.BookId))
+        {
+            return;
+        }
+
+        List<string> tags = [];
+        foreach (DramaTagDto tag in book.Tags ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(tag?.Name))
+            {
+                string trimmed = tag.Name.Trim();
+                if (!tags.Contains(trimmed, StringComparer.Ordinal))
+                {
+                    tags.Add(trimmed);
+                }
+            }
+        }
+
+        foreach (string schemaTag in book.CategorySchema ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(schemaTag))
+            {
+                string trimmed = schemaTag.Trim();
+                if (!tags.Contains(trimmed, StringComparer.Ordinal))
+                {
+                    tags.Add(trimmed);
+                }
+            }
+        }
+
+        (NovelCreationStatus status, string statusText) = book.CreationStatus.Trim() switch
+        {
+            "1" => (NovelCreationStatus.Ongoing, "连载中"),
+            "0" or "2" => (NovelCreationStatus.Completed, "已完结"),
+            _ => (NovelCreationStatus.Unknown, string.Empty),
+        };
+
+        novels.Add(
+            new Novel
+            {
+                Id = book.BookId,
+                Title = book.BookName,
+                ShortTitle = book.BookShortName,
+                Author = book.Author,
+                Description = book.Abstract,
+                Status = status,
+                StatusText = statusText,
+                CoverUrl = book.CoverUrl,
+                SerialCount = book.SerialCount,
+                ReadCount = book.ReadCount,
+                Tags = tags,
+            }
+        );
     }
 
     private static DiscoverCellChangeState? FindContinuation(
@@ -355,7 +408,7 @@ internal sealed class DiscoverService : PhoenixFeatureService
                 ShowType = cell.ShowType.ToString(CultureInfo.InvariantCulture),
                 TabType = effectiveTabType,
                 ClientTemplate = tab.ClientTemplate,
-                Offset = 0,
+                Offset = cell.NextOffset > 0 ? cell.NextOffset : 0,
             };
 
             // 拥有嵌套子单元格的 cell 是流式容器

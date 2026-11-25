@@ -128,6 +128,13 @@ public sealed class NewFeatureIntegrationTests
         await Assert.That(page).IsNotNull();
         await Assert.That(page.Dramas).IsNotNull();
         await Assert.That(page.Novels).IsNotNull();
+        await Assert.That(page.Dramas.Count > 0).IsTrue();
+        foreach (Drama drama in page.Dramas)
+        {
+            await SharedScenario.AssertValidDrama(drama);
+            await Assert.That(string.IsNullOrWhiteSpace(drama.CoverUrl)).IsFalse();
+            await Assert.That(drama.Tags.Count > 0).IsTrue();
+        }
     }
 
     [Test, NotInParallel("phoenix-read-api")]

@@ -73,9 +73,19 @@ internal sealed class AppBookmallCellDto
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string CellName { get; init; } = string.Empty;
 
+    [JsonPropertyName("next_offset")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int NextOffset { get; init; }
+
+    [JsonPropertyName("has_more")]
+    public bool HasMore { get; init; }
+
     [JsonPropertyName("video_data")]
     [JsonConverter(typeof(FlexibleDramaListConverter))]
     public IReadOnlyList<DramaDto> VideoData { get; init; } = [];
+
+    [JsonPropertyName("video_detail")]
+    public DramaVideoDetailDto? VideoDetail { get; init; }
 
     [JsonPropertyName("book_data")]
     [JsonConverter(typeof(FlexibleSearchBookListConverter))]

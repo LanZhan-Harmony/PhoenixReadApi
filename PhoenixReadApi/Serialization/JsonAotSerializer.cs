@@ -275,11 +275,16 @@ namespace PhoenixReadApi.Internal.Serialization;
 // ============================================================================
 [JsonSerializable(typeof(DramaDto))]
 [JsonSerializable(typeof(DramaEpisodeDto))]
+[JsonSerializable(typeof(DramaRecTagDto))]
 [JsonSerializable(typeof(DramaRelateBookContainerDto))]
 [JsonSerializable(typeof(DramaRelateBookInfoDto))]
 [JsonSerializable(typeof(DramaSecondaryInfoDto))]
+[JsonSerializable(typeof(DramaSubtitleDto))]
 [JsonSerializable(typeof(DramaTagDto))]
+[JsonSerializable(typeof(DramaTagInfoDto))]
 [JsonSerializable(typeof(DramaVideoDetailDto))]
+[JsonSerializable(typeof(IReadOnlyList<DramaRecTagDto>))]
+[JsonSerializable(typeof(IReadOnlyList<DramaVideoDetailDto>))]
 // ============================================================================
 // 5. 顶层泛型集合容器类型 (Collections, A-Z)
 // ============================================================================

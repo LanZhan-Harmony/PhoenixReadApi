@@ -282,7 +282,7 @@ internal sealed class PhoenixReadPassportTransport
         using HttpRequestMessage request = new(HttpMethod.Get, endpoint);
         request.Headers.TryAddWithoutValidation(
             "User-Agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36 Edg/158.0.0.0"
         );
         request.Headers.TryAddWithoutValidation("Referer", "https://hongguoduanju.com/");
         request.Headers.TryAddWithoutValidation("Origin", "https://hongguoduanju.com");
@@ -345,7 +345,7 @@ internal sealed class PhoenixReadPassportTransport
             using HttpRequestMessage request = new(HttpMethod.Get, currentUri);
             request.Headers.TryAddWithoutValidation(
                 "User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36 Edg/158.0.0.0"
             );
             request.Headers.TryAddWithoutValidation("Referer", "https://hongguoduanju.com/");
             _sessionStore.ApplySession(request);

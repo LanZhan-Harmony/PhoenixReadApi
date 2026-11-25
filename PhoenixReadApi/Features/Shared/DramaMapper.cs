@@ -11,6 +11,16 @@ using User = PhoenixReadApi.User;
 /// <summary>将红果接口返回的剧集记录映射为稳定的公共模型。</summary>
 internal static class DramaMapper
 {
+    internal static Drama FromVideoDetail(
+        DramaVideoDetailDto detail,
+        string category,
+        DateTimeOffset? now = null,
+        string? scoreOverride = null
+    ) =>
+        detail is null
+            ? new Drama()
+            : FromDto(new DramaDto { VideoDetail = detail }, category, now, scoreOverride);
+
     internal static Drama FromDto(
         DramaDto value,
         string category,
@@ -18,12 +28,15 @@ internal static class DramaMapper
         string? scoreOverride = null
     )
     {
+        DramaVideoDetailDto? detail = value.VideoDetail;
+
         string sourceId = ValueNormalizer.First(
             value.SeriesId,
             value.SeriesIdNumber,
             value.BookId,
             value.Keyword,
-            value.VideoDetail?.SeriesId
+            detail?.SeriesIdStr,
+            detail?.SeriesId
         );
         if (!ValueNormalizer.IsNumericId(sourceId))
         {
@@ -35,26 +48,28 @@ internal static class DramaMapper
             value.SeriesName,
             value.Title,
             value.Name,
-            value.VideoDetail?.SeriesTitle,
-            value.VideoDetail?.Title,
+            detail?.SeriesTitle,
+            detail?.SeriesName,
+            detail?.Title,
+            detail?.Name,
             sourceId
         );
-        string remark = ValueNormalizer.First(value.EpisodeRemark);
+        string remark = ValueNormalizer.First(value.EpisodeRemark, detail?.EpisodeRemark);
         List<string> tags = DtoTags(value);
         string genre = ValueNormalizer.First(
             value.CategoryName,
             value.CategoryNameCamel,
             value.Category,
+            detail?.CategoryName,
+            detail?.CategoryNameCamel,
+            detail?.Category,
             tags.FirstOrDefault() ?? category
         );
         int episodeCount = Math.Max(
-            value.EpisodeCount,
+            Math.Max(value.EpisodeCount, value.EpisodeCountAlias),
             Math.Max(
-                value.EpisodeCountAlias,
-                Math.Max(
-                    value.DramaChapterNumber,
-                    Math.Max(value.ChapterNumber, value.VideoDetail?.EpisodeCount ?? 0)
-                )
+                Math.Max(value.DramaChapterNumber, value.ChapterNumber),
+                Math.Max(detail?.EpisodeCount ?? 0, detail?.EpisodeCountAlias ?? 0)
             )
         );
         if (remark.Length == 0 && episodeCount > 0)
@@ -67,7 +82,12 @@ internal static class DramaMapper
             value.VideoDescription,
             value.Abstract,
             value.Intro,
-            value.Description
+            value.Description,
+            detail?.SeriesIntro,
+            detail?.VideoDescription,
+            detail?.Abstract,
+            detail?.Intro,
+            detail?.Description
         );
         string cover = ValueNormalizer.First(
             value.SeriesCover,
@@ -75,18 +95,38 @@ internal static class DramaMapper
             value.CoverUrl,
             value.ThumbUrl,
             value.ExpandThumbUrl,
-            value.VideoDetail?.CoverUrl
+            detail?.SeriesCover,
+            detail?.Cover,
+            detail?.CoverUrl,
+            detail?.ThumbUrl,
+            detail?.ExpandThumbUrl
         );
         string score = ValueNormalizer.First(
             value.FinalScoreV2,
             value.FinalScore,
             value.Score,
+            detail?.FinalScoreV2,
+            detail?.FinalScore,
+            detail?.Score,
+            ExtractSecondaryScore(value.SecondaryInfos),
+            ExtractSecondaryScore(detail?.SecondaryInfos),
             scoreOverride
         );
-        string status = ValueNormalizer.First(value.SeriesStatus, value.Status);
+        string status = ValueNormalizer.First(
+            value.SeriesStatus,
+            value.Status,
+            detail?.SeriesStatus,
+            detail?.Status
+        );
+        string tagInfoText = ValueNormalizer.First(value.TagInfo?.Text, detail?.TagInfo?.Text);
 
         long playCount = 0;
-        string playCountStr = ValueNormalizer.First(value.SeriesPlayCount, value.PlayCount);
+        string playCountStr = ValueNormalizer.First(
+            value.SeriesPlayCount,
+            value.PlayCount,
+            detail?.SeriesPlayCount,
+            detail?.PlayCount
+        );
         if (
             long.TryParse(
                 playCountStr,
@@ -99,11 +139,36 @@ internal static class DramaMapper
             playCount = parsedPlay;
         }
 
-        string novelId = value.RelateBook?.BookInfo?.BookId ?? string.Empty;
+        DramaRelateBookInfoDto? relateBook = !string.IsNullOrWhiteSpace(value.RelateBook?.BookInfo?.BookId)
+            ? value.RelateBook.BookInfo
+            : detail?.RelateBook?.BookInfo;
+        string novelId = relateBook?.BookId ?? string.Empty;
         string novelTitle = ValueNormalizer.First(
-            value.RelateBook?.BookInfo?.BookName,
-            value.RelateBook?.BookInfo?.BookShortName
+            relateBook?.BookName,
+            relateBook?.BookShortName
         );
+
+        IReadOnlyList<DramaCreatorUserDto> creators = value.MainCreatorUsers is { Count: > 0 }
+            ? value.MainCreatorUsers
+            : detail?.MainCreatorUsers ?? [];
+        IReadOnlyList<DramaCelebrityDto> celebrities = value.Celebrities is { Count: > 0 }
+            ? value.Celebrities
+            : detail?.Celebrities ?? [];
+
+        string albumId = ValueNormalizer.First(value.EffectiveAlbumId, detail?.EffectiveAlbumId);
+        if (albumId == "0")
+        {
+            albumId = string.Empty;
+        }
+        bool isMultiSeason =
+            value.IsMultiSeason
+            || (detail?.IsMultiSeason ?? false)
+            || !string.IsNullOrWhiteSpace(albumId);
+        int seasonIndex = ResolveSeasonIndex(value, detail);
+        long followCount = value.FollowedCount > 0
+            ? value.FollowedCount
+            : (detail?.FollowedCount ?? 0);
+        long likeCount = value.DiggCount > 0 ? value.DiggCount : (detail?.DiggCount ?? 0);
 
         return new Drama
         {
@@ -115,21 +180,20 @@ internal static class DramaMapper
             Remark = remark,
             EpisodeCount = Math.Max(0, episodeCount),
             Tags = tags,
-            ReleaseStatus = ReleaseStatusFromValue(status, remark, tags),
+            ReleaseStatus = ReleaseStatusFromValue(status, remark, tags, tagInfoText),
             Score = score,
-            Views = ValueNormalizer.First(value.SeriesPlayCount, value.PlayCount),
+            Views = playCountStr,
             Heat = DtoHeat(value),
             OnlineDate = DtoOnlineDate(value, now ?? DateTimeOffset.Now),
-            Credits = DtoCredits(value.MainCreatorUsers, value.Celebrities),
-            IsMultiSeason =
-                value.IsMultiSeason || !string.IsNullOrWhiteSpace(value.EffectiveAlbumId),
-            SeasonIndex = value.SeasonIndex > 0 ? value.SeasonIndex : 1,
-            AlbumId = value.EffectiveAlbumId,
+            Credits = DtoCredits(creators, celebrities),
+            IsMultiSeason = isMultiSeason,
+            SeasonIndex = seasonIndex,
+            AlbumId = albumId,
             NovelId = novelId,
             NovelTitle = novelTitle,
             PlayCount = playCount,
-            FollowCount = value.FollowedCount,
-            LikeCount = value.DiggCount,
+            FollowCount = followCount,
+            LikeCount = likeCount,
         };
     }
 
@@ -182,7 +246,8 @@ internal static class DramaMapper
     internal static DramaReleaseStatus ReleaseStatusFromValue(
         string value,
         string remark = "",
-        IReadOnlyList<string>? tags = null
+        IReadOnlyList<string>? tags = null,
+        string tagInfoText = ""
     )
     {
         value = (value ?? string.Empty).Trim().ToLowerInvariant();
@@ -201,31 +266,10 @@ internal static class DramaMapper
 
         if (!string.IsNullOrWhiteSpace(remark))
         {
-            string cleanRemark = remark.Trim();
-            if (
-                cleanRemark.Contains("完结", StringComparison.OrdinalIgnoreCase)
-                || cleanRemark.Contains("全集", StringComparison.OrdinalIgnoreCase)
-                || (cleanRemark.StartsWith('全') && cleanRemark.EndsWith('集'))
-            )
+            DramaReleaseStatus fromRemark = StatusFromText(remark);
+            if (fromRemark != DramaReleaseStatus.Unknown)
             {
-                return DramaReleaseStatus.Finished;
-            }
-
-            if (
-                cleanRemark.Contains("更新", StringComparison.OrdinalIgnoreCase)
-                || cleanRemark.Contains("连载", StringComparison.OrdinalIgnoreCase)
-            )
-            {
-                return DramaReleaseStatus.Ongoing;
-            }
-
-            if (
-                cleanRemark.Contains("待播", StringComparison.OrdinalIgnoreCase)
-                || cleanRemark.Contains("即将上线", StringComparison.OrdinalIgnoreCase)
-                || cleanRemark.Contains("预约", StringComparison.OrdinalIgnoreCase)
-            )
-            {
-                return DramaReleaseStatus.Upcoming;
+                return fromRemark;
             }
         }
 
@@ -233,36 +277,62 @@ internal static class DramaMapper
         {
             foreach (string tag in tags)
             {
-                if (string.IsNullOrWhiteSpace(tag))
+                DramaReleaseStatus fromTag = StatusFromText(tag);
+                if (fromTag != DramaReleaseStatus.Unknown)
                 {
-                    continue;
-                }
-
-                if (
-                    tag.Contains("完结", StringComparison.OrdinalIgnoreCase)
-                    || tag.Contains("全集", StringComparison.OrdinalIgnoreCase)
-                )
-                {
-                    return DramaReleaseStatus.Finished;
-                }
-
-                if (
-                    tag.Contains("更新", StringComparison.OrdinalIgnoreCase)
-                    || tag.Contains("连载", StringComparison.OrdinalIgnoreCase)
-                )
-                {
-                    return DramaReleaseStatus.Ongoing;
-                }
-
-                if (
-                    tag.Contains("待播", StringComparison.OrdinalIgnoreCase)
-                    || tag.Contains("即将上线", StringComparison.OrdinalIgnoreCase)
-                    || tag.Contains("预约", StringComparison.OrdinalIgnoreCase)
-                )
-                {
-                    return DramaReleaseStatus.Upcoming;
+                    return fromTag;
                 }
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(tagInfoText))
+        {
+            string cleanTagInfo = tagInfoText.Trim();
+            if (
+                cleanTagInfo.Contains("待播", StringComparison.OrdinalIgnoreCase)
+                || cleanTagInfo.Contains("即将上线", StringComparison.OrdinalIgnoreCase)
+                || cleanTagInfo.Contains("预约", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                return DramaReleaseStatus.Upcoming;
+            }
+        }
+
+        return DramaReleaseStatus.Unknown;
+    }
+
+    private static DramaReleaseStatus StatusFromText(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return DramaReleaseStatus.Unknown;
+        }
+
+        string text = raw.Trim();
+        if (
+            text.Contains("完结", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("全集", StringComparison.OrdinalIgnoreCase)
+            || (text.StartsWith('全') && text.EndsWith('集'))
+        )
+        {
+            return DramaReleaseStatus.Finished;
+        }
+
+        if (
+            text.Contains("更新", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("连载", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            return DramaReleaseStatus.Ongoing;
+        }
+
+        if (
+            text.Contains("待播", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("即将上线", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("预约", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            return DramaReleaseStatus.Upcoming;
         }
 
         return DramaReleaseStatus.Unknown;
@@ -489,58 +559,219 @@ internal static class DramaMapper
     private static List<string> DtoTags(DramaDto data)
     {
         List<string> tags = [];
-        if (data.Tags is not null)
-        {
-            foreach (DramaTagDto item in data.Tags)
-            {
-                if (!string.IsNullOrWhiteSpace(item.Name))
-                {
-                    string tag = item.Name.Trim();
-                    if (!tags.Contains(tag, StringComparer.Ordinal))
-                    {
-                        tags.Add(tag);
-                    }
-                }
-            }
-        }
+        AddTagsFromSource(
+            tags,
+            data.Tags,
+            data.CategoryList,
+            data.CategorySchema,
+            data.Subtitles,
+            abstractTags: null,
+            data.SecondaryInfos
+        );
 
-        if (data.CategoryList is not null)
+        if (data.VideoDetail is { } detail)
         {
-            foreach (DramaCategoryDto item in data.CategoryList)
-            {
-                if (item is not null && !string.IsNullOrWhiteSpace(item.Name))
-                {
-                    string tag = item.Name.Trim();
-                    if (!tags.Contains(tag, StringComparer.Ordinal))
-                    {
-                        tags.Add(tag);
-                    }
-                }
-            }
-        }
-
-        if (data.CategorySchema is not null)
-        {
-            foreach (string item in data.CategorySchema)
-            {
-                if (!string.IsNullOrWhiteSpace(item))
-                {
-                    string tag = item.Trim();
-                    if (!tags.Contains(tag, StringComparer.Ordinal))
-                    {
-                        tags.Add(tag);
-                    }
-                }
-            }
+            AddTagsFromSource(
+                tags,
+                detail.Tags,
+                detail.CategoryList,
+                detail.CategorySchema,
+                detail.Subtitles,
+                detail.AbstractTags,
+                detail.SecondaryInfos
+            );
         }
 
         return tags;
     }
 
+    private static void AddTagsFromSource(
+        List<string> tags,
+        IReadOnlyList<DramaTagDto>? rawTags,
+        IReadOnlyList<DramaCategoryDto>? categories,
+        IReadOnlyList<string>? categorySchema,
+        IReadOnlyList<DramaSubtitleDto>? subtitles,
+        IReadOnlyList<DramaSubtitleDto>? abstractTags,
+        IReadOnlyList<DramaSecondaryInfoDto>? secondaryInfos
+    )
+    {
+        if (rawTags is not null)
+        {
+            foreach (DramaTagDto item in rawTags)
+            {
+                AddUniqueTag(tags, item?.Name);
+            }
+        }
+
+        if (categories is not null)
+        {
+            foreach (DramaCategoryDto item in categories)
+            {
+                AddUniqueTag(tags, item?.Name);
+            }
+        }
+
+        if (categorySchema is not null)
+        {
+            foreach (string item in categorySchema)
+            {
+                AddUniqueTag(tags, item);
+            }
+        }
+
+        if (abstractTags is not null)
+        {
+            foreach (DramaSubtitleDto item in abstractTags)
+            {
+                if (item is not null && (item.DataType == 3 || item.DataType == 0))
+                {
+                    AddUniqueTag(tags, item.Content);
+                }
+            }
+        }
+
+        if (secondaryInfos is not null)
+        {
+            foreach (DramaSecondaryInfoDto item in secondaryInfos)
+            {
+                if (item is { DataType: 3 })
+                {
+                    AddUniqueTag(tags, item.Content);
+                }
+            }
+        }
+
+        if (subtitles is not null)
+        {
+            foreach (DramaSubtitleDto item in subtitles)
+            {
+                if (item is { DataType: 3 })
+                {
+                    AddUniqueTag(tags, item.Content);
+                }
+            }
+        }
+    }
+
+    private static void AddUniqueTag(List<string> tags, string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return;
+        }
+
+        string tag = raw.Trim();
+        if (!tags.Contains(tag, StringComparer.Ordinal))
+        {
+            tags.Add(tag);
+        }
+    }
+
+    private static string ExtractSecondaryScore(IReadOnlyList<DramaSecondaryInfoDto>? infos)
+    {
+        if (infos is null)
+        {
+            return string.Empty;
+        }
+
+        foreach (DramaSecondaryInfoDto item in infos)
+        {
+            if (item is not { DataType: 4 } || string.IsNullOrWhiteSpace(item.Content))
+            {
+                continue;
+            }
+
+            string text = item.Content.Trim();
+            if (text.EndsWith('分'))
+            {
+                text = text[..^1].Trim();
+            }
+
+            if (
+                text.Length > 0
+                && double.TryParse(
+                    text,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out double score
+                )
+                && !double.IsNaN(score)
+                && !double.IsInfinity(score)
+                && score is > 0 and <= 10
+            )
+            {
+                return text;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static int ResolveSeasonIndex(DramaDto value, DramaVideoDetailDto? detail)
+    {
+        if (value.SeasonIndex > 0)
+        {
+            return value.SeasonIndex;
+        }
+
+        if (detail is { SeasonIndex: > 0 })
+        {
+            return detail.SeasonIndex;
+        }
+
+        int fromSecondary = ExtractSecondarySeason(value.SecondaryInfos);
+        if (fromSecondary > 0)
+        {
+            return fromSecondary;
+        }
+
+        fromSecondary = ExtractSecondarySeason(detail?.SecondaryInfos);
+        return fromSecondary > 0 ? fromSecondary : 1;
+    }
+
+    private static int ExtractSecondarySeason(IReadOnlyList<DramaSecondaryInfoDto>? infos)
+    {
+        if (infos is null)
+        {
+            return 0;
+        }
+
+        foreach (DramaSecondaryInfoDto item in infos)
+        {
+            if (item is not { DataType: 43 } || string.IsNullOrWhiteSpace(item.Content))
+            {
+                continue;
+            }
+
+            string text = item.Content.Trim();
+            if (
+                text.StartsWith('第')
+                && text.EndsWith('季')
+                && int.TryParse(
+                    text.AsSpan(1, text.Length - 2),
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out int season
+                )
+                && season > 0
+            )
+            {
+                return season;
+            }
+        }
+
+        return 0;
+    }
+
     private static string DtoHeat(DramaDto data)
     {
-        string score = ValueNormalizer.First(data.HotScoreData?.Score, data.HotScore);
-        return
+        string score = ValueNormalizer.First(
+            data.HotScoreData?.Score,
+            data.HotScore,
+            data.VideoDetail?.HotScoreData?.Score,
+            data.VideoDetail?.HotScore
+        );
+        if (
             score.Length > 0
             && double.TryParse(
                 score,
@@ -551,15 +782,66 @@ internal static class DramaMapper
             && !double.IsNaN(value)
             && !double.IsInfinity(value)
             && value >= 0
-            ? score
-            : data.HotScoreData?.Text ?? string.Empty;
+        )
+        {
+            return score;
+        }
+
+        string explicitHeat = ValueNormalizer.First(
+            data.HotScoreData?.Text,
+            data.VideoDetail?.HotScoreData?.Text,
+            data.RecText,
+            data.VideoDetail?.RecText
+        );
+        if (explicitHeat.Length > 0)
+        {
+            return explicitHeat;
+        }
+
+        return ExtractHeatFromRecTags(data.RecTags)
+            is { Length: > 0 } outerHeat
+            ? outerHeat
+            : ExtractHeatFromRecTags(data.VideoDetail?.RecTags);
+    }
+
+    private static string ExtractHeatFromRecTags(IReadOnlyList<DramaRecTagDto>? recTags)
+    {
+        if (recTags is null)
+        {
+            return string.Empty;
+        }
+
+        foreach (DramaRecTagDto tag in recTags)
+        {
+            if (string.IsNullOrWhiteSpace(tag?.Content))
+            {
+                continue;
+            }
+
+            string content = tag.Content.Trim();
+            if (
+                content.Contains("热度", StringComparison.Ordinal)
+                || content.Contains("热搜", StringComparison.Ordinal)
+            )
+            {
+                return content;
+            }
+        }
+
+        return string.Empty;
     }
 
     private static string DtoOnlineDate(DramaDto data, DateTimeOffset now)
     {
+        string timestamp = ValueNormalizer.First(
+            data.FirstVisibleTime,
+            data.VideoDetail?.FirstVisibleTime,
+            data.CreateTime,
+            data.VideoDetail?.CreateTime
+        );
         if (
             long.TryParse(
-                data.FirstVisibleTime,
+                timestamp,
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
                 out long number
@@ -582,7 +864,9 @@ internal static class DramaMapper
             catch (ArgumentOutOfRangeException) { }
         }
 
-        foreach (DramaSubtitleDto item in data.Subtitles ?? [])
+        foreach (
+            DramaSubtitleDto item in (data.Subtitles ?? []).Concat(data.VideoDetail?.Subtitles ?? [])
+        )
         {
             string label = item.Content ?? string.Empty;
             if (label == "今日上新")
