@@ -112,8 +112,8 @@ using var client = new PhoenixReadApiClient();
 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
 // 2. 搜索短剧
-SearchResult search = await client.SearchAsync("请君入我怀", cts.Token);
-Drama? drama = search.Dramas.FirstOrDefault();
+SearchPage<Drama> search = await client.SearchDramasAsync("请君入我怀", cancellationToken: cts.Token);
+Drama? drama = search.Items.FirstOrDefault();
 
 if (drama is not null)
 {
@@ -128,7 +128,7 @@ if (drama is not null)
         Console.WriteLine($"第 {firstEpisode.Number} 集: {firstEpisode.Title}");
 
         // 4. 解析第一集的可播放媒体列表（按清晰度从高到低排序，首项为推荐最佳画质）
-        IReadOnlyList<PlaybackMedia> medias = await client.ResolveMediaAsync(drama.Id, firstEpisode.VideoId, cts.Token);
+        IReadOnlyList<PlaybackMedia> medias = await client.ResolveDramaMediaAsync(drama.Id, firstEpisode, cts.Token);
         PlaybackMedia media = medias[0];
         Console.WriteLine($"播放直链: {media.Url}");
         Console.WriteLine($"媒体时长: {media.Duration}, 清晰度: {media.Definition} ({media.Codec})");
@@ -260,37 +260,37 @@ foreach (SearchSuggestion suggestion in suggestions)
     Console.WriteLine($"建议词: {suggestion.Name} (类型: {suggestion.Type})");
 }
 
-// 1. 综合短剧搜索（返回短剧、原著小说与明星演员用户）
-SearchResult searchResult = await client.SearchAsync("逆袭", cts.Token);
-Console.WriteLine($"短剧命中: {searchResult.Dramas.Count} 部 (总计: {searchResult.Total}, 是否受限: {searchResult.Limited})");
+// 1. 搜索剧集（仅返回普通短剧）
+SearchPage<Drama> dramaSearch = await client.SearchDramasAsync("逆袭", cancellationToken: cts.Token);
+Console.WriteLine($"短剧命中: {dramaSearch.Items.Count} 部 (总计: {dramaSearch.Total}, 是否受限: {dramaSearch.Limited})");
 
-// 2. 高级多维度分类搜索（指定 Tab 如原著小说、用户、影视剧及分页游标）
-SearchResult novelSearch = await client.SearchAsync(
-    new SearchQuery
+// 2. 搜索视频（返回合集 DramaAlbum 或独立短视频 ShortVideo 的 C# 15 原生 Union）
+SearchPage<VideoSearchItem> videoSearch = await client.SearchVideosAsync("娇女诡爱畸恋", cancellationToken: cts.Token);
+foreach (VideoSearchItem item in videoSearch.Items)
+{
+    switch (item)
     {
-        Keyword = "逆袭",
-        Tab = SearchTab.CommonBook, // 搜索番茄/红果原著小说
-        Offset = 0,
-        Count = 10,
-    },
-    cts.Token
-);
-foreach (Novel novel in novelSearch.Novels)
+        case DramaAlbum album:
+            DramaAlbum albumDetail = await client.GetAlbumAsync(album.Id, cts.Token);
+            Console.WriteLine($"合集: 《{albumDetail.Title}》 子视频数: {albumDetail.Seasons.Count}");
+            break;
+        case ShortVideo shortVideo:
+            IReadOnlyList<PlaybackMedia> shortMedias = await client.ResolveShortVideoMediaAsync(shortVideo, cts.Token);
+            Console.WriteLine($"短视频: {shortVideo.Title} -> {shortMedias[0].Url}");
+            break;
+    }
+}
+
+// 3. 搜索原著小说
+SearchPage<Novel> novelSearch = await client.SearchNovelsAsync("逆袭", offset: 0, count: 10, cancellationToken: cts.Token);
+foreach (Novel novel in novelSearch.Items)
 {
     Console.WriteLine($"原著小说: 《{novel.Title}》 作者: {novel.Author} (连载: {novel.StatusText})");
 }
 
-// 搜索明星演职人员
-SearchResult userSearch = await client.SearchAsync(
-    new SearchQuery
-    {
-        Keyword = "张",
-        Tab = SearchTab.User,
-        Count = 5,
-    },
-    cts.Token
-);
-foreach (User user in userSearch.Users)
+// 4. 搜索明星演职人员
+SearchPage<User> userSearch = await client.SearchUsersAsync("张", count: 5, cancellationToken: cts.Token);
+foreach (User user in userSearch.Items)
 {
     Console.WriteLine($"明星/演员: {user.Name} (ID: {user.Id}) - 简介: {user.Introduction}");
 }
@@ -375,7 +375,7 @@ foreach (DramaDetails item in batchWithEpisodes)
 
 ```csharp
 // 解析指定分集的可播放媒体列表（按画质综合得分从高到低排序）
-IReadOnlyList<PlaybackMedia> medias = await client.ResolveMediaAsync(
+IReadOnlyList<PlaybackMedia> medias = await client.ResolveDramaMediaAsync(
     dramaId: details.Drama.Id,
     videoId: details.Episodes[0].VideoId,
     cancellationToken: cts.Token
@@ -415,7 +415,7 @@ string dramaId = "74123456789";
 string videoId = "74987654321";
 
 // 抓取视频指定时间窗口内的弹幕（毫秒单位；例如获取前 10 分钟弹幕）
-DanmakuPage danmaku = await client.GetDanmakuAsync(
+DanmakuPage danmaku = await client.GetDramaEpisodeDanmakuAsync(
     dramaId,
     videoId,
     startMs: 0,
@@ -476,8 +476,8 @@ if (reviews.Items.FirstOrDefault() is { } topComment)
 ### 6. 书架、阅读历史与播放进度
 
 ```csharp
-// 查询个人观看/阅读历史
-ReadHistoryPage history = await client.GetHistoryAsync(cancellationToken: cts.Token);
+// 查询个人短剧观看历史（另有 GetAlbumHistoryAsync / GetShortVideoHistoryAsync / GetPostHistoryAsync）
+ReadHistoryPage<Drama> history = await client.GetDramaHistoryAsync(cancellationToken: cts.Token);
 
 // 上报当前分集的播放进度（也会同步写入观看历史）
 await client.ReportProgressAsync(new ProgressUpdate
@@ -639,18 +639,27 @@ CirclePage circle = await client.GetUserCircleAsync("3798146916562768", count: 1
 Console.WriteLine($"红果圈条数: {circle.Items.Count}, HasMore: {circle.HasMore}");
 foreach (CircleItem item in circle.Items)
 {
-    Console.WriteLine($"  - [{item.Type}] {item.Title} (点赞: {item.LikeCount}, 评论: {item.CommentCount})");
+    switch (item)
+    {
+        case Post circlePost:
+            Console.WriteLine($"  - [图文] {circlePost.Title} (点赞: {circlePost.LikeCount}, 评论: {circlePost.CommentCount})");
+            break;
+        case ShortVideo shortVideo:
+            Console.WriteLine($"  - [短视频] {shortVideo.Title} (点赞: {shortVideo.LikeCount})");
+            break;
+    }
 }
 
 // 获取红果圈图文帖子正文详情（含高清图集与 #话题）与评论
-CirclePost post = await client.GetCirclePostAsync("7699803166862688830", cts.Token);
+Post post = await client.GetCirclePostAsync("7699803166862688830", cts.Token);
 Console.WriteLine($"图文正文: {post.PureText}, 配图数: {post.Images.Count}, 话题: {string.Join(", ", post.Topics)}");
-CommentPage postComments = await client.GetCirclePostCommentsAsync("7699803166862688830", count: 20, cancellationToken: cts.Token);
+CommentPage postComments = await client.GetPostCommentsAsync("7699803166862688830", count: 20, cancellationToken: cts.Token);
 
-// 获取红果圈短视频详情与评论
-CircleVideo video = await client.GetCircleVideoAsync("7696233443998305342", cts.Token);
-Console.WriteLine($"视频标题: {video.Title}, 时长: {video.DurationSeconds}秒, 关联剧集: {video.RelatedDrama?.Title}");
-CommentPage videoComments = await client.GetCircleVideoCommentsAsync("7696233443998305342", count: 20, cancellationToken: cts.Token);
+// 获取红果圈短视频详情、播放链接与评论
+ShortVideo video = await client.GetCircleVideoAsync("7696233443998305342", cts.Token);
+IReadOnlyList<PlaybackMedia> videoMedias = await client.ResolveShortVideoMediaAsync(video, cts.Token);
+Console.WriteLine($"视频标题: {video.Title}, 时长: {video.DurationSeconds}秒, 首选播放链接: {videoMedias[0].Url}");
+CommentPage videoComments = await client.GetShortVideoCommentsAsync("7696233443998305342", count: 20, cancellationToken: cts.Token);
 ```
 
 ---

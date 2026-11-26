@@ -158,20 +158,20 @@ internal static partial class SampleSteps
             }
         }
 
-        context.Search = await TryAsync("SearchAsync", () =>
-            client.SearchAsync(context.Keyword, cancellationToken)
+        context.Search = await TryAsync("SearchDramasAsync", () =>
+            client.SearchDramasAsync(context.Keyword, cancellationToken: cancellationToken)
         );
         if (context.Search is not null)
         {
             Console.WriteLine(
-                $"  搜索结果：{context.Search.Dramas.Count}/{context.Search.Total}, Warning='{context.Search.Warning}'"
+                $"  搜索结果：{context.Search.Items.Count}/{context.Search.Total}, Warning='{context.Search.Warning}'"
             );
         }
 
         // 批量详情：从搜索/剧库结果取前两个剧集 ID
         string[] batchIds =
         [
-            .. (context.Search?.Dramas ?? context.Catalog ?? [])
+            .. (context.Search?.Items ?? context.Catalog ?? [])
                 .Select(static item => item.Id)
                 .Where(static id => id.Length > 0)
                 .Distinct(StringComparer.Ordinal)
@@ -254,10 +254,10 @@ internal static partial class SampleSteps
         );
 
         context.Medias = await TryWhenIdsAsync(
-            "ResolveMediaAsync(ids)",
+            "ResolveDramaMediaAsync(ids)",
             context.DramaId,
             context.VideoId,
-            (drama, video) => client.ResolveMediaAsync(drama, video, cancellationToken)
+            (drama, video) => client.ResolveDramaMediaAsync(drama, video, cancellationToken)
         );
         PrintMedia(context.Medias);
 
@@ -269,7 +269,8 @@ internal static partial class SampleSteps
             "GetDanmakuAsync",
             context.DramaId,
             context.VideoId,
-            (drama, video) => client.GetDanmakuAsync(drama, video, 0, durationMs, cancellationToken)
+            (drama, video) =>
+                client.GetDramaEpisodeDanmakuAsync(drama, video, 0, durationMs, cancellationToken)
         );
         if (context.Danmaku is not null)
         {
@@ -324,8 +325,7 @@ internal static partial class SampleSteps
             );
         PrintCount("  评论回复", context.Replies?.Items.Count);
 
-        context.CreditUserId = context.Details?.Drama.Credits.FirstOrDefault()?.User.Id
-            ?? string.Empty;
+        context.CreditUserId = context.Details?.Drama.Credits[1]?.User.Id ?? string.Empty;
         UserProfile? creditProfile = await TryWhenIdAsync(
             "GetUserProfileAsync(userId)",
             context.CreditUserId,
@@ -333,7 +333,7 @@ internal static partial class SampleSteps
         );
         PrintProfile(creditProfile);
 
-        if (context.Details?.Drama.Credits.FirstOrDefault() is { } credit)
+        if (context.Details?.Drama.Credits[1] is { } credit)
         {
             UserProfile? creditProfileByCredit = await TryAsync("GetUserProfileAsync(credit)", () =>
                 client.GetUserProfileAsync(credit, cancellationToken)
@@ -341,8 +341,7 @@ internal static partial class SampleSteps
             PrintProfile(creditProfileByCredit);
         }
 
-        string ordinaryUserId = context.FindOrdinaryUserId();
-        context.ProfileUserId = ordinaryUserId.Length > 0 ? ordinaryUserId : context.CreditUserId;
+        context.ProfileUserId = context.CreditUserId;
         CirclePage? circle = await TryWhenIdAsync("GetUserCircleAsync", context.ProfileUserId, id =>
             client.GetUserCircleAsync(id, cancellationToken: cancellationToken)
         );
@@ -401,8 +400,8 @@ internal static partial class SampleSteps
         PhoenixReadApiClient client = context.Client;
         CancellationToken cancellationToken = context.CancellationToken;
 
-        context.History = await TryAsync("GetHistoryAsync", () =>
-            client.GetHistoryAsync(cancellationToken: cancellationToken)
+        context.History = await TryAsync("GetDramaHistoryAsync", () =>
+            client.GetDramaHistoryAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  历史", context.History?.Items.Count);
 
@@ -421,8 +420,9 @@ internal static partial class SampleSteps
         );
         PrintCount("  未上线的预约", pendingReservations?.Items.Count);
 
-        ReservationPage? availableReservations = await TryAsync("GetAvailableReservationsAsync", () =>
-            client.GetAvailableReservationsAsync(cancellationToken: cancellationToken)
+        ReservationPage? availableReservations = await TryAsync(
+            "GetAvailableReservationsAsync",
+            () => client.GetAvailableReservationsAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  已上线的预约", availableReservations?.Items.Count);
 
@@ -460,7 +460,12 @@ internal static partial class SampleSteps
         UserWorkPage? reservationWorks = await TryWhenIdAsync(
             "GetUserWorksAsync(Reservation)",
             sampleActorId,
-            id => client.GetUserWorksAsync(id, new UserWorksQuery { SubTab = UserWorkSubTab.Reservation, Count = 10 }, cancellationToken)
+            id =>
+                client.GetUserWorksAsync(
+                    id,
+                    new UserWorksQuery { SubTab = UserWorkSubTab.Reservation, Count = 10 },
+                    cancellationToken
+                )
         );
         PrintCount("  演员作品(预约)", reservationWorks?.Items.Count);
         if (reservationWorks?.Items is { Count: > 0 })
@@ -469,7 +474,9 @@ internal static partial class SampleSteps
             {
                 if (work is Drama drama)
                 {
-                    Console.WriteLine($"    待播剧: 《{drama.Title}》上线={drama.OnlineDate} 状态={drama.ReleaseStatus} 预约人数={drama.FollowCount} 标签=[{string.Join(",", drama.Tags)}]");
+                    Console.WriteLine(
+                        $"    待播剧: 《{drama.Title}》上线={drama.OnlineDate} 状态={drama.ReleaseStatus} 预约人数={drama.FollowCount} 标签=[{string.Join(",", drama.Tags)}]"
+                    );
                 }
             }
         }
@@ -477,7 +484,12 @@ internal static partial class SampleSteps
         UserWorkPage? reviewWorks = await TryWhenIdAsync(
             "GetUserWorksAsync(Review)",
             sampleActorId,
-            id => client.GetUserWorksAsync(id, new UserWorksQuery { SubTab = UserWorkSubTab.Review, Count = 10 }, cancellationToken)
+            id =>
+                client.GetUserWorksAsync(
+                    id,
+                    new UserWorksQuery { SubTab = UserWorkSubTab.Review, Count = 10 },
+                    cancellationToken
+                )
         );
         PrintCount("  演员作品(剧评)", reviewWorks?.Items.Count);
         if (reviewWorks?.Items is { Count: > 0 })
@@ -486,7 +498,9 @@ internal static partial class SampleSteps
             {
                 if (work is UserReview review)
                 {
-                    Console.WriteLine($"    剧评: 《{review.Drama.Title}》评分={review.Rating}分 ({review.RatingText}) 点赞={review.LikeCount}");
+                    Console.WriteLine(
+                        $"    剧评: 《{review.Drama.Title}》评分={review.Rating}分 ({review.RatingText}) 点赞={review.LikeCount}"
+                    );
                 }
             }
         }

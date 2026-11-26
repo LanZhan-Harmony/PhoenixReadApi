@@ -15,7 +15,7 @@ public sealed class DetailsAndPlaybackTests
             "7543196048185887806",
             timeout.Token
         );
-        IReadOnlyList<PlaybackMedia> medias = await SharedScenario.Client.ResolveMediaAsync(
+        IReadOnlyList<PlaybackMedia> medias = await SharedScenario.Client.ResolveDramaMediaAsync(
             "7543196048185887806",
             details.Episodes[0].VideoId,
             timeout.Token
@@ -73,8 +73,8 @@ public sealed class DetailsAndPlaybackTests
         await SharedScenario.AssertValidDrama(dramas[0]);
 
         // 2. 批量传入多个剧集 ID（2 部），严格断言返回数量严格等于 2 且对应
-        SearchResult search = await SharedScenario.Client.SearchAsync("战神", timeout.Token);
-        string[] multiIds = [.. search.Dramas.Select(d => d.Id).Where(id => id.Length > 0).Take(2)];
+        SearchPage<Drama> search = await SharedScenario.Client.SearchDramasAsync("战神", cancellationToken: timeout.Token);
+        string[] multiIds = [.. search.Items.Select(d => d.Id).Where(id => id.Length > 0).Take(2)];
         if (multiIds.Length >= 2)
         {
             IReadOnlyList<Drama> multiDramas = await SharedScenario.Client.GetBatchDramaDetailsAsync(
@@ -104,7 +104,7 @@ public sealed class DetailsAndPlaybackTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        IReadOnlyList<PlaybackMedia> medias = await SharedScenario.Client.ResolveMediaAsync(
+        IReadOnlyList<PlaybackMedia> medias = await SharedScenario.Client.ResolveDramaMediaAsync(
             scenario.DramaId,
             scenario.Episode.VideoId,
             timeout.Token

@@ -1,4 +1,4 @@
-using PhoenixReadApi.Tests.Common;
+﻿using PhoenixReadApi.Tests.Common;
 
 namespace PhoenixReadApi.Tests;
 
@@ -136,18 +136,18 @@ public sealed class UserTests
             await SharedScenario.AssertValidCircleItem(item);
         }
 
-        CircleItem? postItem = circlePage.Items.FirstOrDefault(static x =>
-            x.Type == CircleItemType.Post
-        );
+        Post? postItem = circlePage.Items
+            .Select(static x => x.Value as Post)
+            .FirstOrDefault(static x => x is not null);
         if (postItem is not null && postItem.Id.Length > 0)
         {
-            CirclePost post = await SharedScenario.Client.GetCirclePostAsync(
+            Post post = await SharedScenario.Client.GetCirclePostAsync(
                 postItem.Id,
                 timeout.Token
             );
             await SharedScenario.AssertValidCirclePost(post);
 
-            CommentPage postComments = await SharedScenario.Client.GetCirclePostCommentsAsync(
+            CommentPage postComments = await SharedScenario.Client.GetPostCommentsAsync(
                 postItem.Id,
                 count: 5,
                 cancellationToken: timeout.Token
@@ -165,18 +165,18 @@ public sealed class UserTests
             }
         }
 
-        CircleItem? videoItem = circlePage.Items.FirstOrDefault(static x =>
-            x.Type == CircleItemType.Video
-        );
+        ShortVideo? videoItem = circlePage.Items
+            .Select(static x => x.Value as ShortVideo)
+            .FirstOrDefault(static x => x is not null);
         if (videoItem is not null && videoItem.Id.Length > 0)
         {
-            CircleVideo video = await SharedScenario.Client.GetCircleVideoAsync(
+            ShortVideo video = await SharedScenario.Client.GetCircleVideoAsync(
                 videoItem.Id,
                 timeout.Token
             );
-            await SharedScenario.AssertValidCircleVideo(video);
+            await SharedScenario.AssertValidShortVideo(video);
 
-            CommentPage videoComments = await SharedScenario.Client.GetCircleVideoCommentsAsync(
+            CommentPage videoComments = await SharedScenario.Client.GetShortVideoCommentsAsync(
                 videoItem.Id,
                 count: 5,
                 cancellationToken: timeout.Token

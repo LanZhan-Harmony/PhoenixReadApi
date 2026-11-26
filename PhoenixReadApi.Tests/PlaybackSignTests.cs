@@ -333,32 +333,43 @@ public sealed class PlaybackSignTests
 
         string[] candidateHosts =
         [
+            "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/video_model/v1/",
             "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/player/v1",
             "https://api5-normal-sinfonlinea.fqnovel.com/novel/player/multi_video_model/v1",
         ];
         string installId = "1483721089225898";
         string cdid = "test-cdid";
 
-        byte[] bodyMd5 = System.Security.Cryptography.MD5.HashData(gzipBody);
         byte[]? successBytes = null;
         string? lastErr = null;
         foreach (string targetHost in candidateHosts)
         {
-            string urlPrefix = PhoenixReadPlaybackSigner.BuildPlaybackUrlPrefix(
-                targetHost,
-                deviceId,
-                installId,
-                cdid
-            );
+            bool isSingle = targetHost.Contains("/video_model/v1/");
+            byte[] bodyBytes = isSingle
+                ? PhoenixReadApi.Internal.Serialization.JsonAotSerializer.SerializeToUtf8Bytes(
+                    new PhoenixReadApi.Internal.Contracts.App.Playback.AppSinglePlaybackPayload
+                    {
+                        VideoId = "7484637255605160985",
+                        BizParam = new PhoenixReadApi.Internal.Contracts.App.Playback.AppSinglePlaybackBizParam
+                        {
+                            NeedAllVideoDefinition = true,
+                            VideoIdType = 0,
+                            VideoPlatform = 3,
+                        },
+                    }
+                )
+                : gzipBody;
+            byte[] bodyMd5 = System.Security.Cryptography.MD5.HashData(bodyBytes);
+
             long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
-                urlPrefix,
+                t => PhoenixReadPlaybackSigner.BuildPlaybackV5Url(targetHost, deviceId, installId, cdid, t),
                 bodyMd5,
                 (uint)baseSec,
                 baseSec * 1000
             );
-            string candUrl = $"{urlPrefix}{ticket}";
+            string candUrl = PhoenixReadPlaybackSigner.BuildPlaybackV5Url(targetHost, deviceId, installId, cdid, ticket);
             (string? khronos, string? gorgon, string? helios, string? medusa, string? argus, string? ladon, string? ssStub) =
-                PhoenixReadPlaybackSigner.SignV5(candUrl, gzipBody, (uint)baseSec, deviceId);
+                PhoenixReadPlaybackSigner.SignV5(candUrl, bodyBytes, (uint)baseSec, deviceId, installId);
 
             using HttpRequestMessage req = new(HttpMethod.Post, candUrl);
             req.Headers.TryAddWithoutValidation(
@@ -379,14 +390,17 @@ public sealed class PlaybackSignTests
             req.Headers.TryAddWithoutValidation("x-argus", argus);
             req.Headers.TryAddWithoutValidation("x-ladon", ladon);
 
-            req.Content = new ByteArrayContent(gzipBody);
+            req.Content = new ByteArrayContent(bodyBytes);
             req.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
                 "application/json"
             )
             {
                 CharSet = "utf-8",
             };
-            req.Content.Headers.ContentEncoding.Add("gzip");
+            if (!isSingle)
+            {
+                req.Content.Headers.ContentEncoding.Add("gzip");
+            }
 
             using HttpResponseMessage res = await client.SendAsync(req);
             byte[] bytes = await res.Content.ReadAsByteArrayAsync();

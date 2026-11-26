@@ -11,24 +11,24 @@ public sealed class SearchAndRecommendationTests
     public async Task TestSearchAsync()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-        SearchResult search = await SharedScenario.Client.SearchAsync(
+        SearchPage<Drama> search = await SharedScenario.Client.SearchDramasAsync(
             SharedScenario.DefaultKeyword,
-            timeout.Token
+            cancellationToken: timeout.Token
         );
 
         await Assert.That(search).IsNotNull();
-        await Assert.That(search.Dramas).IsNotNull();
-        await Assert.That(search.Dramas.Count > 0).IsTrue();
-        await Assert.That(search.Total >= search.Dramas.Count).IsTrue();
+        await Assert.That(search.Items).IsNotNull();
+        await Assert.That(search.Items.Count > 0).IsTrue();
+        await Assert.That(search.Total >= search.Items.Count).IsTrue();
         await Assert.That(search.Warning).IsNotNull();
 
-        foreach (Drama drama in search.Dramas)
+        foreach (Drama drama in search.Items)
         {
             await SharedScenario.AssertValidDrama(drama);
         }
 
         await Assert
-            .That(search.Dramas.Any(item =>
+            .That(search.Items.Any(item =>
                 item.Title.Contains(SharedScenario.DefaultKeyword, StringComparison.OrdinalIgnoreCase)
             ))
             .IsTrue();

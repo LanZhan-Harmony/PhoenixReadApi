@@ -68,14 +68,17 @@ public static class SharedScenario
     private static async Task<TestDramaScenario> CreateScenarioAsync()
     {
         using CancellationTokenSource timeout = new(TimeSpan.FromMinutes(4));
-        SearchResult search = await Client.SearchAsync(DefaultKeyword, timeout.Token);
-        Drama? selected = search.Dramas.FirstOrDefault(item =>
+        SearchPage<Drama> search = await Client.SearchDramasAsync(
+            DefaultKeyword,
+            cancellationToken: timeout.Token
+        );
+        Drama? selected = search.Items.FirstOrDefault(item =>
             string.Equals(item.Title, DefaultKeyword, StringComparison.OrdinalIgnoreCase)
         );
-        selected ??= search.Dramas.FirstOrDefault(item =>
+        selected ??= search.Items.FirstOrDefault(item =>
             item.Title.Contains(DefaultKeyword, StringComparison.OrdinalIgnoreCase)
         );
-        selected ??= search.Dramas.FirstOrDefault(IsValidDramaItem);
+        selected ??= search.Items.FirstOrDefault(IsValidDramaItem);
 
         if (selected is null)
         {
@@ -269,34 +272,36 @@ public static class SharedScenario
         await Assert.That(reservation.ReleaseAtUnixSeconds >= 0).IsTrue();
     }
 
-    public static async Task AssertValidReadHistoryEntry(ReadHistoryItem? entry)
+    public static async Task AssertValidReadHistoryEntry(HistoryItem<Drama>? entry)
     {
         await Assert.That(entry).IsNotNull();
         await Assert.That(entry!.Id).IsNotNull();
-        await Assert.That(IsNumericId(entry.DramaId)).IsTrue();
+        await Assert.That(IsNumericId(entry.Target.Id)).IsTrue();
         await Assert.That(entry.VideoId).IsNotNull();
         await Assert.That(entry.EpisodeNumber >= 0).IsTrue();
-        await Assert.That(entry.Title).IsNotNull();
-        await Assert.That(entry.CoverUrl).IsNotNull();
+        await Assert.That(entry.Target.Title).IsNotNull();
+        await Assert.That(entry.Target.CoverUrl).IsNotNull();
         await Assert.That(entry.CurrentPositionMs >= 0).IsTrue();
         await Assert.That(entry.DurationMs >= 0).IsTrue();
         await Assert.That(entry.UpdatedAtUnixMilliseconds >= 0).IsTrue();
     }
 
-    public static async Task AssertValidCircleItem(CircleItem? item)
+    public static async Task AssertValidCircleItem(CircleItem item)
     {
-        await Assert.That(item).IsNotNull();
-        await Assert.That(item!.Id).IsNotNull();
-        await Assert.That(item.Title).IsNotNull();
-        await Assert.That(item.Text).IsNotNull();
-        await Assert.That(item.CoverUrl).IsNotNull();
-        await Assert.That(item.CreatedAtUnixSeconds >= 0).IsTrue();
-        await Assert.That(item.LikeCount >= 0).IsTrue();
-        await Assert.That(item.CommentCount >= 0).IsTrue();
-        await Assert.That(item.ViewCount >= 0).IsTrue();
+        switch (item)
+        {
+            case Post post:
+                await AssertValidCirclePost(post);
+                break;
+            case ShortVideo video:
+                await AssertValidShortVideo(video);
+                break;
+            default:
+                throw new InvalidOperationException("未知的红果圈内容类型。");
+        }
     }
 
-    public static async Task AssertValidCirclePost(CirclePost? post)
+    public static async Task AssertValidCirclePost(Post? post)
     {
         await Assert.That(post).IsNotNull();
         await Assert.That(post!.Id).IsNotNull();
@@ -308,7 +313,7 @@ public static class SharedScenario
         await Assert.That(post.CommentCount >= 0).IsTrue();
     }
 
-    public static async Task AssertValidCircleVideo(CircleVideo? video)
+    public static async Task AssertValidShortVideo(ShortVideo? video)
     {
         await Assert.That(video).IsNotNull();
         await Assert.That(video!.VideoId).IsNotNull();
@@ -316,7 +321,7 @@ public static class SharedScenario
         await Assert.That(video.Description).IsNotNull();
         await Assert.That(video.CoverUrl).IsNotNull();
         await Assert.That(video.DurationSeconds >= 0).IsTrue();
-        await Assert.That(video.PlayCount >= 0).IsTrue();
+        await Assert.That(video.ViewCount >= 0).IsTrue();
         await Assert.That(video.LikeCount >= 0).IsTrue();
     }
 

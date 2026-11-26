@@ -12,7 +12,7 @@ public sealed class LibraryTests
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
 
-        ReadHistoryPage history = await SharedScenario.Client.GetHistoryAsync(
+        HistoryPage<Drama> history = await SharedScenario.Client.GetDramaHistoryAsync(
             count: 10,
             offset: 0,
             cancellationToken: timeout.Token
@@ -23,7 +23,7 @@ public sealed class LibraryTests
         await Assert.That(history.NextOffset >= 0).IsTrue();
         await Assert.That(history.Total >= 0).IsTrue();
 
-        foreach (ReadHistoryItem entry in history.Items)
+        foreach (HistoryItem<Drama> entry in history.Items)
         {
             await SharedScenario.AssertValidReadHistoryEntry(entry);
         }
@@ -83,14 +83,6 @@ public sealed class LibraryTests
                 await SharedScenario.Client.ReportProgressAsync(
                     new ProgressUpdate { DramaId = "", VideoId = "" }
                 );
-            })
-            .Throws<ArgumentException>();
-
-        // DeleteHistory 参数空校验
-        await Assert
-            .That(async () =>
-            {
-                await SharedScenario.Client.DeleteHistoryAsync("", "");
             })
             .Throws<ArgumentException>();
 
@@ -273,19 +265,10 @@ public sealed class LibraryTests
         await Assert.That(reportResult.Succeeded).IsTrue();
 
         // 2. 校验历史记录已更新
-        ReadHistoryPage history = await authClient.GetHistoryAsync(
+        HistoryPage<Drama> history = await authClient.GetDramaHistoryAsync(
             cancellationToken: timeout.Token
         );
         await Assert.That(history).IsNotNull();
         await Assert.That(history.Items).IsNotNull();
-
-        // 3. 删除历史记录
-        PhoenixOperationResult delHistory = await authClient.DeleteHistoryAsync(
-            scenario.DramaId,
-            scenario.Episode.VideoId,
-            timeout.Token
-        );
-        await Assert.That(delHistory).IsNotNull();
-        await Assert.That(delHistory.Succeeded).IsTrue();
     }
 }

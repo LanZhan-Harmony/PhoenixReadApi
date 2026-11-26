@@ -113,7 +113,7 @@ internal sealed class CommentService : PhoenixFeatureService
             .ConfigureAwait(false);
     }
 
-    internal async Task<CommentReplyPage> GetCirclePostCommentRepliesAsync(
+    internal async Task<CommentReplyPage> GetPostCommentRepliesAsync(
         string commentId,
         string postId,
         int count,
@@ -129,12 +129,12 @@ internal sealed class CommentService : PhoenixFeatureService
         return await LoadRepliesInternalAsync(
                 commentId: commentId,
                 groupId: postId,
-                bookId: postId,
-                commentSource: 5,
+                bookId: string.Empty,
+                commentSource: 505,
                 serverChannel: 32,
                 groupType: 3,
                 commentType: 11,
-                realLevel: 2,
+                realLevel: 0,
                 isTrailingSlash: false,
                 count: count,
                 cursor: cursor,
@@ -143,7 +143,7 @@ internal sealed class CommentService : PhoenixFeatureService
             .ConfigureAwait(false);
     }
 
-    internal async Task<CommentReplyPage> GetCircleVideoCommentRepliesAsync(
+    internal async Task<CommentReplyPage> GetShortVideoCommentRepliesAsync(
         string commentId,
         string videoId,
         int count,
@@ -160,8 +160,8 @@ internal sealed class CommentService : PhoenixFeatureService
                 commentId: commentId,
                 groupId: videoId,
                 bookId: videoId,
-                commentSource: 4,
-                serverChannel: 26,
+                commentSource: 504,
+                serverChannel: 18,
                 groupType: 1,
                 commentType: 4,
                 realLevel: 0,
@@ -293,6 +293,140 @@ internal sealed class CommentService : PhoenixFeatureService
             danmaku: true
         );
 
+    internal async Task<PhoenixOperationResult> SendShortVideoDanmakuAsync(
+        string videoId,
+        string text,
+        long offsetMs,
+        CancellationToken cancellationToken
+    )
+    {
+        videoId = NormalizeVideoId(videoId);
+        text = NormalizeText(text);
+        if (offsetMs < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(offsetMs),
+                "弹幕时间偏移不能为负数。"
+            );
+        }
+
+        AppResponse<AppCommentAddData> response = await _appTransport
+            .PostAsync<AppCommentAddPayload, AppCommentAddData>(
+                "/novel/commentapi/comment/add/v1/",
+                new AppCommentAddPayload
+                {
+                    CommitSource = 1500,
+                    Text = text,
+                    GroupId = videoId,
+                    GroupType = 30,
+                    DataType = 20,
+                    CommentType = 20,
+                    Score = 0,
+                    BusinessParameter = new AppCommentAddBusinessParameter
+                    {
+                        BookId = videoId,
+                        Offset = offsetMs,
+                        Score = 0,
+                        VideoId = videoId,
+                    },
+                },
+                commentRequest: true,
+                cancellationToken,
+                commentSource: 504,
+                serverChannel: 18,
+                retryMode: AppRequestRetryMode.NoRetry
+            )
+            .ConfigureAwait(false);
+        string createdId = ValueNormalizer.First(
+            response.Data?.CommentInfo?.CommentId,
+            response.Data?.CommentId
+        );
+        return Operation(response.Message, createdId);
+    }
+
+    internal async Task<PhoenixOperationResult> SendPostCommentAsync(
+        string postId,
+        string text,
+        CancellationToken cancellationToken
+    )
+    {
+        postId = NormalizeDramaOrVideoId(postId);
+        text = NormalizeText(text);
+
+        AppResponse<AppCommentAddData> response = await _appTransport
+            .PostAsync<AppCommentAddPayload, AppCommentAddData>(
+                "/novel/commentapi/comment/add/v1/",
+                new AppCommentAddPayload
+                {
+                    CommitSource = 10,
+                    Text = text,
+                    GroupId = postId,
+                    GroupType = 3,
+                    DataType = 11,
+                    CommentType = 11,
+                    Score = 0,
+                    BusinessParameter = new AppCommentAddBusinessParameter
+                    {
+                        Offset = 0,
+                        Score = 0,
+                    },
+                },
+                commentRequest: true,
+                cancellationToken,
+                commentSource: 5,
+                serverChannel: 32,
+                retryMode: AppRequestRetryMode.NoRetry
+            )
+            .ConfigureAwait(false);
+        string createdId = ValueNormalizer.First(
+            response.Data?.CommentInfo?.CommentId,
+            response.Data?.CommentId
+        );
+        return Operation(response.Message, createdId);
+    }
+
+    internal async Task<PhoenixOperationResult> SendShortVideoCommentAsync(
+        string videoId,
+        string text,
+        CancellationToken cancellationToken
+    )
+    {
+        videoId = NormalizeVideoId(videoId);
+        text = NormalizeText(text);
+
+        AppResponse<AppCommentAddData> response = await _appTransport
+            .PostAsync<AppCommentAddPayload, AppCommentAddData>(
+                "/novel/commentapi/comment/add/v1/",
+                new AppCommentAddPayload
+                {
+                    CommitSource = 3,
+                    Text = text,
+                    GroupId = videoId,
+                    GroupType = 1,
+                    DataType = 4,
+                    CommentType = 4,
+                    Score = 0,
+                    BusinessParameter = new AppCommentAddBusinessParameter
+                    {
+                        BookId = videoId,
+                        Offset = 0,
+                        Score = 0,
+                    },
+                },
+                commentRequest: true,
+                cancellationToken,
+                commentSource: 4,
+                serverChannel: 26,
+                retryMode: AppRequestRetryMode.NoRetry
+            )
+            .ConfigureAwait(false);
+        string createdId = ValueNormalizer.First(
+            response.Data?.CommentInfo?.CommentId,
+            response.Data?.CommentId
+        );
+        return Operation(response.Message, createdId);
+    }
+
     internal async Task<PhoenixOperationResult> LikeCommentAsync(
         string commentId,
         string groupId,
@@ -331,7 +465,7 @@ internal sealed class CommentService : PhoenixFeatureService
         return Operation(response.Message);
     }
 
-    internal Task<PhoenixOperationResult> LikeCirclePostCommentAsync(
+    internal Task<PhoenixOperationResult> LikePostCommentAsync(
         string commentId,
         string postId,
         bool active,
@@ -348,7 +482,7 @@ internal sealed class CommentService : PhoenixFeatureService
             serverChannel: 32
         );
 
-    internal Task<PhoenixOperationResult> LikeCirclePostReplyAsync(
+    internal Task<PhoenixOperationResult> LikePostReplyAsync(
         string replyId,
         string postId,
         bool active,
@@ -365,7 +499,7 @@ internal sealed class CommentService : PhoenixFeatureService
             serverChannel: 32
         );
 
-    internal Task<PhoenixOperationResult> LikeCircleVideoCommentAsync(
+    internal Task<PhoenixOperationResult> LikeShortVideoCommentAsync(
         string commentId,
         string videoId,
         bool active,
@@ -382,7 +516,7 @@ internal sealed class CommentService : PhoenixFeatureService
             serverChannel: 26
         );
 
-    internal Task<PhoenixOperationResult> LikeCircleVideoReplyAsync(
+    internal Task<PhoenixOperationResult> LikeShortVideoReplyAsync(
         string replyId,
         string videoId,
         bool active,
@@ -437,7 +571,7 @@ internal sealed class CommentService : PhoenixFeatureService
         return Operation(response.Message, commentId);
     }
 
-    internal Task<PhoenixOperationResult> DeleteCirclePostCommentAsync(
+    internal Task<PhoenixOperationResult> DeletePostCommentAsync(
         string commentId,
         string postId,
         CancellationToken cancellationToken
@@ -447,13 +581,13 @@ internal sealed class CommentService : PhoenixFeatureService
             postId,
             cancellationToken,
             dataType: 4,
-            serviceId: 4,
+            serviceId: 11,
             groupType: 3,
             commentSource: 5,
             serverChannel: 32
         );
 
-    internal Task<PhoenixOperationResult> DeleteCircleVideoCommentAsync(
+    internal Task<PhoenixOperationResult> DeleteShortVideoCommentAsync(
         string commentId,
         string videoId,
         CancellationToken cancellationToken
@@ -465,6 +599,36 @@ internal sealed class CommentService : PhoenixFeatureService
             dataType: 4,
             serviceId: 4,
             groupType: 1,
+            commentSource: 4,
+            serverChannel: 26
+        );
+
+    internal Task<PhoenixOperationResult> DeletePostReplyAsync(
+        string replyId,
+        CancellationToken cancellationToken
+    ) =>
+        DeleteCommentAsync(
+            replyId,
+            replyId,
+            cancellationToken,
+            dataType: 9,
+            serviceId: 11,
+            groupType: 0,
+            commentSource: 5,
+            serverChannel: 32
+        );
+
+    internal Task<PhoenixOperationResult> DeleteShortVideoReplyAsync(
+        string replyId,
+        CancellationToken cancellationToken
+    ) =>
+        DeleteCommentAsync(
+            replyId,
+            replyId,
+            cancellationToken,
+            dataType: 9,
+            serviceId: 4,
+            groupType: 0,
             commentSource: 4,
             serverChannel: 26
         );
@@ -548,6 +712,107 @@ internal sealed class CommentService : PhoenixFeatureService
             cancellationToken
         );
 
+    internal Task<PhoenixOperationResult> SendPostReplyAsync(
+        string commentId,
+        string postId,
+        string text,
+        string? replyToUserId,
+        CancellationToken cancellationToken
+    ) =>
+        SendTargetReplyAsync(
+            commentId,
+            postId,
+            bookId: null,
+            text,
+            replyToUserId,
+            commitSource: 11,
+            groupType: 3,
+            dataType: 11,
+            commentType: 11,
+            commentSource: 5,
+            serverChannel: 32,
+            cancellationToken
+        );
+
+    internal Task<PhoenixOperationResult> SendShortVideoReplyAsync(
+        string commentId,
+        string videoId,
+        string text,
+        string? replyToUserId,
+        CancellationToken cancellationToken
+    ) =>
+        SendTargetReplyAsync(
+            commentId,
+            videoId,
+            bookId: NormalizeVideoId(videoId),
+            text,
+            replyToUserId,
+            commitSource: 9,
+            groupType: 1,
+            dataType: 4,
+            commentType: 4,
+            commentSource: 4,
+            serverChannel: 26,
+            cancellationToken
+        );
+
+    private async Task<PhoenixOperationResult> SendTargetReplyAsync(
+        string commentId,
+        string groupId,
+        string? bookId,
+        string text,
+        string? replyToUserId,
+        int commitSource,
+        int groupType,
+        int dataType,
+        int commentType,
+        int commentSource,
+        int serverChannel,
+        CancellationToken cancellationToken
+    )
+    {
+        commentId = NormalizeCommentId(commentId);
+        groupId = NormalizeDramaOrVideoId(groupId);
+        text = NormalizeText(text);
+        string? normalizedReplyUser = string.IsNullOrWhiteSpace(replyToUserId)
+            ? null
+            : replyToUserId.Trim();
+
+        AppResponse<AppReplyAddData> response = await _appTransport
+            .PostAsync<AppCommentAddPayload, AppReplyAddData>(
+                "/novel/commentapi/reply/add/v1/",
+                new AppCommentAddPayload
+                {
+                    CommitSource = commitSource,
+                    Text = text,
+                    GroupId = groupId,
+                    GroupType = groupType,
+                    DataType = dataType,
+                    CommentType = commentType,
+                    ReplyToCommentId = commentId,
+                    ReplyToUserId = normalizedReplyUser,
+                    BusinessParameter = new AppCommentAddBusinessParameter
+                    {
+                        BookId = bookId ?? string.Empty,
+                        Offset = 0,
+                        Score = 0,
+                    },
+                },
+                commentRequest: true,
+                cancellationToken,
+                commentSource: commentSource,
+                serverChannel: serverChannel,
+                retryMode: AppRequestRetryMode.NoRetry
+            )
+            .ConfigureAwait(false);
+        string replyId = ValueNormalizer.First(
+            response.Data?.Reply?.ReplyId,
+            response.Data?.Reply?.Id,
+            response.Data?.ReplyId
+        );
+        return Operation(response.Message, replyId);
+    }
+
     internal Task<PhoenixOperationResult> DeleteReplyAsync(
         string replyId,
         CancellationToken cancellationToken
@@ -561,7 +826,7 @@ internal sealed class CommentService : PhoenixFeatureService
             groupType: 0
         );
 
-    internal Task<CommentPage> GetCirclePostCommentsAsync(
+    internal Task<CommentPage> GetPostCommentsAsync(
         string postId,
         int count,
         string cursor,
@@ -585,7 +850,7 @@ internal sealed class CommentService : PhoenixFeatureService
         );
     }
 
-    internal Task<CommentPage> GetCircleVideoCommentsAsync(
+    internal Task<CommentPage> GetShortVideoCommentsAsync(
         string videoId,
         int count,
         string cursor,

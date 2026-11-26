@@ -71,4 +71,32 @@ internal sealed class AppHistoryItem
 
     [JsonPropertyName("video_data")]
     public AppHistoryVideoData Video { get; init; } = new();
+
+    [JsonPropertyName("episode_cnt")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int EpisodeCount { get; init; }
+
+    [JsonPropertyName("pugc_user_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string PugcUserName { get; init; } = string.Empty;
+
+    [JsonPropertyName("pugc_user_avatar")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string PugcUserAvatar { get; init; } = string.Empty;
+
+    [JsonPropertyName("digged_count")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long DiggCount { get; init; }
+
+    [JsonPropertyName("series_play_cnt")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long PlayCount { get; init; }
+
+    [JsonPropertyName("listen_book_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ListenBookId { get; init; } = string.Empty;
+
+    [JsonPropertyName("genre_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int GenreType { get; init; }
 }

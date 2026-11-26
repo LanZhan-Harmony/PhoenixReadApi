@@ -10,7 +10,7 @@ internal sealed class SampleContext
 
     public AuthenticationState Authentication { get; set; } = null!;
     public IReadOnlyList<Drama>? Catalog { get; set; }
-    public SearchResult? Search { get; set; }
+    public SearchPage<Drama>? Search { get; set; }
 
     public string DramaId { get; set; } = string.Empty;
     public string VideoId { get; set; } = string.Empty;
@@ -27,7 +27,7 @@ internal sealed class SampleContext
     public CommentReplyPage? Replies { get; set; }
     public DramaPage? Favorites { get; set; }
     public DramaPage? Likes { get; set; }
-    public ReadHistoryPage? History { get; set; }
+    public HistoryPage<Drama>? History { get; set; }
     public ReservationPage? UpcomingReservations { get; set; }
 
     public static string GetSampleDirectory()
@@ -44,13 +44,13 @@ internal sealed class SampleContext
 
     public Drama? FindDrama()
     {
-        return Search?.Dramas.FirstOrDefault(item =>
+        return Search?.Items.FirstOrDefault(item =>
             string.Equals(item.Title, Keyword, StringComparison.OrdinalIgnoreCase)
         )
-            ?? Search?.Dramas.FirstOrDefault(item =>
+            ?? Search?.Items.FirstOrDefault(item =>
                 item.Title.Contains(Keyword, StringComparison.OrdinalIgnoreCase)
             )
-            ?? Search?.Dramas.FirstOrDefault()
+            ?? Search?.Items.FirstOrDefault()
             ?? Catalog?.FirstOrDefault(item =>
                 item.Title.Contains(Keyword, StringComparison.OrdinalIgnoreCase)
             )

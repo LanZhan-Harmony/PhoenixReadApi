@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PhoenixReadApi.Internal.Contracts.App.Circle;
 using PhoenixReadApi.Internal.Serialization;
 
 namespace PhoenixReadApi.Internal.Contracts.App.Comment;
@@ -19,6 +20,14 @@ internal sealed class AppUserProfileData
 
     [JsonPropertyName("user_info")]
     public AppCommentUserInfo UserInfo { get; init; } = new();
+
+    [JsonPropertyName("video_content_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int VideoContentType { get; init; }
+
+    [JsonPropertyName("duration")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int DurationSeconds { get; init; }
 }
 
 internal sealed class AppUserListInfo
@@ -96,6 +105,38 @@ internal sealed class AppUserWorkRecord
 
     [JsonPropertyName("subscribe_item")]
     public AppUserSubscribeItem SubscribeItem { get; init; } = new();
+
+    [JsonPropertyName("post")]
+    public AppCirclePostItem? Post { get; init; }
+
+    [JsonPropertyName("album")]
+    public AppUserAlbum? Album { get; init; }
+}
+
+internal sealed class AppUserAlbum
+{
+    [JsonPropertyName("album_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string AlbumId { get; init; } = string.Empty;
+
+    [JsonPropertyName("album_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string AlbumName { get; init; } = string.Empty;
+
+    [JsonPropertyName("desc")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Description { get; init; } = string.Empty;
+
+    [JsonPropertyName("thumb_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string ThumbUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("video_count")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int VideoCount { get; init; }
+
+    [JsonPropertyName("album_video_list")]
+    public IReadOnlyList<AppUserVideo> Videos { get; init; } = [];
 }
 
 internal sealed class AppUserSubscribeItem
@@ -163,6 +204,14 @@ internal sealed class AppUserVideoCommon
 
     [JsonPropertyName("user_info")]
     public AppCommentUserInfo UserInfo { get; init; } = new();
+
+    [JsonPropertyName("video_content_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int VideoContentType { get; init; }
+
+    [JsonPropertyName("duration")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int DurationSeconds { get; init; }
 }
 
 internal sealed class AppUserVideoExpand

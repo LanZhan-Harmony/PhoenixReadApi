@@ -27,9 +27,8 @@ internal static partial class SampleSteps
         // 功能展示 1: 筛选找剧 (标签分类大类与筛选列表)
         // ==========================================
         Console.WriteLine("\n--- [功能展示 1: 筛选找剧 (标签分类)] ---");
-        IReadOnlyList<TagCategoryGroup>? tagGroups = await TryAsync(
-            "GetTagCategoriesAsync",
-            () => client.GetTagCategoriesAsync(cancellationToken)
+        IReadOnlyList<TagCategoryGroup>? tagGroups = await TryAsync("GetTagCategoriesAsync", () =>
+            client.GetTagCategoriesAsync(cancellationToken)
         );
         PrintCount("  题材分类分组数", tagGroups?.Count);
         if (tagGroups is { Count: > 0 })
@@ -42,21 +41,19 @@ internal static partial class SampleSteps
                 );
             }
 
-            TagCategoryItem selectedTag =
-                tagGroups[0].Items.FirstOrDefault() ?? new() { Id = "", Name = "" };
+            TagCategoryItem selectedTag = tagGroups[0].Items.FirstOrDefault()
+                ?? new() { Id = "", Name = "" };
             Console.WriteLine(
                 $"  -> 选择标签 [{selectedTag.Name}] (Id: {selectedTag.Id})，按最热排序查询短剧:"
             );
-            TagDramaPage? tagPage = await TryAsync(
-                "GetTagDramaPageAsync",
-                () =>
-                    client.GetTagDramaPageAsync(
-                        selectedTag.Id,
-                        sort: TagDramaSortOrder.Hot,
-                        offset: 0,
-                        count: 5,
-                        cancellationToken: cancellationToken
-                    )
+            TagDramaPage? tagPage = await TryAsync("GetTagDramaPageAsync", () =>
+                client.GetTagDramaPageAsync(
+                    selectedTag.Id,
+                    sort: TagDramaSortOrder.Hot,
+                    offset: 0,
+                    count: 5,
+                    cancellationToken: cancellationToken
+                )
             );
             PrintCount("  筛选结果数量", tagPage?.Items.Count);
             if (tagPage is not null)
@@ -93,18 +90,16 @@ internal static partial class SampleSteps
             }
 
             Console.WriteLine("  -> 组合筛选矩阵执行筛选查询:");
-            ShortDramaFilterPage? filterPage = await TryAsync(
-                "FilterShortDramasAsync",
-                () =>
-                    client.FilterShortDramasAsync(
-                        new ShortDramaFilterQuery
-                        {
-                            Genre = ShortDramaGenre.ShortPlay,
-                            Selections = selections,
-                            Offset = 0,
-                        },
-                        cancellationToken
-                    )
+            ShortDramaFilterPage? filterPage = await TryAsync("FilterShortDramasAsync", () =>
+                client.FilterShortDramasAsync(
+                    new ShortDramaFilterQuery
+                    {
+                        Genre = ShortDramaGenre.ShortPlay,
+                        Selections = selections,
+                        Offset = 0,
+                    },
+                    cancellationToken
+                )
             );
             PrintCount("  多维筛选结果数量", filterPage?.Items.Count);
         }
@@ -162,14 +157,12 @@ internal static partial class SampleSteps
         // 功能展示 4: 上新日历 (指定日期查询)
         // ==========================================
         Console.WriteLine("\n--- [功能展示 4: 上新日历 (今日与指定日期上线作品)] ---");
-        DailyReleasePage? dailyReleases = await TryAsync(
-            "GetDailyReleasesAsync",
-            () =>
-                client.GetDailyReleasesAsync(
-                    targetDate: null,
-                    offset: 0,
-                    cancellationToken: cancellationToken
-                )
+        DailyReleasePage? dailyReleases = await TryAsync("GetDailyReleasesAsync", () =>
+            client.GetDailyReleasesAsync(
+                targetDate: null,
+                offset: 0,
+                cancellationToken: cancellationToken
+            )
         );
         PrintCount("  今日上线与预告剧集数", dailyReleases?.Items.Count);
         if (dailyReleases is not null)
@@ -187,14 +180,12 @@ internal static partial class SampleSteps
         // 功能展示 5: App 首页发现频道流式瀑布流 (DiscoverPage)
         // ==========================================
         Console.WriteLine("\n--- [功能展示 5: 首页发现频道流式瀑布流 (DiscoverPage)] ---");
-        DiscoverPage? discoverPage = await TryAsync(
-            "GetDiscoverPageAsync",
-            () =>
-                client.GetDiscoverPageAsync(
-                    DiscoverChannel.Recommend,
-                    cursor: null,
-                    cancellationToken: cancellationToken
-                )
+        DiscoverPage? discoverPage = await TryAsync("GetDiscoverPageAsync", () =>
+            client.GetDiscoverPageAsync(
+                DiscoverChannel.Recommend,
+                cursor: null,
+                cancellationToken: cancellationToken
+            )
         );
         PrintCount("  推荐频道发现短剧数量", discoverPage?.Dramas.Count);
         PrintCount("  推荐频道原著小说数量", discoverPage?.Novels.Count);
@@ -211,15 +202,14 @@ internal static partial class SampleSteps
         // ==========================================
         // 功能展示 6: 多季合集与单剧专属关联推荐 (以选中剧集为例)
         // ==========================================
-        Drama? sampleDrama = context.Search?.Dramas.FirstOrDefault();
+        Drama? sampleDrama = context.Search?.Items.FirstOrDefault();
         if (sampleDrama is not null && !string.IsNullOrWhiteSpace(sampleDrama.Id))
         {
             Console.WriteLine(
                 $"\n--- [功能展示 6: 《{sampleDrama.Title}》多季合集与关联好剧推荐] ---"
             );
-            DramaAlbum? album = await TryAsync(
-                "GetDramaSeasonsAsync",
-                () => client.GetDramaSeasonsAsync(sampleDrama.Id, cancellationToken)
+            DramaAlbum? album = await TryAsync("GetDramaSeasonsAsync", () =>
+                client.GetDramaSeasonsAsync(sampleDrama.Id, cancellationToken)
             );
             if (album is not null)
             {
@@ -232,9 +222,8 @@ internal static partial class SampleSteps
                 }
             }
 
-            DramaRecommendations? related = await TryAsync(
-                "GetDramaRecommendationsAsync",
-                () => client.GetDramaRecommendationsAsync(sampleDrama.Id, cancellationToken)
+            DramaRecommendations? related = await TryAsync("GetDramaRecommendationsAsync", () =>
+                client.GetDramaRecommendationsAsync(sampleDrama.Id, cancellationToken)
             );
             PrintCount("  单剧专属关联推荐短剧数", related?.Items.Count);
             if (related?.Items.Count > 0)
@@ -249,21 +238,15 @@ internal static partial class SampleSteps
         }
 
         // ==========================================
-        // 功能展示 7: 跨模态搜索 (短剧)
+        // 功能展示 7: 跨模态搜索
         // ==========================================
-        SearchResult? userSearch = await TryAsync(
-            "SearchAsync(ShortPlay)",
-            () =>
-                client.SearchAsync(
-                    new SearchQuery
-                    {
-                        Keyword = "女帝",
-                        Tab = SearchTab.ShortPlay,
-                        Count = 3,
-                    },
-                    cancellationToken
-                )
+        SearchPage<VideoSearchItem>? videoSearch = await TryAsync("SearchVideosAsync", () =>
+            client.SearchVideosAsync("娇女诡爱畸恋", count: 20, cancellationToken: cancellationToken)
         );
-        PrintCount("  搜索短剧结果数", userSearch?.Dramas.Count);
+        PrintCount("  搜索视频结果数", videoSearch?.Items.Count);
+        SearchPage<User>? userSearch = await TryAsync("SearchUsersAsync", () =>
+            client.SearchUsersAsync("请君入我怀", count: 20, cancellationToken: cancellationToken)
+        );
+        PrintCount("  搜索用户结果数", userSearch?.Items.Count);
     }
 }

@@ -36,7 +36,7 @@ internal sealed class DailyReleaseService : PhoenixFeatureService
             new("order_experiment", "descend"),
             new("subscribe_list_opt", "0"),
             new("version", "0"),
-            new("user_is_login", "0"),
+            new("user_is_login", UserIsLogin),
         ];
 
         if (!string.IsNullOrWhiteSpace(dateStr))

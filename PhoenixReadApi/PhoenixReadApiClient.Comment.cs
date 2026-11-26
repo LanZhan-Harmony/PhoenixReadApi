@@ -251,6 +251,293 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _comment.DeleteReplyAsync(replyId, cancellationToken);
 
+    /// <summary>获取指定图文帖子的评论列表。</summary>
+    /// <param name="postId">图文帖子 ID，必须是数字字符串。</param>
+    /// <param name="count">每页评论数量，范围为 1 到 90，默认为 20。</param>
+    /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>评论列表及游标信息。</returns>
+    public Task<CommentPage> GetPostCommentsAsync(
+        string postId,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _comment.GetPostCommentsAsync(postId, count, cursor, cancellationToken);
+
+    /// <summary>根据 <see cref="Post"/> 实体获取图文帖子的评论列表。</summary>
+    /// <param name="post">图文帖子实体。</param>
+    /// <param name="count">每页评论数量，范围为 1 到 90，默认为 20。</param>
+    /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>评论列表及游标信息。</returns>
+    public Task<CommentPage> GetPostCommentsAsync(
+        Post post,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        return _comment.GetPostCommentsAsync(post.Id, count, cursor, cancellationToken);
+    }
+
+    /// <summary>获取指定独立短视频（红果圈、视频搜索或合集子视频）的评论列表。</summary>
+    /// <param name="videoId">短视频 ID，必须是数字字符串。</param>
+    /// <param name="count">每页评论数量，范围为 1 到 90，默认为 20。</param>
+    /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>评论列表及游标信息。</returns>
+    public Task<CommentPage> GetShortVideoCommentsAsync(
+        string videoId,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _comment.GetShortVideoCommentsAsync(videoId, count, cursor, cancellationToken);
+
+    /// <summary>根据 <see cref="ShortVideo"/> 实体获取独立短视频的评论列表。</summary>
+    /// <param name="video">独立短视频实体。</param>
+    /// <param name="count">每页评论数量，范围为 1 到 90，默认为 20。</param>
+    /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>评论列表及游标信息。</returns>
+    public Task<CommentPage> GetShortVideoCommentsAsync(
+        ShortVideo video,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(video);
+        string videoId = !string.IsNullOrWhiteSpace(video.VideoId) ? video.VideoId : video.Id;
+        return _comment.GetShortVideoCommentsAsync(videoId, count, cursor, cancellationToken);
+    }
+
+    /// <summary>获取指定图文帖子评论下的回复列表。</summary>
+    /// <param name="commentId">评论 ID，必须是数字字符串。</param>
+    /// <param name="postId">图文帖子 ID，必须是数字字符串。</param>
+    /// <param name="count">每页回复数量，范围为 1 到 90，默认为 20。</param>
+    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>包含回复列表、总数、下一页游标和 HasMore 状态的 <see cref="CommentReplyPage"/>。</returns>
+    public Task<CommentReplyPage> GetPostCommentRepliesAsync(
+        string commentId,
+        string postId,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) => _comment.GetPostCommentRepliesAsync(commentId, postId, count, cursor, cancellationToken);
+
+    /// <summary>获取指定独立短视频评论下的回复列表。</summary>
+    /// <param name="commentId">评论 ID，必须是数字字符串。</param>
+    /// <param name="videoId">短视频 ID，必须是数字字符串。</param>
+    /// <param name="count">每页回复数量，范围为 1 到 90，默认为 20。</param>
+    /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>包含回复列表、总数、下一页游标和 HasMore 状态的 <see cref="CommentReplyPage"/>。</returns>
+    public Task<CommentReplyPage> GetShortVideoCommentRepliesAsync(
+        string commentId,
+        string videoId,
+        int count = 20,
+        string cursor = "",
+        CancellationToken cancellationToken = default
+    ) =>
+        _comment.GetShortVideoCommentRepliesAsync(
+            commentId,
+            videoId,
+            count,
+            cursor,
+            cancellationToken
+        );
+
+    /// <summary>点赞或取消点赞图文帖子的评论。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="postId">图文帖子 ID。</param>
+    /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    /// <remarks>写操作需要登录账号凭据。</remarks>
+    public Task<PhoenixOperationResult> SetPostCommentLikeAsync(
+        string commentId,
+        string postId,
+        bool active = true,
+        CancellationToken cancellationToken = default
+    ) => _comment.LikePostCommentAsync(commentId, postId, active, cancellationToken);
+
+    /// <summary>点赞或取消点赞图文评论下的回复。</summary>
+    /// <param name="replyId">回复 ID。</param>
+    /// <param name="postId">图文帖子 ID。</param>
+    /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    /// <remarks>写操作需要登录账号凭据。</remarks>
+    public Task<PhoenixOperationResult> SetPostReplyLikeAsync(
+        string replyId,
+        string postId,
+        bool active = true,
+        CancellationToken cancellationToken = default
+    ) => _comment.LikePostReplyAsync(replyId, postId, active, cancellationToken);
+
+    /// <summary>点赞或取消点赞独立短视频的评论。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="videoId">短视频 ID。</param>
+    /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    /// <remarks>写操作需要登录账号凭据。</remarks>
+    public Task<PhoenixOperationResult> SetShortVideoCommentLikeAsync(
+        string commentId,
+        string videoId,
+        bool active = true,
+        CancellationToken cancellationToken = default
+    ) => _comment.LikeShortVideoCommentAsync(commentId, videoId, active, cancellationToken);
+
+    /// <summary>点赞或取消点赞独立短视频评论下的回复。</summary>
+    /// <param name="replyId">回复 ID。</param>
+    /// <param name="videoId">短视频 ID。</param>
+    /// <param name="active">true 表示点赞，false 表示取消点赞。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    /// <remarks>写操作需要登录账号凭据。</remarks>
+    public Task<PhoenixOperationResult> SetShortVideoReplyLikeAsync(
+        string replyId,
+        string videoId,
+        bool active = true,
+        CancellationToken cancellationToken = default
+    ) => _comment.LikeShortVideoReplyAsync(replyId, videoId, active, cancellationToken);
+
+    /// <summary>为图文帖子发表一条评论。</summary>
+    /// <param name="postId">图文帖子 ID，必须是数字字符串。</param>
+    /// <param name="text">评论文本，长度为 1 到 4000 个字符。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回评论 ID。</returns>
+    /// <remarks>发送评论需要登录；服务端还可能进行内容审核。</remarks>
+    public Task<PhoenixOperationResult> SendPostCommentAsync(
+        string postId,
+        string text,
+        CancellationToken cancellationToken = default
+    ) => _comment.SendPostCommentAsync(postId, text, cancellationToken);
+
+    /// <summary>为 <see cref="Post"/> 图文帖子发表一条评论。</summary>
+    /// <param name="post">图文帖子实体。</param>
+    /// <param name="text">评论文本，长度为 1 到 4000 个字符。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回评论 ID。</returns>
+    public Task<PhoenixOperationResult> SendPostCommentAsync(
+        Post post,
+        string text,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        return SendPostCommentAsync(post.Id, text, cancellationToken);
+    }
+
+    /// <summary>为独立短视频或视频合集分集发表一条评论。</summary>
+    /// <param name="videoId">短视频或合集分集视频 ID，必须是数字字符串。</param>
+    /// <param name="text">评论文本，长度为 1 到 4000 个字符。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回评论 ID。</returns>
+    /// <remarks>发送评论需要登录；服务端还可能进行内容审核。</remarks>
+    public Task<PhoenixOperationResult> SendShortVideoCommentAsync(
+        string videoId,
+        string text,
+        CancellationToken cancellationToken = default
+    ) => _comment.SendShortVideoCommentAsync(videoId, text, cancellationToken);
+
+    /// <summary>为 <see cref="ShortVideo"/> 短视频发表一条评论。</summary>
+    /// <param name="video">短视频实体。</param>
+    /// <param name="text">评论文本，长度为 1 到 4000 个字符。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回评论 ID。</returns>
+    public Task<PhoenixOperationResult> SendShortVideoCommentAsync(
+        ShortVideo video,
+        string text,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(video);
+        return SendShortVideoCommentAsync(video.VideoId, text, cancellationToken);
+    }
+
+    /// <summary>回复一条图文帖子评论。</summary>
+    /// <param name="commentId">目标评论 ID。</param>
+    /// <param name="postId">图文帖子 ID，必须是数字字符串。</param>
+    /// <param name="text">回复文本，长度为 1 到 4000 个字符。</param>
+    /// <param name="replyToUserId">要回复的用户 ID；没有指定时传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回回复 ID。</returns>
+    /// <remarks>回复需要登录；服务端会校验目标评论和内容。</remarks>
+    public Task<PhoenixOperationResult> SendPostReplyAsync(
+        string commentId,
+        string postId,
+        string text,
+        string replyToUserId = "",
+        CancellationToken cancellationToken = default
+    ) => _comment.SendPostReplyAsync(commentId, postId, text, replyToUserId, cancellationToken);
+
+    /// <summary>回复一条独立短视频或视频合集分集评论。</summary>
+    /// <param name="commentId">目标评论 ID。</param>
+    /// <param name="videoId">短视频或合集分集视频 ID，必须是数字字符串。</param>
+    /// <param name="text">回复文本，长度为 1 到 4000 个字符。</param>
+    /// <param name="replyToUserId">要回复的用户 ID；没有指定时传空字符串。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回回复 ID。</returns>
+    /// <remarks>回复需要登录；服务端会校验目标评论和内容。</remarks>
+    public Task<PhoenixOperationResult> SendShortVideoReplyAsync(
+        string commentId,
+        string videoId,
+        string text,
+        string replyToUserId = "",
+        CancellationToken cancellationToken = default
+    ) =>
+        _comment.SendShortVideoReplyAsync(
+            commentId,
+            videoId,
+            text,
+            replyToUserId,
+            cancellationToken
+        );
+
+    /// <summary>删除自己发布的图文帖子评论。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="postId">图文帖子 ID。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> DeletePostCommentAsync(
+        string commentId,
+        string postId,
+        CancellationToken cancellationToken = default
+    ) => _comment.DeletePostCommentAsync(commentId, postId, cancellationToken);
+
+    /// <summary>删除自己发布的独立短视频或视频合集分集评论。</summary>
+    /// <param name="commentId">评论 ID。</param>
+    /// <param name="videoId">短视频 ID。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> DeleteShortVideoCommentAsync(
+        string commentId,
+        string videoId,
+        CancellationToken cancellationToken = default
+    ) => _comment.DeleteShortVideoCommentAsync(commentId, videoId, cancellationToken);
+
+    /// <summary>删除自己发布的图文帖子回复。</summary>
+    /// <param name="replyId">回复 ID。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> DeletePostReplyAsync(
+        string replyId,
+        CancellationToken cancellationToken = default
+    ) => _comment.DeletePostReplyAsync(replyId, cancellationToken);
+
+    /// <summary>删除自己发布的独立短视频或视频合集分集回复。</summary>
+    /// <param name="replyId">回复 ID。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> DeleteShortVideoReplyAsync(
+        string replyId,
+        CancellationToken cancellationToken = default
+    ) => _comment.DeleteShortVideoReplyAsync(replyId, cancellationToken);
+
     /// <summary>获取表情包列表的一页。</summary>
     /// <param name="isCollected">true 为查询当前账号收藏的表情，false 为查询系统表情包。</param>
     /// <param name="offset">分页偏移量，首次请求传 0，后续传上一页的 NextOffset。</param>

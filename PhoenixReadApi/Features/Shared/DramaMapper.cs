@@ -29,6 +29,7 @@ internal static class DramaMapper
     )
     {
         DramaVideoDetailDto? detail = value.VideoDetail;
+        DramaAlbumInfoDto? albumInfo = value.AlbumInfo;
 
         string sourceId = ValueNormalizer.First(
             value.SeriesId,
@@ -36,7 +37,8 @@ internal static class DramaMapper
             value.BookId,
             value.Keyword,
             detail?.SeriesIdStr,
-            detail?.SeriesId
+            detail?.SeriesId,
+            albumInfo?.EffectiveAlbumId
         );
         if (!ValueNormalizer.IsNumericId(sourceId))
         {
@@ -52,6 +54,7 @@ internal static class DramaMapper
             detail?.SeriesName,
             detail?.Title,
             detail?.Name,
+            albumInfo?.Title,
             sourceId
         );
         string remark = ValueNormalizer.First(value.EpisodeRemark, detail?.EpisodeRemark);
@@ -69,7 +72,10 @@ internal static class DramaMapper
             Math.Max(value.EpisodeCount, value.EpisodeCountAlias),
             Math.Max(
                 Math.Max(value.DramaChapterNumber, value.ChapterNumber),
-                Math.Max(detail?.EpisodeCount ?? 0, detail?.EpisodeCountAlias ?? 0)
+                Math.Max(
+                    Math.Max(detail?.EpisodeCount ?? 0, detail?.EpisodeCountAlias ?? 0),
+                    albumInfo?.EpisodeCount ?? 0
+                )
             )
         );
         if (remark.Length == 0 && episodeCount > 0)
@@ -87,7 +93,8 @@ internal static class DramaMapper
             detail?.VideoDescription,
             detail?.Abstract,
             detail?.Intro,
-            detail?.Description
+            detail?.Description,
+            albumInfo?.Intro
         );
         string cover = ValueNormalizer.First(
             value.SeriesCover,
@@ -99,7 +106,8 @@ internal static class DramaMapper
             detail?.Cover,
             detail?.CoverUrl,
             detail?.ThumbUrl,
-            detail?.ExpandThumbUrl
+            detail?.ExpandThumbUrl,
+            albumInfo?.Cover
         );
         string score = ValueNormalizer.First(
             value.FinalScoreV2,
@@ -116,7 +124,8 @@ internal static class DramaMapper
             value.SeriesStatus,
             value.Status,
             detail?.SeriesStatus,
-            detail?.Status
+            detail?.Status,
+            albumInfo?.SeriesStatus
         );
         string tagInfoText = ValueNormalizer.First(value.TagInfo?.Text, detail?.TagInfo?.Text);
 
@@ -155,7 +164,11 @@ internal static class DramaMapper
             ? value.Celebrities
             : detail?.Celebrities ?? [];
 
-        string albumId = ValueNormalizer.First(value.EffectiveAlbumId, detail?.EffectiveAlbumId);
+        string albumId = ValueNormalizer.First(
+            value.EffectiveAlbumId,
+            detail?.EffectiveAlbumId,
+            albumInfo?.EffectiveAlbumId
+        );
         if (albumId == "0")
         {
             albumId = string.Empty;
@@ -165,9 +178,10 @@ internal static class DramaMapper
             || (detail?.IsMultiSeason ?? false)
             || !string.IsNullOrWhiteSpace(albumId);
         int seasonIndex = ResolveSeasonIndex(value, detail);
-        long followCount = value.FollowedCount > 0
-            ? value.FollowedCount
-            : (detail?.FollowedCount ?? 0);
+        long followCount =
+            value.FollowedCount > 0 ? value.FollowedCount
+            : (detail?.FollowedCount ?? 0) > 0 ? detail!.FollowedCount
+            : albumInfo?.FollowedCount ?? 0;
         long likeCount = value.DiggCount > 0 ? value.DiggCount : (detail?.DiggCount ?? 0);
 
         return new Drama
@@ -791,7 +805,8 @@ internal static class DramaMapper
             data.HotScoreData?.Text,
             data.VideoDetail?.HotScoreData?.Text,
             data.RecText,
-            data.VideoDetail?.RecText
+            data.VideoDetail?.RecText,
+            data.AlbumInfo?.HotScoreText
         );
         if (explicitHeat.Length > 0)
         {
@@ -837,7 +852,8 @@ internal static class DramaMapper
             data.FirstVisibleTime,
             data.VideoDetail?.FirstVisibleTime,
             data.CreateTime,
-            data.VideoDetail?.CreateTime
+            data.VideoDetail?.CreateTime,
+            data.AlbumInfo?.CreateTime
         );
         if (
             long.TryParse(

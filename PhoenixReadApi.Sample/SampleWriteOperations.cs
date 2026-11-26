@@ -24,8 +24,8 @@ internal static partial class SampleSteps
             .Where(static id => id.Length > 0)
             .ToHashSet(StringComparer.Ordinal)
             ?? [];
-        ReadHistoryItem? existingHistory = context.History?.Items.FirstOrDefault(item =>
-            item.DramaId == dramaId && item.VideoId == videoId
+        HistoryItem<Drama>? existingHistory = context.History?.Items.FirstOrDefault(item =>
+            item.Target.Id == dramaId && item.VideoId == videoId
         );
         HashSet<string> existingReviewIds = context
             .Reviews?.Items.Select(static item => item.Id)
@@ -58,8 +58,8 @@ internal static partial class SampleSteps
                     },
                     cancellationToken
                 ));
-            ReadHistoryPage? history = await TryAsync("GetHistoryAsync", () =>
-                client.GetHistoryAsync(cancellationToken: cancellationToken)
+            HistoryPage<Drama>? history = await TryAsync("GetDramaHistoryAsync", () =>
+                client.GetDramaHistoryAsync(cancellationToken: cancellationToken)
             );
             PrintCount("  历史记录数", history?.Items.Count);
             await TryAsync("SetFavoriteAsync", () =>
@@ -130,7 +130,12 @@ internal static partial class SampleSteps
             // 6. 发表弹幕
             string danmakuText = $"弹幕_{marker}";
             PhoenixOperationResult? danmakuResult = await TryAsync("SendDanmakuAsync", () =>
-                client.SendDanmakuAsync(dramaId, videoId, danmakuText, cancellationToken)
+                client.SendDramaEpisodeDanmakuAsync(
+                    dramaId,
+                    videoId,
+                    danmakuText,
+                    cancellationToken
+                )
             );
             string createdDanmakuId = danmakuResult?.Id ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(createdDanmakuId))
@@ -253,7 +258,10 @@ internal static partial class SampleSteps
         if (episode is not null && dramaId.Length > 0 && videoId.Length > 0)
         {
             await TryAsync("DeleteHistoryAsync", () =>
-                client.DeleteHistoryAsync(dramaId, videoId, cancellationToken)
+                client.DeleteHistoryAsync(
+                    [HistoryDeleteEntry.FromDrama(dramaId, videoId)],
+                    cancellationToken
+                )
             );
         }
     }

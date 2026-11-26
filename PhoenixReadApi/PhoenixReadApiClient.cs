@@ -106,7 +106,7 @@ public sealed partial class PhoenixReadApiClient : IDisposable
         _playback = new PlaybackService(Runtime);
         _danmaku = new DanmakuService(Runtime);
         _comment = new CommentService(Runtime);
-        _circle = new CircleService(Runtime, _comment);
+        _circle = new CircleService(Runtime);
         _user = new UserService(Runtime, _circle);
         _history = new HistoryService(Runtime);
         _favorite = new FavoriteService(Runtime);

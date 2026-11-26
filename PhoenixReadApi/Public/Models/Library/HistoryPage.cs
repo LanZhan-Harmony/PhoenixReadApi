@@ -1,10 +1,11 @@
 namespace PhoenixReadApi;
 
-/// <summary>阅读历史分页结果。</summary>
-public sealed class ReadHistoryPage
+/// <summary>泛型阅读或观看历史分页结果。</summary>
+/// <typeparam name="T">目标内容实体类型。</typeparam>
+public sealed class HistoryPage<T>
 {
     /// <summary>当前页记录。</summary>
-    public IReadOnlyList<ReadHistoryItem> Items { get; init; } = [];
+    public IReadOnlyList<HistoryItem<T>> Items { get; init; } = [];
 
     /// <summary>服务端报告的总数。</summary>
     public long Total { get; init; }

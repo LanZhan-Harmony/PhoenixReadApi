@@ -1,4 +1,4 @@
-using PhoenixReadApi.Tests.Common;
+﻿using PhoenixReadApi.Tests.Common;
 
 namespace PhoenixReadApi.Tests;
 
@@ -178,15 +178,15 @@ public sealed class CircleInteractionTests
             count: 10,
             cancellationToken: timeout.Token
         );
-        CircleItem? postItem = circle.Items.FirstOrDefault(static x =>
-            x.Type == CircleItemType.Post
-        );
+        Post? postItem = circle.Items
+            .Select(static x => x.Value as Post)
+            .FirstOrDefault(static x => x is not null);
         if (postItem is null || postItem.Id.Length == 0)
         {
             return;
         }
 
-        CommentPage comments = await authClient.GetCirclePostCommentsAsync(
+        CommentPage comments = await authClient.GetPostCommentsAsync(
             postItem.Id,
             count: 5,
             cancellationToken: timeout.Token
@@ -202,7 +202,7 @@ public sealed class CircleInteractionTests
         CommentReplyPage? replies = null;
         try
         {
-            replies = await authClient.GetCirclePostCommentRepliesAsync(
+            replies = await authClient.GetPostCommentRepliesAsync(
                 commentId,
                 postItem.Id,
                 count: 5,
@@ -212,7 +212,7 @@ public sealed class CircleInteractionTests
         catch (PhoenixReadApiException ex)
         {
             TestContext.Current?.OutputWriter.WriteLine(
-                $"GetCirclePostCommentRepliesAsync: {ex.Message}"
+                $"GetPostCommentRepliesAsync: {ex.Message}"
             );
         }
 
@@ -222,7 +222,7 @@ public sealed class CircleInteractionTests
         }
 
         // 2. 测试红果圈图文评论点赞接口
-        PhoenixOperationResult likeResult = await authClient.SetCirclePostCommentLikeAsync(
+        PhoenixOperationResult likeResult = await authClient.SetPostCommentLikeAsync(
             commentId,
             postItem.Id,
             active: true,
@@ -231,7 +231,7 @@ public sealed class CircleInteractionTests
         await Assert.That(likeResult.Succeeded).IsTrue();
 
         // 3. 测试完后立即取消点赞（撤销写入内容，恢复原状）
-        PhoenixOperationResult unlikeResult = await authClient.SetCirclePostCommentLikeAsync(
+        PhoenixOperationResult unlikeResult = await authClient.SetPostCommentLikeAsync(
             commentId,
             postItem.Id,
             active: false,

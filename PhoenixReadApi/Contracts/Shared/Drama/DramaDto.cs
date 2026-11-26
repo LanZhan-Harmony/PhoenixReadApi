@@ -38,6 +38,14 @@ internal sealed class DramaDto
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Title { get; init; } = string.Empty;
 
+    [JsonPropertyName("content_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int ContentType { get; init; }
+
+    [JsonPropertyName("duration")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int DurationSeconds { get; init; }
+
     [JsonPropertyName("series_intro")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string SeriesIntro { get; init; } = string.Empty;
@@ -234,10 +242,72 @@ internal sealed class DramaDto
     [JsonPropertyName("video_detail")]
     public DramaVideoDetailDto? VideoDetail { get; init; }
 
+    [JsonPropertyName("album_info")]
+    public DramaAlbumInfoDto? AlbumInfo { get; init; }
+
     [JsonIgnore]
     public string EffectiveAlbumId =>
         !string.IsNullOrWhiteSpace(RelatedAlbumId) && RelatedAlbumId != "0"
             ? RelatedAlbumId
+            : !string.IsNullOrWhiteSpace(AlbumId) && AlbumId != "0"
+                ? AlbumId
+                : string.Empty;
+}
+
+internal sealed class DramaAlbumInfoDto
+{
+    [JsonPropertyName("album_id_str")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string AlbumIdStr { get; init; } = string.Empty;
+
+    [JsonPropertyName("album_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string AlbumId { get; init; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Title { get; init; } = string.Empty;
+
+    [JsonPropertyName("content_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int ContentType { get; init; }
+
+    [JsonPropertyName("duration")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int DurationSeconds { get; init; }
+
+    [JsonPropertyName("intro")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Intro { get; init; } = string.Empty;
+
+    [JsonPropertyName("cover")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Cover { get; init; } = string.Empty;
+
+    [JsonPropertyName("episode_cnt")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int EpisodeCount { get; init; }
+
+    [JsonPropertyName("series_status")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string SeriesStatus { get; init; } = string.Empty;
+
+    [JsonPropertyName("followed_cnt")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long FollowedCount { get; init; }
+
+    [JsonPropertyName("hot_score_text")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string HotScoreText { get; init; } = string.Empty;
+
+    [JsonPropertyName("create_time")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string CreateTime { get; init; } = string.Empty;
+
+    [JsonIgnore]
+    public string EffectiveAlbumId =>
+        !string.IsNullOrWhiteSpace(AlbumIdStr) && AlbumIdStr != "0"
+            ? AlbumIdStr
             : !string.IsNullOrWhiteSpace(AlbumId) && AlbumId != "0"
                 ? AlbumId
                 : string.Empty;
@@ -268,6 +338,14 @@ internal sealed class DramaVideoDetailDto
     [JsonPropertyName("title")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Title { get; init; } = string.Empty;
+
+    [JsonPropertyName("content_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int ContentType { get; init; }
+
+    [JsonPropertyName("duration")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int DurationSeconds { get; init; }
 
     [JsonPropertyName("series_intro")]
     [JsonConverter(typeof(FlexibleStringConverter))]

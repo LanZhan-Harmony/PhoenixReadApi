@@ -27,6 +27,24 @@ internal sealed class DanmakuService : PhoenixFeatureService
     {
         string drama = NormalizeDramaId(dramaId);
         string video = NormalizeVideoId(videoId);
+        ValidateRange(startMs, durationMs);
+        return LoadAsync(drama, video, startMs, durationMs, cancellationToken);
+    }
+
+    internal Task<DanmakuPage> GetShortVideoAsync(
+        string videoId,
+        long startMs,
+        long durationMs,
+        CancellationToken cancellationToken
+    )
+    {
+        string video = NormalizeVideoId(videoId);
+        ValidateRange(startMs, durationMs);
+        return LoadAsync(video, video, startMs, durationMs, cancellationToken);
+    }
+
+    private static void ValidateRange(long startMs, long durationMs)
+    {
         if (
             startMs < 0
             || durationMs <= 0
@@ -39,8 +57,6 @@ internal sealed class DanmakuService : PhoenixFeatureService
                 "Danmaku duration must be positive, at most 24 hours, and fit after start."
             );
         }
-
-        return LoadAsync(drama, video, startMs, durationMs, cancellationToken);
     }
 
     private async Task<DanmakuPage> LoadAsync(

@@ -1,9 +1,8 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Circle;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
-using PhoenixReadApi.Internal.Features.Comment;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Serialization;
@@ -17,13 +16,9 @@ using User = PhoenixReadApi.User;
 internal sealed class CircleService : PhoenixFeatureService
 {
     private const int MaxPageSize = 50;
-    private readonly CommentService _commentService;
 
-    internal CircleService(PhoenixReadClientRuntime runtime, CommentService commentService)
-        : base(runtime)
-    {
-        _commentService = commentService ?? throw new ArgumentNullException(nameof(commentService));
-    }
+    internal CircleService(PhoenixReadClientRuntime runtime)
+        : base(runtime) { }
 
     /// <summary>获取指定用户/演职人员的红果圈 Feed 混合流。</summary>
     internal async Task<CirclePage> GetUserCircleAsync(
@@ -69,16 +64,21 @@ internal sealed class CircleService : PhoenixFeatureService
                 continue;
             }
 
-            CircleItem? mapped = record.DataType switch
+            if (record.DataType == 1 && record.Video is not null)
             {
-                1 when record.Video is not null => MapFeedVideoItem(record.Video),
-                3 when record.Post is not null => MapFeedPostItem(record.Post),
-                _ => null,
-            };
-
-            if (mapped is not null && mapped.Id.Length > 0 && seen.Add(mapped.Id))
+                ShortVideo video = MapFeedVideoItem(record.Video);
+                if (video.Id.Length > 0 && seen.Add("v:" + video.Id))
+                {
+                    items.Add(video);
+                }
+            }
+            else if (record.DataType == 3 && record.Post is not null)
             {
-                items.Add(mapped);
+                Post post = MapFeedPostItem(record.Post);
+                if (post.Id.Length > 0 && seen.Add("p:" + post.Id))
+                {
+                    items.Add(post);
+                }
             }
         }
 
@@ -92,7 +92,7 @@ internal sealed class CircleService : PhoenixFeatureService
     }
 
     /// <summary>获取指定图文帖子的完整正文、高清多图与关联短剧。</summary>
-    internal async Task<CirclePost> GetCirclePostAsync(
+    internal async Task<Post> GetCirclePostAsync(
         string postId,
         CancellationToken cancellationToken
     )
@@ -121,7 +121,7 @@ internal sealed class CircleService : PhoenixFeatureService
     }
 
     /// <summary>获取指定短视频的完整元数据、演员阵容与关联短剧。</summary>
-    internal async Task<CircleVideo> GetCircleVideoAsync(
+    internal async Task<ShortVideo> GetCircleVideoAsync(
         string videoId,
         CancellationToken cancellationToken
     )
@@ -157,11 +157,26 @@ internal sealed class CircleService : PhoenixFeatureService
             );
 
         AppCircleVideoSubDetail? subDetail = container.VideoDetailList.FirstOrDefault();
+        string resolvedId = ValueNormalizer.First(container.SeriesId, videoId);
+        List<Drama> relatedDramas =
+            subDetail is not null && subDetail.SeriesId.Length > 0
+                ?
+                [
+                    new Drama
+                    {
+                        Id = subDetail.SeriesId,
+                        Title = subDetail.Title,
+                        CoverUrl = subDetail.CoverUrl,
+                        Description = subDetail.Introduction,
+                        EpisodeCount = Math.Max(0, subDetail.EpisodeCount),
+                    },
+                ]
+                : [];
 
-        return new CircleVideo
+        return new ShortVideo
         {
-            VideoId = ValueNormalizer.First(container.SeriesId, videoId),
-            DramaId = subDetail?.SeriesId ?? string.Empty,
+            Id = resolvedId,
+            VideoId = resolvedId,
             Title = ValueNormalizer.First(container.Title, subDetail?.Title, string.Empty),
             Description = ValueNormalizer.First(
                 container.Introduction,
@@ -169,167 +184,96 @@ internal sealed class CircleService : PhoenixFeatureService
                 string.Empty
             ),
             CoverUrl = ValueNormalizer.First(container.CoverUrl, subDetail?.CoverUrl, string.Empty),
-            DurationSeconds = Math.Max(0, container.DurationSeconds),
-            PlayCount = Math.Max(0, Math.Max(container.PlayCount, subDetail?.PlayCount ?? 0)),
+            DurationSeconds = (int)Math.Max(0, container.DurationSeconds),
+            ViewCount = Math.Max(0, Math.Max(container.PlayCount, subDetail?.PlayCount ?? 0)),
             LikeCount = Math.Max(0, container.LikeCount),
-            FollowerCount = Math.Max(0, container.FollowedCount),
+            CommentCount = Math.Max(0, container.FollowedCount),
             CreatedAtUnixSeconds = Math.Max(0, container.CreatedAt),
             Author = MapCommentUserInfo(container.UgcUserInfo),
-            Celebrities = DramaMapper.MapCredits(subDetail?.Celebrities ?? []),
-            RelatedDrama =
-                subDetail is not null && subDetail.SeriesId.Length > 0
-                    ? new Drama
-                    {
-                        Id = subDetail.SeriesId,
-                        Title = subDetail.Title,
-                        CoverUrl = subDetail.CoverUrl,
-                        Description = subDetail.Introduction,
-                        EpisodeCount = Math.Max(0, subDetail.EpisodeCount),
-                    }
-                    : null,
+            Credits = DramaMapper.MapCredits(subDetail?.Celebrities ?? []),
+            RelatedDramas = relatedDramas,
         };
     }
 
-    /// <summary>获取指定红果圈图文帖子的评论列表。</summary>
-    internal Task<CommentPage> GetCirclePostCommentsAsync(
-        string postId,
-        int count,
-        string cursor,
-        CancellationToken cancellationToken
-    ) => _commentService.GetCirclePostCommentsAsync(postId, count, cursor, cancellationToken);
-
-    /// <summary>获取指定红果圈短视频的评论列表。</summary>
-    internal Task<CommentPage> GetCircleVideoCommentsAsync(
-        string videoId,
-        int count,
-        string cursor,
-        CancellationToken cancellationToken
-    ) => _commentService.GetCircleVideoCommentsAsync(videoId, count, cursor, cancellationToken);
-
-    /// <summary>获取指定红果圈图文评论下的回复列表。</summary>
-    internal Task<CommentReplyPage> GetCirclePostCommentRepliesAsync(
-        string commentId,
-        string postId,
-        int count,
-        string cursor,
-        CancellationToken cancellationToken
-    ) => _commentService.GetCirclePostCommentRepliesAsync(commentId, postId, count, cursor, cancellationToken);
-
-    /// <summary>获取指定红果圈短视频评论下的回复列表。</summary>
-    internal Task<CommentReplyPage> GetCircleVideoCommentRepliesAsync(
-        string commentId,
-        string videoId,
-        int count,
-        string cursor,
-        CancellationToken cancellationToken
-    ) => _commentService.GetCircleVideoCommentRepliesAsync(commentId, videoId, count, cursor, cancellationToken);
-
-    /// <summary>点赞或取消点赞红果圈图文帖子的评论。</summary>
-    internal Task<PhoenixOperationResult> SetCirclePostCommentLikeAsync(
-        string commentId,
-        string postId,
-        bool active,
-        CancellationToken cancellationToken
-    ) => _commentService.LikeCirclePostCommentAsync(commentId, postId, active, cancellationToken);
-
-    /// <summary>点赞或取消点赞红果圈图文评论下的回复。</summary>
-    internal Task<PhoenixOperationResult> SetCirclePostReplyLikeAsync(
-        string replyId,
-        string postId,
-        bool active,
-        CancellationToken cancellationToken
-    ) => _commentService.LikeCirclePostReplyAsync(replyId, postId, active, cancellationToken);
-
-    /// <summary>点赞或取消点赞红果圈短视频的评论。</summary>
-    internal Task<PhoenixOperationResult> SetCircleVideoCommentLikeAsync(
-        string commentId,
-        string videoId,
-        bool active,
-        CancellationToken cancellationToken
-    ) => _commentService.LikeCircleVideoCommentAsync(commentId, videoId, active, cancellationToken);
-
-    /// <summary>点赞或取消点赞红果圈短视频评论下的回复。</summary>
-    internal Task<PhoenixOperationResult> SetCircleVideoReplyLikeAsync(
-        string replyId,
-        string videoId,
-        bool active,
-        CancellationToken cancellationToken
-    ) => _commentService.LikeCircleVideoReplyAsync(replyId, videoId, active, cancellationToken);
-
-    /// <summary>删除自己发布的红果圈图文帖子评论。</summary>
-    internal Task<PhoenixOperationResult> DeleteCirclePostCommentAsync(
-        string commentId,
-        string postId,
-        CancellationToken cancellationToken
-    ) => _commentService.DeleteCirclePostCommentAsync(commentId, postId, cancellationToken);
-
-    /// <summary>删除自己发布的红果圈短视频评论。</summary>
-    internal Task<PhoenixOperationResult> DeleteCircleVideoCommentAsync(
-        string commentId,
-        string videoId,
-        CancellationToken cancellationToken
-    ) => _commentService.DeleteCircleVideoCommentAsync(commentId, videoId, cancellationToken);
-
-    /// <summary>删除自己发布的圈内评论回复。</summary>
-    internal Task<PhoenixOperationResult> DeleteCircleReplyAsync(
-        string replyId,
-        CancellationToken cancellationToken
-    ) => _commentService.DeleteReplyAsync(replyId, cancellationToken);
-
-    private static CircleItem MapFeedVideoItem(AppCircleVideoItem video)
+    private static ShortVideo MapFeedVideoItem(AppCircleVideoItem video)
     {
         AppCircleVideoCommon common = video.Common;
         AppCircleVideoStat stat = video.Stat;
         AppCircleRelatedDrama? relatedDrama = video.Expand.Videos.FirstOrDefault();
         string id = ValueNormalizer.First(video.VideoId, string.Empty);
 
-        return new CircleItem
+        return new ShortVideo
         {
             Id = id,
-            Type = CircleItemType.Video,
+            VideoId = id,
             Title = ValueNormalizer.First(common.Title, string.Empty),
-            Text = ValueNormalizer.First(common.Introduction, string.Empty),
+            Description = ValueNormalizer.First(common.Introduction, string.Empty),
             CoverUrl = ValueNormalizer.First(common.CoverUrl, string.Empty),
             Author = MapCommentUserInfo(common.UserInfo),
             CreatedAtUnixSeconds = Math.Max(0, common.CreatedAt),
             LikeCount = Math.Max(0, stat.DiggCount),
             CommentCount = Math.Max(0, stat.FollowedCount),
             ViewCount = Math.Max(0, stat.PlayCount),
-            DramaId = relatedDrama?.SeriesId ?? string.Empty,
-            DramaTitle = relatedDrama?.Title ?? string.Empty,
-            DramaCoverUrl = relatedDrama?.CoverUrl ?? string.Empty,
+            RelatedDramas =
+                relatedDrama is not null && relatedDrama.SeriesId.Length > 0
+                    ?
+                    [
+                        new Drama
+                        {
+                            Id = relatedDrama.SeriesId,
+                            Title = relatedDrama.Title,
+                            CoverUrl = relatedDrama.CoverUrl,
+                        },
+                    ]
+                    : [],
         };
     }
 
-    private static CircleItem MapFeedPostItem(AppCirclePostItem post)
+    private static Post MapFeedPostItem(AppCirclePostItem post)
     {
         AppCirclePostCommon common = post.Common;
         AppCirclePostStat stat = post.Stat;
         AppCircleRelatedDrama? relatedDrama = post.Expand.Videos.FirstOrDefault();
         string id = ValueNormalizer.First(post.PostId, string.Empty);
         string text = ValueNormalizer.First(common.Content.PureText, common.Title, string.Empty);
+        List<CircleImage> images = !string.IsNullOrWhiteSpace(common.Cover.Url)
+            ?
+            [
+                new CircleImage
+                {
+                    Url = common.Cover.Url,
+                    Width = common.Cover.Width,
+                    Height = common.Cover.Height,
+                },
+            ]
+            : [];
 
-        return new CircleItem
+        return new Post
         {
             Id = id,
-            Type = CircleItemType.Post,
             Title = ValueNormalizer.First(common.Title, text),
-            Text = text,
-            CoverUrl = ValueNormalizer.First(common.Cover.Url, string.Empty),
-            CoverWidth = common.Cover.Width,
-            CoverHeight = common.Cover.Height,
+            PureText = text,
+            Images = images,
             Author = MapCommentUserInfo(common.UserInfo),
             CreatedAtUnixSeconds = Math.Max(0, common.CreatedAt),
             LikeCount = Math.Max(0, stat.DiggCount),
             CommentCount = Math.Max(0, stat.ReplyCount),
-            ViewCount = 0,
-            DramaId = relatedDrama?.SeriesId ?? string.Empty,
-            DramaTitle = relatedDrama?.Title ?? string.Empty,
-            DramaCoverUrl = relatedDrama?.CoverUrl ?? string.Empty,
+            RelatedDramas =
+                relatedDrama is not null && relatedDrama.SeriesId.Length > 0
+                    ?
+                    [
+                        new Drama
+                        {
+                            Id = relatedDrama.SeriesId,
+                            Title = relatedDrama.Title,
+                            CoverUrl = relatedDrama.CoverUrl,
+                        },
+                    ]
+                    : [],
         };
     }
 
-    private static CirclePost MapCirclePost(AppCirclePostItem post)
+    internal static Post MapCirclePost(AppCirclePostItem post)
     {
         AppCirclePostCommon common = post.Common;
         AppCirclePostStat stat = post.Stat;
@@ -443,7 +387,7 @@ internal sealed class CircleService : PhoenixFeatureService
         }
 
         string title = ValueNormalizer.First(common.Title, content.PureText, string.Empty);
-        return new CirclePost
+        return new Post
         {
             Id = post.PostId,
             Title = title,
@@ -461,7 +405,7 @@ internal sealed class CircleService : PhoenixFeatureService
         };
     }
 
-    private static User MapCommentUserInfo(AppCommentUserInfo? info)
+    internal static User MapCommentUserInfo(AppCommentUserInfo? info)
     {
         if (info is null)
         {

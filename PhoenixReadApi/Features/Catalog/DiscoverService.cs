@@ -38,7 +38,7 @@ internal sealed class DiscoverService : PhoenixFeatureService
                     new("bottom_tab_type_list", "7,0,1,2,3,4"),
                     new("offset", "0"),
                     new("client_req_type", "3"),
-                    new("user_is_login", "0"),
+                    new("user_is_login", UserIsLogin),
                 ],
                 cancellationToken,
                 skipDeviceAndSignature: true
@@ -183,7 +183,7 @@ internal sealed class DiscoverService : PhoenixFeatureService
             new("show_type", state.ShowType),
             new("client_req_type", "2"),
             new("session_id", state.SessionId),
-            new("user_is_login", "0"),
+            new("user_is_login", UserIsLogin),
         ];
 
         if (!string.IsNullOrWhiteSpace(state.ClientTemplate))

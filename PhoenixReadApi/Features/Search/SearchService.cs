@@ -1,10 +1,13 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Circle;
+using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.Search;
+using PhoenixReadApi.Internal.Features.Circle;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Search;
 using PhoenixReadApi.Internal.Features.Shared;
@@ -31,7 +34,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     private readonly Lock _stateLock = new();
 
-    private readonly Dictionary<string, CachedValue<SearchResult>> _searchCache =
+    private readonly Dictionary<string, CachedValue<SearchPage<Drama>>> _searchCache =
     [
         with(StringComparer.Ordinal),
     ];
@@ -41,9 +44,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
         with(StringComparer.Ordinal),
     ];
 
-    private readonly ConcurrentDictionary<string, Lazy<Task<SearchResult>>> _searchPending = new(
-        StringComparer.Ordinal
-    );
+    private readonly ConcurrentDictionary<string, Lazy<Task<SearchPage<Drama>>>> _searchPending =
+        new(StringComparer.Ordinal);
 
     private readonly ConcurrentDictionary<
         string,
@@ -53,71 +55,221 @@ internal sealed partial class SearchService : PhoenixFeatureService
     internal SearchService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
-    internal Task<SearchResult> SearchAsync(string keyword, CancellationToken cancellationToken)
-    {
-        string query = NormalizeKeyword(keyword);
-
-        if (TryGetCache(_searchCache, query, out SearchResult? cached) && cached is not null)
-        {
-            return Task.FromResult(cached);
-        }
-
-        Lazy<Task<SearchResult>> pending = _searchPending.GetOrAdd(
-            query,
-            static (value, state) =>
-                new Lazy<Task<SearchResult>>(
-                    () => state.SearchCoreAsync(value),
-                    LazyThreadSafetyMode.ExecutionAndPublication
-                ),
-            this
-        );
-
-        return AwaitSearchAsync(query, pending, cancellationToken);
-    }
-
-    internal async Task<SearchResult> SearchAsync(
-        SearchQuery query,
+    internal async Task<SearchPage<ComprehensiveSearchItem>> SearchComprehensiveAsync(
+        string keyword,
+        int offset,
+        int count,
+        string? searchId,
+        string? passback,
         CancellationToken cancellationToken
     )
     {
-        ArgumentNullException.ThrowIfNull(query);
-
-        string keyword = NormalizeKeyword(query.Keyword);
-        int offset = Math.Max(0, query.Offset);
-        int count = Math.Clamp(query.Count, 1, 50);
-        string tabStr = ((int)query.Tab).ToString(CultureInfo.InvariantCulture);
-
-        if (
-            offset == 0
-            && query.Tab is SearchTab.ShortPlay or SearchTab.SeriesVideo
-            && count == 20
-            && string.IsNullOrWhiteSpace(query.SearchId)
-        )
-        {
-            return await SearchAsync(keyword, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await FetchSearchTabPagedAsync(
+        ParsedSearchTabData parsed = await FetchSearchTabCoreAsync(
                 keyword,
                 offset,
                 count,
-                tabStr,
-                query.SearchId,
-                query.Passback,
+                "11",
+                searchId,
+                passback,
                 cancellationToken
             )
             .ConfigureAwait(false);
+        return BuildSearchPage(parsed.Comprehensive, parsed);
     }
 
-    private async Task<SearchResult> AwaitSearchAsync(
+    internal async Task<SearchPage<Drama>> SearchDramasAsync(
+        string keyword,
+        int offset,
+        int count,
+        string? searchId,
+        string? passback,
+        CancellationToken cancellationToken
+    )
+    {
+        string query = NormalizeKeyword(keyword);
+        int normalizedOffset = Math.Max(0, offset);
+        int normalizedCount = Math.Clamp(count, 1, 50);
+
+        if (
+            normalizedOffset == 0
+            && normalizedCount == 20
+            && string.IsNullOrWhiteSpace(searchId)
+            && string.IsNullOrWhiteSpace(passback)
+        )
+        {
+            if (TryGetCache(_searchCache, query, out SearchPage<Drama>? cached) && cached is not null)
+            {
+                return cached;
+            }
+
+            Lazy<Task<SearchPage<Drama>>> pending = _searchPending.GetOrAdd(
+                query,
+                static (value, state) =>
+                    new Lazy<Task<SearchPage<Drama>>>(
+                        () => state.SearchDramasCoreAsync(value),
+                        LazyThreadSafetyMode.ExecutionAndPublication
+                    ),
+                this
+            );
+
+            return await AwaitSearchAsync(query, pending, cancellationToken).ConfigureAwait(false);
+        }
+
+        ParsedSearchTabData parsed = await FetchSearchTabCoreAsync(
+                query,
+                normalizedOffset,
+                normalizedCount,
+                "29",
+                searchId,
+                passback,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        if (parsed.Dramas.Count == 0)
+        {
+            try
+            {
+                int pageNumber = normalizedOffset / Math.Max(1, normalizedCount) + 1;
+                SearchPage<Drama> webResult = await FetchWebSearchPagedAsync(
+                        query,
+                        pageNumber,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+                if (webResult.Items.Count > 0)
+                {
+                    return webResult;
+                }
+            }
+            catch (Exception)
+            {
+                // 网页兜底不可用时保持空结果
+            }
+        }
+
+        return BuildSearchPage(parsed.Dramas, parsed);
+    }
+
+    internal async Task<SearchPage<VideoSearchItem>> SearchVideosAsync(
+        string keyword,
+        int offset,
+        int count,
+        string? searchId,
+        string? passback,
+        CancellationToken cancellationToken
+    )
+    {
+        ParsedSearchTabData parsed = await FetchSearchTabCoreAsync(
+                keyword,
+                offset,
+                count,
+                "30",
+                searchId,
+                passback,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return BuildSearchPage(parsed.Videos, parsed);
+    }
+
+    internal async Task<SearchPage<Post>> SearchDiscussionsAsync(
+        string keyword,
+        int offset,
+        int count,
+        string? searchId,
+        string? passback,
+        CancellationToken cancellationToken
+    )
+    {
+        ParsedSearchTabData parsed = await FetchSearchTabCoreAsync(
+                keyword,
+                offset,
+                count,
+                "31",
+                searchId,
+                passback,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return BuildSearchPage(parsed.Discussions, parsed);
+    }
+
+    internal async Task<SearchPage<Novel>> SearchNovelsAsync(
+        string keyword,
+        int offset,
+        int count,
+        string? searchId,
+        string? passback,
+        CancellationToken cancellationToken
+    )
+    {
+        ParsedSearchTabData parsed = await FetchSearchTabCoreAsync(
+                keyword,
+                offset,
+                count,
+                "1",
+                searchId,
+                passback,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return BuildSearchPage(parsed.Novels, parsed);
+    }
+
+    internal async Task<SearchPage<User>> SearchUsersAsync(
+        string keyword,
+        int offset,
+        int count,
+        string? searchId,
+        string? passback,
+        CancellationToken cancellationToken
+    )
+    {
+        ParsedSearchTabData parsed = await FetchSearchTabCoreAsync(
+                keyword,
+                offset,
+                count,
+                "27",
+                searchId,
+                passback,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return BuildSearchPage(parsed.Users, parsed);
+    }
+
+    internal async Task<SearchPage<Audiobook>> SearchAudiobooksAsync(
+        string keyword,
+        int offset,
+        int count,
+        string? searchId,
+        string? passback,
+        CancellationToken cancellationToken
+    )
+    {
+        ParsedSearchTabData parsed = await FetchSearchTabCoreAsync(
+                keyword,
+                offset,
+                count,
+                "2",
+                searchId,
+                passback,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return BuildSearchPage(parsed.Audiobooks, parsed);
+    }
+
+    private async Task<SearchPage<Drama>> AwaitSearchAsync(
         string query,
-        Lazy<Task<SearchResult>> pending,
+        Lazy<Task<SearchPage<Drama>>> pending,
         CancellationToken cancellationToken
     )
     {
         try
         {
-            SearchResult result = await pending
+            SearchPage<Drama> result = await pending
                 .Value.WaitAsync(cancellationToken)
                 .ConfigureAwait(false);
 
@@ -125,7 +277,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             {
                 lock (_stateLock)
                 {
-                    _searchCache[query] = new CachedValue<SearchResult>(
+                    _searchCache[query] = new CachedValue<SearchPage<Drama>>(
                         result,
                         DateTimeOffset.UtcNow.Add(CacheLifetime)
                     );
@@ -137,7 +289,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         finally
         {
             _searchPending.TryRemove(
-                new KeyValuePair<string, Lazy<Task<SearchResult>>>(query, pending)
+                new KeyValuePair<string, Lazy<Task<SearchPage<Drama>>>>(query, pending)
             );
         }
     }
@@ -228,7 +380,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             new("limit", "20"),
             new("search_source", "1"),
             new("tab_name", "feed"),
-            new("user_is_login", "0"),
+            new("user_is_login", UserIsLogin),
         ];
 
         AppSearchCueResponse response = await _appTransport
@@ -264,7 +416,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
     {
         KeyValuePair<string, string>[] query =
         [
-            new("user_is_login", "0"),
+            new("user_is_login", UserIsLogin),
             new("bookstore_tab", "16"),
             new("bookstore_tab_type", "16"),
             new("scene", "10"),
@@ -400,7 +552,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return new HotSearch { Guesses = guesses, Boards = boards };
     }
 
-    private async Task<SearchResult> SearchCoreAsync(string keyword)
+    private async Task<SearchPage<Drama>> SearchDramasCoreAsync(string keyword)
     {
         using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(40));
 
@@ -412,7 +564,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         pageTimeout.CancelAfter(TimeSpan.FromSeconds(12));
 
         Task<List<Drama>> namesTask = FetchSearchNamesAsync(keyword, cancellationToken);
-        Task<SearchResult> pageTask = FetchSearchPageAsync(keyword, pageTimeout.Token);
+        Task<SearchPage<Drama>> pageTask = FetchSearchDramaPageAsync(keyword, pageTimeout.Token);
 
         List<Drama> names = [];
         Exception? namesError = null;
@@ -425,7 +577,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             namesError = exception;
         }
 
-        SearchResult page = new();
+        SearchPage<Drama> page = new();
         Exception? pageError = null;
         try
         {
@@ -439,15 +591,13 @@ internal sealed partial class SearchService : PhoenixFeatureService
         if (
             cancellationToken.IsCancellationRequested
             && names.Count == 0
-            && page.Dramas.Count == 0
-            && page.Novels.Count == 0
-            && page.Users.Count == 0
+            && page.Items.Count == 0
         )
         {
             throw new TimeoutException("搜索已到时限。");
         }
 
-        List<Drama> merged = MergeDramas([.. page.Dramas], names);
+        List<Drama> merged = MergeDramas([.. page.Items], names);
         bool limited = page.Limited || pageError is not null || namesError is not null;
         string warning = string.Empty;
 
@@ -486,12 +636,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
         merged.Sort((left, right) => CompareSearchDrama(left, right, keyword));
 
-        return new SearchResult
+        return new SearchPage<Drama>
         {
-            Dramas = merged,
-            Novels = page.Novels,
-            Users = page.Users,
-            Total = Math.Max(page.Total, merged.Count + page.Novels.Count + page.Users.Count),
+            Items = merged,
+            Total = Math.Max(page.Total, merged.Count),
             NextOffset =
                 page.NextOffset > 0 ? page.NextOffset
                 : page.HasMore ? 20
@@ -569,60 +717,27 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return MergeDramas([], output);
     }
 
-    private async Task<SearchResult> FetchSearchPageAsync(
+    private async Task<SearchPage<Drama>> FetchSearchDramaPageAsync(
         string keyword,
         CancellationToken cancellationToken
     )
     {
         try
         {
-            AppSearchTabResponse tabResponse = await _appTransport
-                .GetSearchTabAsync(
-                    "/reading/bookapi/search/tab/v/",
-                    [
-                        new("query", keyword),
-                        new("offset", "0"),
-                        new("count", "20"),
-                        new("tab_type", "11"),
-                    ],
+            ParsedSearchTabData parsed = await FetchSearchTabCoreAsync(
+                    keyword,
+                    offset: 0,
+                    count: 20,
+                    tabType: "29",
+                    searchId: null,
+                    passback: null,
                     cancellationToken
                 )
                 .ConfigureAwait(false);
 
-            IReadOnlyList<AppSearchTabItem> allTabs = (
-                (tabResponse?.SearchTabs?.Count ?? 0) > 0
-                    ? tabResponse!.SearchTabs
-                    : tabResponse?.Data?.SearchTabs
-            ) ?? [];
-
-            AppSearchTabItem? tab = allTabs.FirstOrDefault(static t =>
-                t is { TabType: "11", Data.Count: > 0 }
-            )
-                ?? allTabs.FirstOrDefault(static t => t is { TabType: "29", Data.Count: > 0 })
-                ?? allTabs.FirstOrDefault(static t => t.Data is { Count: > 0 });
-
-            if (tab?.Data is { Count: > 0 } cells)
+            if (parsed.Dramas.Count > 0)
             {
-                (List<Drama>? dramas, List<Novel>? novels, List<User>? users) = ParseSearchTabCells(
-                    cells
-                );
-
-                int total = dramas.Count + novels.Count + users.Count;
-
-                if (total > 0)
-                {
-                    return new SearchResult
-                    {
-                        Dramas = dramas,
-                        Novels = novels,
-                        Users = users,
-                        Total = total,
-                        NextOffset = tab.NextOffset > 0 ? tab.NextOffset : total,
-                        HasMore = tab.HasMore,
-                        SearchId = tab.SearchId,
-                        Limited = tab.HasMore,
-                    };
-                }
+                return BuildSearchPage(parsed.Dramas, parsed);
             }
         }
         catch (Exception)
@@ -633,7 +748,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return await FetchWebSearchPagedAsync(keyword, 1, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<SearchResult> FetchWebSearchPagedAsync(
+    private async Task<SearchPage<Drama>> FetchWebSearchPagedAsync(
         string keyword,
         int pageNumber,
         CancellationToken cancellationToken
@@ -688,11 +803,9 @@ internal sealed partial class SearchService : PhoenixFeatureService
             throw new PhoenixReadApiResponseException("搜索结果中没有可识别的剧集。", "search");
         }
 
-        return new SearchResult
+        return new SearchPage<Drama>
         {
-            Dramas = output,
-            Novels = [],
-            Users = [],
+            Items = output,
             Total = Math.Max(page.TotalCount, output.Count),
             NextOffset = page.HasMore ? pageNumber * 20 : 0,
             HasMore = page.HasMore,
@@ -700,7 +813,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
         };
     }
 
-    private async Task<SearchResult> FetchSearchTabPagedAsync(
+    private async Task<ParsedSearchTabData> FetchSearchTabCoreAsync(
         string keyword,
         int offset,
         int count,
@@ -710,6 +823,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
         CancellationToken cancellationToken
     )
     {
+        keyword = NormalizeKeyword(keyword);
+        offset = Math.Max(0, offset);
+        count = Math.Clamp(count, 1, 50);
+
         List<KeyValuePair<string, string>> query =
         [
             new("query", keyword),
@@ -721,7 +838,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             new("search_source", "1"),
             new("tab_name", "feed"),
             new("bookstore_tab", "16"),
-            new("user_is_login", "0"),
+            new("user_is_login", UserIsLogin),
         ];
 
         if (!string.IsNullOrWhiteSpace(searchId))
@@ -761,59 +878,34 @@ internal sealed partial class SearchService : PhoenixFeatureService
             t.TabType == tabType && t.Data is { Count: > 0 }
         ) ?? allTabs.FirstOrDefault(static t => t.Data is { Count: > 0 });
 
-        (List<Drama>? dramas, List<Novel>? novels, List<User>? users) = ParseSearchTabCells(
-            tab?.Data ?? []
-        );
+        ParsedSearchTabData parsed = ParseSearchTabCells(tab?.Data ?? [], tabType);
+        parsed.Offset = offset;
+        parsed.NextOffset = tab?.NextOffset ?? 0;
+        parsed.HasMore = tab?.HasMore ?? false;
+        parsed.SearchId = tab?.SearchId ?? string.Empty;
+        parsed.Passback = tab?.Passback ?? string.Empty;
+        return parsed;
+    }
 
-        int total = dramas.Count + novels.Count + users.Count;
+    private static SearchPage<T> BuildSearchPage<T>(List<T> items, ParsedSearchTabData parsed)
+    {
+        int nextOffset = parsed.NextOffset > 0
+            ? parsed.NextOffset
+            : (items.Count > 0 ? parsed.Offset + items.Count : 0);
 
-        int nextOffset = tab?.NextOffset ?? 0;
-
-        if (nextOffset == 0 && total > 0)
+        return new SearchPage<T>
         {
-            nextOffset = offset + total;
-        }
-
-        if (total == 0 && tabType is "11" or "29")
-        {
-            try
-            {
-                int pageNumber = offset / Math.Max(1, count) + 1;
-
-                SearchResult webResult = await FetchWebSearchPagedAsync(
-                        keyword,
-                        pageNumber,
-                        cancellationToken
-                    )
-                    .ConfigureAwait(false);
-
-                if (webResult.Dramas.Count > 0)
-                {
-                    return webResult;
-                }
-            }
-            catch (Exception)
-            {
-                // 网页兜底不可用时保持空结果
-            }
-        }
-
-        string warning =
-            total == 0
-                ? "红果服务端当前未返回该分类搜索结果（可能受到匿名频控限制）。"
-                : string.Empty;
-
-        return new SearchResult
-        {
-            Dramas = dramas,
-            Novels = novels,
-            Users = users,
-            Total = total,
+            Items = items,
+            Total = items.Count,
             NextOffset = nextOffset,
-            HasMore = tab?.HasMore ?? false,
-            SearchId = tab?.SearchId ?? string.Empty,
-            Limited = tab?.HasMore ?? total == 0,
-            Warning = warning,
+            HasMore = parsed.HasMore,
+            SearchId = parsed.SearchId,
+            Passback = parsed.Passback,
+            Limited = parsed.HasMore || items.Count == 0,
+            Warning =
+                items.Count == 0
+                    ? "红果服务端当前未返回该分类搜索结果（可能受到匿名频控限制）。"
+                    : string.Empty,
         };
     }
 
@@ -1313,15 +1405,18 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return false;
     }
 
-    private static (List<Drama> Dramas, List<Novel> Novels, List<User> Users) ParseSearchTabCells(
-        IReadOnlyList<AppSearchTabCell> cells
+    private static ParsedSearchTabData ParseSearchTabCells(
+        IReadOnlyList<AppSearchTabCell> cells,
+        string tabType
     )
     {
-        List<Drama> dramas = [];
-        List<Novel> novels = [];
-        List<User> users = [];
+        ParsedSearchTabData result = new();
         HashSet<string> seenDramas = [with(StringComparer.Ordinal)];
+        HashSet<string> seenAlbums = [with(StringComparer.Ordinal)];
+        HashSet<string> seenShortVideos = [with(StringComparer.Ordinal)];
+        HashSet<string> seenDiscussions = [with(StringComparer.Ordinal)];
         HashSet<string> seenNovels = [with(StringComparer.Ordinal)];
+        HashSet<string> seenAudiobooks = [with(StringComparer.Ordinal)];
         HashSet<string> seenUsers = [with(StringComparer.Ordinal)];
 
         foreach (AppSearchTabCell cell in cells)
@@ -1338,11 +1433,67 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     continue;
                 }
 
-                Drama drama = DramaMapper.FromDto(video, "短剧");
+                if (video.AlbumInfo is not null)
+                {
+                    string albumId = video.AlbumInfo.EffectiveAlbumId;
+                    if (albumId.Length > 0 && seenAlbums.Add(albumId))
+                    {
+                        DramaAlbum album = new()
+                        {
+                            Id = albumId,
+                            Title = ValueNormalizer.First(video.AlbumInfo.Title, video.Title, string.Empty),
+                            Description = ValueNormalizer.First(video.AlbumInfo.Intro, video.Intro, string.Empty),
+                            CoverUrl = ValueNormalizer.First(video.AlbumInfo.Cover, video.SeriesCover, string.Empty),
+                            SeasonCount = Math.Max(0, video.AlbumInfo.EpisodeCount),
+                        };
+                        result.Albums.Add(album);
+                        result.Videos.Add(album);
+                        result.Comprehensive.Add(album);
+                    }
+                    continue;
+                }
 
+                if (video.ContentType == 1001)
+                {
+                    string vid = ValueNormalizer.First(video.SeriesId, video.SeriesIdNumber, string.Empty);
+                    if (vid.Length > 0 && seenShortVideos.Add(vid))
+                    {
+                        ShortVideo shortVideo = new()
+                        {
+                            Id = vid,
+                            VideoId = vid,
+                            Title = ValueNormalizer.First(video.SeriesTitle, video.Title, video.SeriesName, string.Empty),
+                            Description = ValueNormalizer.First(video.SeriesIntro, video.VideoDescription, video.Intro, string.Empty),
+                            CoverUrl = ValueNormalizer.First(video.SeriesCover, string.Empty),
+                            DurationSeconds = Math.Max(0, video.DurationSeconds),
+                        };
+                        result.ShortVideos.Add(shortVideo);
+                        result.Videos.Add(shortVideo);
+                        result.Comprehensive.Add(shortVideo);
+                    }
+                    continue;
+                }
+
+                Drama drama = DramaMapper.FromDto(video, "短剧");
                 if (drama.Id.Length > 0 && seenDramas.Add(drama.Id))
                 {
-                    dramas.Add(drama);
+                    result.Dramas.Add(drama);
+                    result.Comprehensive.Add(drama);
+                }
+            }
+
+            foreach (AppSearchPostDto post in cell.PostData ?? [])
+            {
+                if (post is null || string.IsNullOrWhiteSpace(post.PostId))
+                {
+                    continue;
+                }
+
+                if (seenDiscussions.Add(post.PostId))
+                {
+                    Post mapped = MapSearchPost(post);
+                    result.Discussions.Add(mapped);
+                    result.Comprehensive.Add(mapped);
                 }
             }
 
@@ -1357,20 +1508,76 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     continue;
                 }
 
-                if (seenNovels.Add(book.BookId))
+                bool isAudio =
+                    tabType == "2"
+                    || book.Genre == "4"
+                    || !string.IsNullOrWhiteSpace(book.AudioThumbUri);
+
+                if (isAudio)
                 {
-                    novels.Add(
-                        new Novel
+                    if (seenAudiobooks.Add(book.BookId))
+                    {
+                        Audiobook audiobook = new()
                         {
                             Id = book.BookId,
                             Title = book.BookName,
                             Author = book.Author,
                             Description = book.Abstract,
-                            CoverUrl = book.CoverUrl,
+                            Category = book.Category,
+                            Status = MapNovelStatus(book.CreationStatus),
+                            StatusText = book.CreationStatus,
+                            CoverUrl = ValueNormalizer.First(
+                                book.AudioThumbUrlHd,
+                                book.AudioThumbUri,
+                                book.CoverUrl,
+                                string.Empty
+                            ),
+                            ListenCount = Math.Max(book.ListenCount, book.ReadCount),
+                            Score = book.Score,
                             SerialCount = book.SerialCount,
-                            ReadCount = book.ReadCount,
-                        }
-                    );
+                            Tags =
+                            [
+                                .. book.Tags
+                                    .Select(static t => t.Name)
+                                    .Where(static s => !string.IsNullOrWhiteSpace(s)),
+                            ],
+                        };
+                        result.Audiobooks.Add(audiobook);
+                        result.Comprehensive.Add(audiobook);
+                    }
+
+                    if (tabType == "2")
+                    {
+                        continue;
+                    }
+                }
+
+                if (seenNovels.Add(book.BookId))
+                {
+                    Novel novel = new()
+                    {
+                        Id = book.BookId,
+                        Title = book.BookName,
+                        ShortTitle = book.BookShortName,
+                        Author = book.Author,
+                        Description = book.Abstract,
+                        Status = MapNovelStatus(book.CreationStatus),
+                        StatusText = book.CreationStatus,
+                        CoverUrl = book.CoverUrl,
+                        SerialCount = book.SerialCount,
+                        ReadCount = book.ReadCount,
+                        Tags =
+                        [
+                            .. book.Tags
+                                .Select(static t => t.Name)
+                                .Where(static s => !string.IsNullOrWhiteSpace(s)),
+                        ],
+                    };
+                    result.Novels.Add(novel);
+                    if (!isAudio)
+                    {
+                        result.Comprehensive.Add(novel);
+                    }
                 }
             }
 
@@ -1390,20 +1597,135 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
                 if (seenUsers.Add(userDto.UserId))
                 {
-                    users.Add(
-                        new User
-                        {
-                            Id = userDto.UserId,
-                            Name = userName,
-                            Introduction = userDto.BaseInfo?.Description ?? string.Empty,
-                            AvatarUrl = userDto.BaseInfo?.AvatarUrl ?? string.Empty,
-                        }
-                    );
+                    User user = new()
+                    {
+                        Id = userDto.UserId,
+                        Name = userName,
+                        Introduction = userDto.BaseInfo?.Description ?? string.Empty,
+                        AvatarUrl = userDto.BaseInfo?.EffectiveAvatarUrl ?? string.Empty,
+                    };
+                    result.Users.Add(user);
+                    result.Comprehensive.Add(user);
                 }
             }
         }
 
-        return (dramas, novels, users);
+        return result;
+    }
+
+    private static Post MapSearchPost(AppSearchPostDto post)
+    {
+        List<CircleImage> images = [];
+        List<string> topics =
+        [
+            .. post.Tags
+                .Select(static t => t.Name)
+                .Where(static s => !string.IsNullOrWhiteSpace(s)),
+        ];
+
+        if (!string.IsNullOrWhiteSpace(post.Content))
+        {
+            try
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(post.Content);
+                AppCirclePostMaterialContainer? container =
+                    JsonAotSerializer.Deserialize<AppCirclePostMaterialContainer>(bytes);
+                if (container?.Materials is not null)
+                {
+                    foreach (AppCirclePostMaterial material in container.Materials)
+                    {
+                        if (
+                            string.Equals(material.Type, "img-list", StringComparison.OrdinalIgnoreCase)
+                            && material.Data?.Images is not null
+                        )
+                        {
+                            foreach (AppCirclePostImageItem img in material.Data.Images)
+                            {
+                                if (!string.IsNullOrWhiteSpace(img.WebUrl))
+                                {
+                                    images.Add(
+                                        new CircleImage
+                                        {
+                                            Url = img.WebUrl,
+                                            Width = img.Width,
+                                            Height = img.Height,
+                                        }
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // 忽略非标准富文本格式
+            }
+        }
+
+        if (images.Count == 0 && !string.IsNullOrWhiteSpace(post.CoverUrl))
+        {
+            images.Add(new CircleImage { Url = post.CoverUrl });
+        }
+
+        List<Drama> relatedDramas = [];
+        foreach (DramaDto card in post.BookCards)
+        {
+            Drama related = DramaMapper.FromDto(card, "短剧");
+            if (related.Id.Length > 0)
+            {
+                relatedDramas.Add(related);
+            }
+        }
+
+        string pureText = ValueNormalizer.First(post.PureContent, post.Title, string.Empty);
+        return new Post
+        {
+            Id = post.PostId,
+            Title = ValueNormalizer.First(post.Title, pureText),
+            PureText = pureText,
+            Images = images,
+            Topics = topics,
+            Author = new User
+            {
+                Id = post.UserInfo.UserId,
+                Name = post.UserInfo.UserName,
+                AvatarUrl = post.UserInfo.UserAvatar,
+            },
+            CreatedAtUnixSeconds = Math.Max(0, post.CreateTime),
+            LikeCount = Math.Max(0, post.DiggCount),
+            CommentCount = Math.Max(0, post.ReplyCount),
+            CollectCount = Math.Max(0, post.FavoriteCount),
+            IsLiked = post.HasDigg,
+            IsCollected = post.HasFavorite,
+            RelatedDramas = relatedDramas,
+        };
+    }
+
+    private static NovelCreationStatus MapNovelStatus(string? status) =>
+        status switch
+        {
+            "0" => NovelCreationStatus.Completed,
+            "1" => NovelCreationStatus.Ongoing,
+            _ => NovelCreationStatus.Unknown,
+        };
+
+    private sealed class ParsedSearchTabData
+    {
+        public List<ComprehensiveSearchItem> Comprehensive { get; } = [];
+        public List<Drama> Dramas { get; } = [];
+        public List<DramaAlbum> Albums { get; } = [];
+        public List<ShortVideo> ShortVideos { get; } = [];
+        public List<VideoSearchItem> Videos { get; } = [];
+        public List<Post> Discussions { get; } = [];
+        public List<Novel> Novels { get; } = [];
+        public List<User> Users { get; } = [];
+        public List<Audiobook> Audiobooks { get; } = [];
+        public int Offset { get; set; }
+        public int NextOffset { get; set; }
+        public bool HasMore { get; set; }
+        public string SearchId { get; set; } = string.Empty;
+        public string Passback { get; set; } = string.Empty;
     }
 
     [GeneratedRegex(@"^(.*?)[第\s]*([0-9零〇一二两兩三四五六七八九十百]+)\s*([季部])[\p{P}\s]*$")]

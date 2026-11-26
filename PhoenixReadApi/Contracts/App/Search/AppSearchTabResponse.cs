@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Serialization;
 
@@ -50,6 +51,10 @@ internal sealed class AppSearchTabItem
     [JsonConverter(typeof(FlexibleIntConverter))]
     public int NextOffset { get; init; }
 
+    [JsonPropertyName("passback")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Passback { get; init; } = string.Empty;
+
     [JsonPropertyName("data")]
     public IReadOnlyList<AppSearchTabCell> Data { get; init; } = [];
 }
@@ -67,6 +72,9 @@ internal sealed class AppSearchTabCell
 
     [JsonPropertyName("celebrity_user_list")]
     public IReadOnlyList<AppSearchUserDto> CelebrityUserList { get; init; } = [];
+
+    [JsonPropertyName("post_data")]
+    public IReadOnlyList<AppSearchPostDto> PostData { get; init; } = [];
 }
 
 /// <summary>搜索结果中的原著小说 DTO。</summary>
@@ -115,6 +123,34 @@ internal sealed class AppSearchBookDto
     [JsonPropertyName("category_schema")]
     [JsonConverter(typeof(CategorySchemaConverter))]
     public IReadOnlyList<string> CategorySchema { get; init; } = [];
+
+    [JsonPropertyName("category")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Category { get; init; } = string.Empty;
+
+    [JsonPropertyName("genre")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Genre { get; init; } = string.Empty;
+
+    [JsonPropertyName("book_type")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string BookType { get; init; } = string.Empty;
+
+    [JsonPropertyName("audio_thumb_uri")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string AudioThumbUri { get; init; } = string.Empty;
+
+    [JsonPropertyName("audio_thumb_url_hd")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string AudioThumbUrlHd { get; init; } = string.Empty;
+
+    [JsonPropertyName("listen_count")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long ListenCount { get; init; }
+
+    [JsonPropertyName("score")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Score { get; init; } = string.Empty;
 }
 
 /// <summary>搜索结果中的明星、创作者或演员用户 DTO。</summary>
@@ -141,4 +177,85 @@ internal sealed class AppSearchUserBaseInfo
     [JsonPropertyName("avatar_url")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string AvatarUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("user_avatar")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string UserAvatar { get; init; } = string.Empty;
+
+    [JsonIgnore]
+    public string EffectiveAvatarUrl =>
+        !string.IsNullOrWhiteSpace(UserAvatar) ? UserAvatar : AvatarUrl;
+}
+
+/// <summary>搜索讨论 Tab 返回的图文帖子 DTO。</summary>
+internal sealed class AppSearchPostDto
+{
+    [JsonPropertyName("post_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string PostId { get; init; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Title { get; init; } = string.Empty;
+
+    [JsonPropertyName("pure_content")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string PureContent { get; init; } = string.Empty;
+
+    [JsonPropertyName("content")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Content { get; init; } = string.Empty;
+
+    [JsonPropertyName("cover_url")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string CoverUrl { get; init; } = string.Empty;
+
+    [JsonPropertyName("create_time")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long CreateTime { get; init; }
+
+    [JsonPropertyName("reply_cnt")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long ReplyCount { get; init; }
+
+    [JsonPropertyName("digg_cnt")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long DiggCount { get; init; }
+
+    [JsonPropertyName("favorite_cnt")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long FavoriteCount { get; init; }
+
+    [JsonPropertyName("has_digg")]
+    public bool HasDigg { get; init; }
+
+    [JsonPropertyName("has_favorite")]
+    public bool HasFavorite { get; init; }
+
+    [JsonPropertyName("tags")]
+    [JsonConverter(typeof(DramaTagListConverter))]
+    public IReadOnlyList<DramaTagDto> Tags { get; init; } = [];
+
+    [JsonPropertyName("user_info")]
+    public AppSearchPostUserDto UserInfo { get; init; } = new();
+
+    [JsonPropertyName("book_card")]
+    [JsonConverter(typeof(FlexibleDramaListConverter))]
+    public IReadOnlyList<DramaDto> BookCards { get; init; } = [];
+}
+
+/// <summary>讨论帖子中的发帖用户 DTO（扁平结构）。</summary>
+internal sealed class AppSearchPostUserDto
+{
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string UserId { get; init; } = string.Empty;
+
+    [JsonPropertyName("user_name")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string UserName { get; init; } = string.Empty;
+
+    [JsonPropertyName("user_avatar")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string UserAvatar { get; init; } = string.Empty;
 }

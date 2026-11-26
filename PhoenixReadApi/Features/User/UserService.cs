@@ -1,5 +1,6 @@
 using System.Globalization;
 using PhoenixReadApi.Internal.Contracts.App;
+using PhoenixReadApi.Internal.Contracts.App.Circle;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.User;
 using PhoenixReadApi.Internal.Features.Circle;
@@ -11,8 +12,6 @@ namespace PhoenixReadApi.Internal.Features.User;
 
 using Drama = PhoenixReadApi.Drama;
 using User = PhoenixReadApi.User;
-using UserReview = UserReview;
-using UserWork = UserWork;
 
 /// <summary>加载任意公开账号的主页及其公开内容。</summary>
 internal sealed class UserService : PhoenixFeatureService
@@ -502,6 +501,62 @@ internal sealed class UserService : PhoenixFeatureService
                 continue;
             }
 
+            if (record.Album is not null && !string.IsNullOrWhiteSpace(record.Album.AlbumId))
+            {
+                string albumId = record.Album.AlbumId.Trim();
+                if (!ValueNormalizer.IsNumericId(albumId) || !seen.Add("a:" + albumId))
+                {
+                    continue;
+                }
+
+                List<DramaSeason> seasons = [];
+                int seasonNumber = 1;
+                foreach (AppUserVideo sub in record.Album.Videos ?? [])
+                {
+                    string subId = sub.Id.Trim();
+                    if (!ValueNormalizer.IsNumericId(subId))
+                    {
+                        continue;
+                    }
+
+                    seasons.Add(
+                        new DramaSeason
+                        {
+                            Index = seasonNumber++,
+                            DramaId = subId,
+                            Title = ValueNormalizer.First(sub.Common.Title, subId),
+                            CoverUrl = sub.Common.CoverUrl,
+                            EpisodeCount = Math.Max(1, sub.Expand?.EpisodeCount ?? 1),
+                        }
+                    );
+                }
+
+                result.Add(
+                    new DramaAlbum
+                    {
+                        Id = albumId,
+                        Title = ValueNormalizer.First(record.Album.AlbumName, albumId),
+                        Description = record.Album.Description,
+                        CoverUrl = record.Album.ThumbUrl,
+                        SeasonCount = Math.Max(record.Album.VideoCount, seasons.Count),
+                        Seasons = seasons,
+                    }
+                );
+                continue;
+            }
+
+            if (record.Post is not null && !string.IsNullOrWhiteSpace(record.Post.PostId))
+            {
+                string postId = record.Post.PostId.Trim();
+                if (!ValueNormalizer.IsNumericId(postId) || !seen.Add("p:" + postId))
+                {
+                    continue;
+                }
+
+                result.Add(CircleService.MapCirclePost(record.Post));
+                continue;
+            }
+
             if (record.Video is not null && !string.IsNullOrWhiteSpace(record.Video.Id))
             {
                 string id = record.Video.Id.Trim();
@@ -520,6 +575,27 @@ internal sealed class UserService : PhoenixFeatureService
                 long hot = record.Video.Stat?.Hot ?? 0;
                 long viewCount = record.Video.Stat?.ViewCount ?? 0;
                 long followCount = record.Video.Stat?.FollowedCount ?? 0;
+                int epCount = Math.Max(0, record.Video.Expand?.EpisodeCount ?? 0);
+
+                if (common.VideoContentType == 1001 || (record.DataType == 1 && epCount == 0))
+                {
+                    result.Add(
+                        new ShortVideo
+                        {
+                            Id = id,
+                            VideoId = id,
+                            Title = ValueNormalizer.First(common.Title, id),
+                            Description = common.Introduction,
+                            CoverUrl = common.CoverUrl,
+                            DurationSeconds = Math.Max(0, common.DurationSeconds),
+                            Author = CircleService.MapCommentUserInfo(common.UserInfo),
+                            CreatedAtUnixSeconds = Math.Max(0, common.CreatedAt),
+                            LikeCount = Math.Max(0, record.Video.Stat?.LikeCount ?? 0),
+                            ViewCount = Math.Max(0, viewCount),
+                        }
+                    );
+                    continue;
+                }
 
                 Drama drama = new()
                 {
@@ -527,7 +603,7 @@ internal sealed class UserService : PhoenixFeatureService
                     Title = ValueNormalizer.First(common.Title, id),
                     Description = common.Introduction,
                     CoverUrl = common.CoverUrl,
-                    EpisodeCount = Math.Max(0, record.Video.Expand?.EpisodeCount ?? 0),
+                    EpisodeCount = epCount,
                     Tags = tags,
                     Heat = hot > 0 ? ValueNormalizer.FormatCount(hot) + "热度" : string.Empty,
                     Views = viewCount > 0 ? ValueNormalizer.FormatCount(viewCount) : string.Empty,

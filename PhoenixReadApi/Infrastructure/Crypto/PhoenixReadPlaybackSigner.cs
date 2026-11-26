@@ -353,9 +353,10 @@ internal static class PhoenixReadPlaybackSigner
         string Stub
     ) SignV5(
         string fullUrl,
-        byte[] gzipBody,
+        byte[] body,
         uint timestamp,
         string deviceId,
+        string? installId = null,
         string? osVersion = null,
         string? deviceType = null
     )
@@ -364,28 +365,34 @@ internal static class PhoenixReadPlaybackSigner
         int qIdx = fullUrl.IndexOf('?');
         string query = qIdx >= 0 ? fullUrl[(qIdx + 1)..] : fullUrl;
         uint gorgonRand = (uint)RandomNumberGenerator.GetInt32(0, 65536);
-        string gorgon = XGorgonSigner.SignPlayback(query, gzipBody, timestamp, gorgonRand);
+        string gorgon = XGorgonSigner.SignPlayback(query, body, timestamp, gorgonRand);
         string helios = XHeliosSigner.SignV5(timestamp);
         string medusa = XMedusaSigner.SignV5(
             fullUrl,
-            gzipBody,
+            body,
             timestamp,
             deviceId,
             osVersion,
             deviceType
         );
 
-        // V5 播放短 Argus：4 字节 Little-Endian 时间戳 Base64（如 thcEaw==, xBcEaw== 等）
-        Span<byte> argusBytes = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32LittleEndian(argusBytes, timestamp);
-        string argus = Convert.ToBase64String(argusBytes);
+        string effectiveInstallId = string.IsNullOrWhiteSpace(installId) ? deviceId : installId;
+        string aid = PhoenixReadDeviceProfile.Aid.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        byte[] bodyMd5 = body.Length > 0 ? MD5.HashData(body) : [];
+        uint nonceArgus = (uint)RandomNumberGenerator.GetInt32(0, int.MaxValue);
+        uint nonceLadon = (uint)RandomNumberGenerator.GetInt32(0, int.MaxValue);
+        string argus = XArgusSigner.SignPlayback(
+            query,
+            bodyMd5,
+            timestamp,
+            nonceArgus,
+            aid,
+            deviceId,
+            effectiveInstallId
+        );
+        string ladon = XLadonSigner.SignPlayback(timestamp, nonceLadon, aid);
 
-        // V5 播放短 Ladon：4 字节 Big-Endian 时间戳 Base64（对齐 lvguo-tv）
-        Span<byte> ladonBytes = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32BigEndian(ladonBytes, timestamp);
-        string ladon = Convert.ToBase64String(ladonBytes);
-
-        string stub = Convert.ToHexString(MD5.HashData(gzipBody));
+        string stub = Convert.ToHexString(body.Length > 0 ? bodyMd5 : MD5.HashData([]));
         return (khronos, gorgon, helios, medusa, argus, ladon, stub);
     }
 

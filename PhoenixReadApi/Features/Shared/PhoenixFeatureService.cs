@@ -24,6 +24,8 @@ internal abstract class PhoenixFeatureService(PhoenixReadClientRuntime runtime)
 
     protected PhoenixReadWebTransport _webTransport => Runtime.WebTransport;
 
+    protected string UserIsLogin => Runtime.IsAuthenticated ? "1" : "0";
+
     protected Task<string> GetTextAsync(
         Uri endpoint,
         Uri refererBase,

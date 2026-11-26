@@ -15,7 +15,7 @@ public sealed class CommentsAndDanmakuTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        DanmakuPage danmaku = await SharedScenario.Client.GetDanmakuAsync(
+        DanmakuPage danmaku = await SharedScenario.Client.GetDramaEpisodeDanmakuAsync(
             scenario.DramaId,
             scenario.Episode.VideoId,
             startMs: 0,
@@ -280,7 +280,7 @@ public sealed class CommentsAndDanmakuTests
         await Assert
             .That(async () =>
             {
-                await SharedScenario.Client.SendDanmakuAsync("123", "456", "");
+                await SharedScenario.Client.SendDramaEpisodeDanmakuAsync("123", "456", "");
             })
             .Throws<ArgumentException>();
 
@@ -348,7 +348,7 @@ public sealed class CommentsAndDanmakuTests
         await Assert.That(delComment.Succeeded).IsTrue();
 
         // 5. 弹幕生命周期：发送并删除
-        PhoenixOperationResult danmaku = await authClient.SendDanmakuAsync(
+        PhoenixOperationResult danmaku = await authClient.SendDramaEpisodeDanmakuAsync(
             scenario.DramaId,
             scenario.Episode.VideoId,
             marker,
@@ -405,12 +405,12 @@ public sealed class CommentsAndDanmakuTests
     public async Task TestCommentWithImagesAndSortOrder()
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
-        SearchResult search = await SharedScenario.Client.SearchAsync(
+        SearchPage<Drama> search = await SharedScenario.Client.SearchDramasAsync(
             "我的系统不对劲，女帝心动我开挂",
-            timeout.Token
+            cancellationToken: timeout.Token
         );
-        Drama drama = search.Dramas.FirstOrDefault(d => d.Title.Contains("我的系统不对劲"))
-            ?? search.Dramas.First();
+        Drama drama = search.Items.FirstOrDefault(d => d.Title.Contains("我的系统不对劲"))
+            ?? search.Items.First();
         DramaDetails details = await SharedScenario.Client.GetDramaDetailsAsync(
             drama.Id,
             timeout.Token
@@ -441,8 +441,7 @@ public sealed class CommentsAndDanmakuTests
         }
 
         // 2. 验证若返回结果包含带图评论，能够成功解析附图
-        Comment? targetComment =
-            latestPage.Items.FirstOrDefault(c => c.Images.Count > 0)
+        Comment? targetComment = latestPage.Items.FirstOrDefault(c => c.Images.Count > 0)
             ?? latestPage.Items.FirstOrDefault(c => c.Id == "7693917255795131198");
         if (targetComment is null)
         {
@@ -454,8 +453,7 @@ public sealed class CommentsAndDanmakuTests
                 sort: CommentSortOrder.Hot,
                 cancellationToken: timeout.Token
             );
-            targetComment =
-                hotPage.Items.FirstOrDefault(c => c.Images.Count > 0)
+            targetComment = hotPage.Items.FirstOrDefault(c => c.Images.Count > 0)
                 ?? hotPage.Items.FirstOrDefault(c => c.Id == "7693917255795131198");
         }
 

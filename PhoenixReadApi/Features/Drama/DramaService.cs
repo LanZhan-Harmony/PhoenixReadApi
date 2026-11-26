@@ -610,7 +610,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                     CoverUrl = item.Cover,
                     EpisodeCount = item.EpisodeCount,
                     Status =
-                        item.SeriesStatus == 1
+                        item.EffectiveSeriesStatus == 1
                             ? DramaReleaseStatus.Finished
                             : DramaReleaseStatus.Ongoing,
                 }
@@ -622,9 +622,9 @@ internal sealed partial class DramaService : PhoenixFeatureService
         return new DramaAlbum
         {
             Id = !string.IsNullOrWhiteSpace(model.EffectiveId) ? model.EffectiveId : albumId,
-            Title = model.Title,
-            Description = model.Intro,
-            CoverUrl = model.Cover,
+            Title = model.EffectiveTitle,
+            Description = model.EffectiveIntro,
+            CoverUrl = model.EffectiveCover,
             SeasonCount = model.SeasonCount > 0 ? model.SeasonCount : seasons.Count,
             Seasons = seasons,
         };
@@ -649,7 +649,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                         new("scene", "10"),
                         new("session_uuid", Guid.NewGuid().ToString("N")),
                         new("filter_ids", dramaId),
-                        new("user_is_login", "0"),
+                        new("user_is_login", UserIsLogin),
                     ],
                     cancellationToken
                 )
@@ -763,7 +763,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                     new("from", "select_panel_recommend"),
                     new("scene", "10"),
                     new("session_uuid", Guid.NewGuid().ToString("N")),
-                    new("user_is_login", "0"),
+                    new("user_is_login", UserIsLogin),
                 ],
                 cancellationToken
             )

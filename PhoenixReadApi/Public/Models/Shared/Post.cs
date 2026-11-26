@@ -1,7 +1,7 @@
 namespace PhoenixReadApi;
 
-/// <summary>红果圈图文详情。</summary>
-public sealed class CirclePost
+/// <summary>图文帖子详情（适用于红果圈图文、讨论搜索及综合搜索）。</summary>
+public sealed class Post
 {
     /// <summary>图文唯一标识（Post ID）。</summary>
     public string Id { get; init; } = string.Empty;

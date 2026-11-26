@@ -31,7 +31,7 @@ internal sealed class NovelCategoryService : PhoenixFeatureService
                     new("category_id", categoryId),
                     new("offset", Math.Max(0, offset).ToString(CultureInfo.InvariantCulture)),
                     new("count", Math.Clamp(count, 1, 50).ToString(CultureInfo.InvariantCulture)),
-                    new("user_is_login", "0"),
+                    new("user_is_login", UserIsLogin),
                 ],
                 cancellationToken
             )

@@ -25,13 +25,25 @@ internal sealed class AppAlbumModel
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Title { get; init; } = string.Empty;
 
+    [JsonPropertyName("title")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string TitleAlias { get; init; } = string.Empty;
+
     [JsonPropertyName("album_cover")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Cover { get; init; } = string.Empty;
 
+    [JsonPropertyName("cover")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string CoverAlias { get; init; } = string.Empty;
+
     [JsonPropertyName("album_intro")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Intro { get; init; } = string.Empty;
+
+    [JsonPropertyName("intro")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string IntroAlias { get; init; } = string.Empty;
 
     [JsonPropertyName("season_cnt")]
     [JsonConverter(typeof(FlexibleIntConverter))]
@@ -43,12 +55,26 @@ internal sealed class AppAlbumModel
     [JsonPropertyName("video_list")]
     public IReadOnlyList<AppAlbumSeasonItemDto> VideoList { get; init; } = [];
 
+    [JsonPropertyName("video_detail_list")]
+    public IReadOnlyList<AppAlbumSeasonItemDto> VideoDetailList { get; init; } = [];
+
     [JsonIgnore]
     public string EffectiveId => !string.IsNullOrWhiteSpace(AlbumIdStr) ? AlbumIdStr : AlbumId;
 
     [JsonIgnore]
+    public string EffectiveTitle => !string.IsNullOrWhiteSpace(Title) ? Title : TitleAlias;
+
+    [JsonIgnore]
+    public string EffectiveCover => !string.IsNullOrWhiteSpace(Cover) ? Cover : CoverAlias;
+
+    [JsonIgnore]
+    public string EffectiveIntro => !string.IsNullOrWhiteSpace(Intro) ? Intro : IntroAlias;
+
+    [JsonIgnore]
     public IReadOnlyList<AppAlbumSeasonItemDto> EffectiveItems =>
-        SeriesList.Count > 0 ? SeriesList : VideoList;
+        SeriesList.Count > 0 ? SeriesList
+        : VideoList.Count > 0 ? VideoList
+        : VideoDetailList;
 }
 
 internal sealed class AppAlbumSeasonItemDto
@@ -81,6 +107,13 @@ internal sealed class AppAlbumSeasonItemDto
     [JsonConverter(typeof(FlexibleIntConverter))]
     public int SeriesStatus { get; init; }
 
+    [JsonPropertyName("status")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int Status { get; init; }
+
     [JsonIgnore]
     public string EffectiveSeriesId => !string.IsNullOrWhiteSpace(SeriesIdStr) ? SeriesIdStr : SeriesId;
+
+    [JsonIgnore]
+    public int EffectiveSeriesStatus => SeriesStatus != 0 ? SeriesStatus : Status;
 }

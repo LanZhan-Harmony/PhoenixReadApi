@@ -37,6 +37,10 @@ internal sealed class AppReadHistoryUpdateItem
     [JsonPropertyName("is_multi_season")]
     public int IsMultiSeason { get; init; }
 
+    [JsonPropertyName("listen_book_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ListenBookId { get; init; }
+
     [JsonPropertyName("meet_guide_comment_tag")]
     public bool MeetGuideCommentTag { get; init; }
 

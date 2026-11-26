@@ -11,7 +11,8 @@ internal sealed class AppPlaybackPayload
     public Dictionary<string, List<string>> MixedVideoIdMap { get; init; } = [];
 
     [JsonPropertyName("dr_scene")]
-    public string DrScene { get; init; } = "player";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DrScene { get; init; }
 
     [JsonPropertyName("video_id")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

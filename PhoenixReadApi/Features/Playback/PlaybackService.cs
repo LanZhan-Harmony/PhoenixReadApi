@@ -19,21 +19,40 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
     internal PlaybackService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
-    internal Task<IReadOnlyList<PlaybackMedia>> ResolveAsync(
+    internal Task<IReadOnlyList<PlaybackMedia>> ResolveDramaAsync(
         string dramaId,
         string videoId,
         CancellationToken cancellationToken
-    ) => ResolveCoreAsync(NormalizeDramaId(dramaId), NormalizeVideoId(videoId), cancellationToken);
+    ) =>
+        ResolveCoreAsync(
+            NormalizeDramaId(dramaId),
+            NormalizeVideoId(videoId),
+            isShortVideo: false,
+            cancellationToken
+        );
+
+    internal Task<IReadOnlyList<PlaybackMedia>> ResolveShortVideoAsync(
+        string videoId,
+        CancellationToken cancellationToken
+    ) =>
+        ResolveCoreAsync(
+            string.Empty,
+            NormalizeVideoId(videoId),
+            isShortVideo: true,
+            cancellationToken
+        );
 
     private async Task<IReadOnlyList<PlaybackMedia>> ResolveCoreAsync(
         string dramaId,
         string videoId,
+        bool isShortVideo,
         CancellationToken cancellationToken
     )
     {
         try
         {
-            return await ResolveAppMediaAsync(videoId, cancellationToken).ConfigureAwait(false);
+            return await ResolveAppMediaAsync(videoId, isShortVideo, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (PhoenixReadApiException ex) when (dramaId.Length > 0)
         {
@@ -54,12 +73,17 @@ internal sealed partial class PlaybackService : PhoenixFeatureService
 
     private async Task<IReadOnlyList<PlaybackMedia>> ResolveAppMediaAsync(
         string videoId,
+        bool isShortVideo,
         CancellationToken cancellationToken
     )
     {
-        AppResponse<AppPlaybackData> result = await _playbackTransport
-            .GetPlaybackDataAsync(videoId, cancellationToken)
-            .ConfigureAwait(false);
+        AppResponse<AppPlaybackData> result = isShortVideo
+            ? await _playbackTransport
+                .GetShortVideoPlaybackDataAsync(videoId, cancellationToken)
+                .ConfigureAwait(false)
+            : await _playbackTransport
+                .GetPlaybackDataAsync(videoId, cancellationToken)
+                .ConfigureAwait(false);
 
         AppPlaybackData? data = result.Data;
         AppPlaybackModel? model = null;

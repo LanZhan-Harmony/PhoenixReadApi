@@ -129,6 +129,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppHotSearchTopicInfoDto))]
 [JsonSerializable(typeof(AppHotSearchVideoDto))]
 [JsonSerializable(typeof(AppPlaybackPayload))]
+[JsonSerializable(typeof(AppSinglePlaybackPayload))]
 [JsonSerializable(typeof(AppMediaVariantDto))]
 [JsonSerializable(typeof(AppMultiDetailItem))]
 [JsonSerializable(typeof(AppMultiMediaPayload))]
@@ -154,6 +155,8 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppReservationActionPayload))]
 [JsonSerializable(typeof(AppSearchCueItemDto))]
 [JsonSerializable(typeof(AppSearchCueResponse))]
+[JsonSerializable(typeof(AppSearchPostDto))]
+[JsonSerializable(typeof(AppSearchPostUserDto))]
 [JsonSerializable(typeof(AppSearchTabCell))]
 [JsonSerializable(typeof(AppSearchTabData))]
 [JsonSerializable(typeof(AppSearchTabItem))]
@@ -195,6 +198,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 [JsonSerializable(typeof(AppUgcUserTag))]
 [JsonSerializable(typeof(AppUgcUserTitleInfo))]
 [JsonSerializable(typeof(AppUploadPictureData))]
+[JsonSerializable(typeof(AppUserAlbum))]
 [JsonSerializable(typeof(AppUserListInfo))]
 [JsonSerializable(typeof(AppUserProfileData))]
 [JsonSerializable(typeof(AppUserProfileGetResponse))]
@@ -273,6 +277,7 @@ namespace PhoenixReadApi.Internal.Serialization;
 // ============================================================================
 // 4. 跨端共享剧集协议实体 (Shared Drama DTOs, A-Z)
 // ============================================================================
+[JsonSerializable(typeof(DramaAlbumInfoDto))]
 [JsonSerializable(typeof(DramaDto))]
 [JsonSerializable(typeof(DramaEpisodeDto))]
 [JsonSerializable(typeof(DramaRecTagDto))]

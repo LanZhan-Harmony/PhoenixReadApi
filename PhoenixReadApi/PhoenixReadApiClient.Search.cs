@@ -2,38 +2,130 @@ namespace PhoenixReadApi;
 
 public sealed partial class PhoenixReadApiClient
 {
-    /// <summary>搜索剧集。</summary>
-    /// <param name="keyword">搜索关键词，支持剧名、别名或相关名称；不能为空，最多 80 个字符。</param>
+    /// <summary>综合搜索（返回包含短剧、合集、短视频、小说、用户、讨论与听书的混合联合结果）。</summary>
+    /// <param name="keyword">搜索关键词，不能为空，最多 80 个字符。</param>
+    /// <param name="offset">分页偏移量，从 0 开始。</param>
+    /// <param name="count">每页返回数量（1～50）。</param>
+    /// <param name="searchId">翻页时回传的服务端搜索会话 ID。</param>
+    /// <param name="passback">翻页时回传的服务端透传参数。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>
-    /// 搜索结果及总数、是否受限和非致命警告。结果中的 <see cref="Drama.Id"/> 可传给 <see cref="GetDramaDetailsAsync"/>。
-    /// </returns>
-    /// <remarks>
-    /// 搜索会合并名称匹配和综合搜索结果；网络或服务端部分失败时可能返回有限结果并设置
-    /// <see cref="SearchResult.Warning"/>，调用方应同时检查 <see cref="SearchResult.Limited"/>。
-    /// </remarks>
-    public Task<SearchResult> SearchAsync(
+    /// <returns>按服务端混排顺序组织的 <see cref="ComprehensiveSearchItem"/> 分页结果。</returns>
+    public Task<SearchPage<ComprehensiveSearchItem>> SearchComprehensiveAsync(
         string keyword,
+        int offset = 0,
+        int count = 20,
+        string? searchId = null,
+        string? passback = null,
         CancellationToken cancellationToken = default
-    ) => _search.SearchAsync(keyword, cancellationToken);
+    ) => _search.SearchComprehensiveAsync(keyword, offset, count, searchId, passback, cancellationToken);
 
-    /// <summary>使用自定义分页游标与分类参数高级搜索剧集。</summary>
-    /// <param name="query">搜索高级查询参数，包含关键词、偏移量、期望返回条数及标签类型。</param>
+    /// <summary>搜索短剧剧集（仅返回可直接调用 <see cref="GetDramaDetailsAsync"/> 的普通短剧）。</summary>
+    /// <param name="keyword">搜索关键词，不能为空，最多 80 个字符。</param>
+    /// <param name="offset">分页偏移量，从 0 开始。</param>
+    /// <param name="count">每页返回数量（1～50）。</param>
+    /// <param name="searchId">翻页时回传的服务端搜索会话 ID。</param>
+    /// <param name="passback">翻页时回传的服务端透传参数。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>包含当前页剧集、下一页偏移量与更多状态的搜索结果。</returns>
-    public Task<SearchResult> SearchAsync(
-        SearchQuery query,
+    /// <returns>短剧分页结果。</returns>
+    public Task<SearchPage<Drama>> SearchDramasAsync(
+        string keyword,
+        int offset = 0,
+        int count = 20,
+        string? searchId = null,
+        string? passback = null,
         CancellationToken cancellationToken = default
-    ) => _search.SearchAsync(query, cancellationToken);
+    ) => _search.SearchDramasAsync(keyword, offset, count, searchId, passback, cancellationToken);
+
+    /// <summary>搜索视频内容（返回合集 <see cref="DramaAlbum"/> 或独立短视频 <see cref="ShortVideo"/> 的联合类型）。</summary>
+    /// <param name="keyword">搜索关键词，不能为空，最多 80 个字符。</param>
+    /// <param name="offset">分页偏移量，从 0 开始。</param>
+    /// <param name="count">每页返回数量（1～50）。</param>
+    /// <param name="searchId">翻页时回传的服务端搜索会话 ID。</param>
+    /// <param name="passback">翻页时回传的服务端透传参数。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>视频搜索结果分页。</returns>
+    public Task<SearchPage<VideoSearchItem>> SearchVideosAsync(
+        string keyword,
+        int offset = 0,
+        int count = 20,
+        string? searchId = null,
+        string? passback = null,
+        CancellationToken cancellationToken = default
+    ) => _search.SearchVideosAsync(keyword, offset, count, searchId, passback, cancellationToken);
+
+    /// <summary>搜索图文讨论帖子（返回与红果圈图文共用的 <see cref="Post"/> 模型）。</summary>
+    /// <param name="keyword">搜索关键词，不能为空，最多 80 个字符。</param>
+    /// <param name="offset">分页偏移量，从 0 开始。</param>
+    /// <param name="count">每页返回数量（1～50）。</param>
+    /// <param name="searchId">翻页时回传的服务端搜索会话 ID。</param>
+    /// <param name="passback">翻页时回传的服务端透传参数。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>讨论图文分页结果。</returns>
+    public Task<SearchPage<Post>> SearchDiscussionsAsync(
+        string keyword,
+        int offset = 0,
+        int count = 20,
+        string? searchId = null,
+        string? passback = null,
+        CancellationToken cancellationToken = default
+    ) => _search.SearchDiscussionsAsync(keyword, offset, count, searchId, passback, cancellationToken);
+
+    /// <summary>搜索原著小说。</summary>
+    /// <param name="keyword">搜索关键词，不能为空，最多 80 个字符。</param>
+    /// <param name="offset">分页偏移量，从 0 开始。</param>
+    /// <param name="count">每页返回数量（1～50）。</param>
+    /// <param name="searchId">翻页时回传的服务端搜索会话 ID。</param>
+    /// <param name="passback">翻页时回传的服务端透传参数。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>小说分页结果。</returns>
+    public Task<SearchPage<Novel>> SearchNovelsAsync(
+        string keyword,
+        int offset = 0,
+        int count = 20,
+        string? searchId = null,
+        string? passback = null,
+        CancellationToken cancellationToken = default
+    ) => _search.SearchNovelsAsync(keyword, offset, count, searchId, passback, cancellationToken);
+
+    /// <summary>搜索演职人员与红果创作者用户。</summary>
+    /// <param name="keyword">搜索关键词，不能为空，最多 80 个字符。</param>
+    /// <param name="offset">分页偏移量，从 0 开始。</param>
+    /// <param name="count">每页返回数量（1～50）。</param>
+    /// <param name="searchId">翻页时回传的服务端搜索会话 ID。</param>
+    /// <param name="passback">翻页时回传的服务端透传参数。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>用户分页结果。</returns>
+    public Task<SearchPage<User>> SearchUsersAsync(
+        string keyword,
+        int offset = 0,
+        int count = 20,
+        string? searchId = null,
+        string? passback = null,
+        CancellationToken cancellationToken = default
+    ) => _search.SearchUsersAsync(keyword, offset, count, searchId, passback, cancellationToken);
+
+    /// <summary>搜索有声听书作品。</summary>
+    /// <param name="keyword">搜索关键词，不能为空，最多 80 个字符。</param>
+    /// <param name="offset">分页偏移量，从 0 开始。</param>
+    /// <param name="count">每页返回数量（1～50）。</param>
+    /// <param name="searchId">翻页时回传的服务端搜索会话 ID。</param>
+    /// <param name="passback">翻页时回传的服务端透传参数。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>有声听书分页结果。</returns>
+    public Task<SearchPage<Audiobook>> SearchAudiobooksAsync(
+        string keyword,
+        int offset = 0,
+        int count = 20,
+        string? searchId = null,
+        string? passback = null,
+        CancellationToken cancellationToken = default
+    ) => _search.SearchAudiobooksAsync(keyword, offset, count, searchId, passback, cancellationToken);
 
     /// <summary>获取搜索联想建议。</summary>
     /// <param name="keyword">要联想的关键词，不能为空，最多 80 个字符。</param>
     /// <param name="maxResults">最多返回的建议数量，必须大于 0；超过 20 时按 20 处理。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>去重后的建议列表；每条建议包含文本和 <see cref="SearchSuggestionType"/>。</returns>
-    /// <remarks>
-    /// 建议结果会按关键词和数量短暂缓存。建议类型是枚举，未知的后端类型会映射为 Unknown。
-    /// </remarks>
     public Task<IReadOnlyList<SearchSuggestion>> GetSuggestionsAsync(
         string keyword,
         int maxResults = 5,
@@ -47,9 +139,9 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _search.GetSearchCuesAsync(cancellationToken);
 
-    /// <summary>获取搜索页的“猜你想搜”及各个热搜榜单（短剧热搜榜、漫剧热搜榜、热点话题榜等）。</summary>
+    /// <summary>获取发现页搜索中间页的猜你想搜与热搜榜单。</summary>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>包含“猜你想搜”短剧及热搜各榜单的 <see cref="HotSearch"/> 对象。</returns>
+    /// <returns>包含推荐词条及各类热搜榜的 <see cref="HotSearch"/>。</returns>
     public Task<HotSearch> GetHotSearchAsync(CancellationToken cancellationToken = default) =>
         _search.GetHotSearchAsync(cancellationToken);
 }

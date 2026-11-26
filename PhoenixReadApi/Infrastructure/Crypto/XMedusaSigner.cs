@@ -164,6 +164,10 @@ internal static class XMedusaSigner
         RandomNumberGenerator.GetBytes(18)
     )[..24];
     private static readonly long ProcessStartMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    private static readonly long s_processSeed = (long)RandomNumberGenerator.GetInt32(0, int.MaxValue);
+    private static readonly long s_pid = 3000L + (s_processSeed % 25000L);
+    private static readonly long s_ppid = 500L + ((s_processSeed / 25000L) % 700L);
+    private static long s_counter = 20L + (s_processSeed % 100L);
 
     /// <summary>为 V5 播放请求生成 X-Medusa 签名。</summary>
     public static string SignV5(
@@ -237,15 +241,14 @@ internal static class XMedusaSigner
         byte[] bodyMd5 = gzipBody.Length > 0 ? MD5.HashData(gzipBody) : new byte[16];
         byte[] f13 = HashF13V5(querySm3, bodyMd5, timestamp);
 
-        byte[] flags = Convert.FromHexString("4480000000000000");
-        string secToken = MedusaV5Token(nonceB64);
-        long started = startMs <= 0 ? (long)timestamp * 1000 : startMs;
-        long nowMs = (long)timestamp * 1000;
+        byte[] flags = Convert.FromHexString("0405000000000000");
+        long started = startMs <= 0 ? ProcessStartMs : startMs;
+        long nowMs = (long)timestamp * 1000 + (msgRandom % 1000);
+        long uptime = Math.Max(1L, (long)timestamp - (started / 1000L));
 
-        // Protobuf deviceInfo
+        // Protobuf deviceInfo (real device layout)
         byte[] deviceInfo = EncodeDeviceInfo(
             effectiveDeviceId,
-            secToken,
             started,
             nowMs,
             effectiveOs,
@@ -253,33 +256,27 @@ internal static class XMedusaSigner
             PhoenixReadDeviceProfile.DeviceBrand
         );
 
-        long envLaunch = RandomNumberGenerator.GetInt32(0, 21) + 100;
-        long envPID = RandomNumberGenerator.GetInt32(0, 2000) + 10001;
-        byte[] envSub13 = EncodeProto(
-            (1, ProtoVal.Sint(timestamp)),
-            (2, ProtoVal.Sint(-2)),
-            (4, ProtoVal.Sint(200))
-        );
-
         // Protobuf env
         byte[] env = EncodeProto(
-            (1, ProtoVal.Sint(envLaunch)),
-            (2, ProtoVal.Sint(247235599)),
-            (3, ProtoVal.Sint(247235596)),
-            (5, ProtoVal.Sint(7)),
+            (1, ProtoVal.Sint(uptime)),
             (6, ProtoVal.Str("v04.10.03.04-bugfix")),
-            (7, ProtoVal.Sint(envPID)),
+            (7, ProtoVal.Sint(s_pid)),
             (8, ProtoVal.Str(effectiveChannel)),
             (12, ProtoVal.Bytes(deviceInfo)),
-            (13, ProtoVal.Bytes(envSub13)),
-            (14, ProtoVal.Str(effectiveVersion))
+            (13, ProtoVal.Bytes([])),
+            (14, ProtoVal.Str(effectiveVersion)),
+            (15, ProtoVal.Sint(s_ppid)),
+            (18, ProtoVal.Sint((long)timestamp + 766353820L)),
+            (19, ProtoVal.Sint((long)timestamp + 16L)),
+            (20, ProtoVal.Sint((long)timestamp - 1072050540L))
         );
 
+        long count = Interlocked.Increment(ref s_counter);
         byte[] sub15 = EncodeProto(
-            (1, ProtoVal.Sint(305)),
-            (2, ProtoVal.Sint(4)),
+            (1, ProtoVal.Sint(count)),
+            (2, ProtoVal.Sint(5)),
             (3, ProtoVal.Sint(694367)),
-            (5, ProtoVal.Sint(1621072674))
+            (5, ProtoVal.Sint(694367))
         );
 
         // Protobuf message
@@ -288,7 +285,7 @@ internal static class XMedusaSigner
             (2, ProtoVal.Sint(5)),
             (3, ProtoVal.Sint(msgRandom)),
             (4, ProtoVal.Str(AppId)),
-            (5, ProtoVal.Str(deviceId)),
+            (5, ProtoVal.Str(effectiveDeviceId)),
             (6, ProtoVal.Str(V5License)),
             (7, ProtoVal.Str(effectiveVersion)),
             (8, ProtoVal.Str("v04.10.03-ml-android")),
@@ -298,15 +295,14 @@ internal static class XMedusaSigner
             (13, ProtoVal.Bytes(f13)),
             (14, ProtoVal.Bytes(querySm3[..6])),
             (15, ProtoVal.Bytes(sub15)),
-            (16, ProtoVal.Str(secToken)),
             (17, ProtoVal.Sint(timestamp)),
             (20, ProtoVal.Str("none")),
-            (21, ProtoVal.Sint(312)),
+            (21, ProtoVal.Sint(369)),
             (23, ProtoVal.Bytes(env)),
             (
                 24,
                 ProtoVal.Str(
-                    "{\"cmr\":16777216,\"cmr2\":16777216,\"un_h\":11,\"vpn\":0,\"kd\":0,\"dyn\":\"\",\"do\":1,\"tk\":true}"
+                    "{\"cmr\":16777216,\"cmr2\":16777216,\"un_h\":2398682137,\"vpn\":0,\"sts\":27,\"kd\":0,\"fkd\":1963693275,\"pd\":1442983616,\"lp\":\"2|520830913092|521433182354|2078052786776|1081701896\",\"fl\":\"0|0|2523408538|2586339478|997724116|0|0|0|0|606600138\",\"dyn\":\"\",\"do\":0,\"tk\":true}"
                 )
             )
         );
@@ -385,13 +381,39 @@ internal static class XMedusaSigner
         return "A" + nonce + new string('A', 24 - nonce.Length);
     }
 
+    private static void DeriveDeviceMetrics(
+        string deviceId,
+        out float storage,
+        out float freeStorage,
+        out float memory,
+        out float freeMemory,
+        out long installMillis
+    )
+    {
+        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes("medusa-device\0" + deviceId));
+        ulong Pick(int idx, ulong mod) => (ulong)BinaryPrimitives.ReadUInt32LittleEndian(hash.AsSpan(idx * 4, 4)) % mod;
+
+        float[] storageOptions = [106.83f, 108.57f, 229.36f, 233.91f, 487.62f];
+        storage = storageOptions[(int)Pick(0, 5)] + (float)Pick(1, 400) / 1000f;
+
+        float[] memoryOptions = [5.37f, 7.42f, 11.18f, 15.07f];
+        memory = memoryOptions[(int)Pick(2, 4)] + (float)Pick(3, 90) / 1000f;
+
+        freeStorage = storage * (0.25f + (float)Pick(5, 500) / 1000f);
+        freeMemory = 0.35f + (float)Pick(6, 900) / 1000f;
+
+        const long DayMs = 86_400_000L;
+        const long Anchor = 1795440816000L;
+        installMillis = Anchor - DayMs - (long)Pick(4, 20 * DayMs);
+    }
+
     internal static byte[] EncodeDeviceInfo(
         string deviceId,
         string nonceB64,
         long startMs,
         string osVersion,
         string deviceType
-    ) => EncodeDeviceInfo(deviceId, MedusaV5Token(nonceB64), startMs, startMs, osVersion, deviceType, PhoenixReadDeviceProfile.DeviceBrand);
+    ) => EncodeDeviceInfo(deviceId, startMs, startMs, osVersion, deviceType, PhoenixReadDeviceProfile.DeviceBrand);
 
     internal static byte[] EncodeDeviceInfo(
         string deviceId,
@@ -401,46 +423,71 @@ internal static class XMedusaSigner
         string osVersion,
         string deviceType,
         string? deviceBrand = null
+    ) => EncodeDeviceInfo(deviceId, startMs, nowMs, osVersion, deviceType, deviceBrand);
+
+    internal static byte[] EncodeDeviceInfo(
+        string deviceId,
+        long launchMillis,
+        long nowMillis,
+        string osVersion,
+        string deviceType,
+        string? deviceBrand = null
     )
     {
         string brand = string.IsNullOrEmpty(deviceBrand) ? PhoenixReadDeviceProfile.DeviceBrand : deviceBrand;
+        string model = string.IsNullOrEmpty(deviceType) ? PhoenixReadDeviceProfile.DeviceModel : deviceType;
+        string os = string.IsNullOrEmpty(osVersion) ? PhoenixReadDeviceProfile.OsVersion : osVersion;
+
+        DeriveDeviceMetrics(
+            deviceId,
+            out float storage,
+            out float freeStorage,
+            out float memory,
+            out float freeMemory,
+            out long installMillis
+        );
+
+        const string notSet = "!notset!";
+        const string noPerm = "!noperm!";
+        const int noPermInt = -888888;
+
         return EncodeProto(
             (1, ProtoVal.Sint(1)),
-            (2, ProtoVal.Sint(2)),
             (3, ProtoVal.Str(AppId)),
             (4, ProtoVal.Str(deviceId)),
-            (5, ProtoVal.Str(secToken)),
-            (6, ProtoVal.Str("!noperm!")),
-            (7, ProtoVal.Sint(-888888)),
-            (8, ProtoVal.Sint(-888888)),
-            (9, ProtoVal.Sint(3)),
-            (10, ProtoVal.Sint(-888888)),
-            (11, ProtoVal.Str("!notset!")),
+            (5, ProtoVal.Str(notSet)),
+            (6, ProtoVal.Str(noPerm)),
+            (7, ProtoVal.Sint(noPermInt)),
+            (8, ProtoVal.Sint(noPermInt)),
+            (9, ProtoVal.Sint(2)),
+            (10, ProtoVal.Sint(noPermInt)),
+            (11, ProtoVal.Str(notSet)),
             (12, ProtoVal.Str("Asia/Shanghai,8")),
             (13, ProtoVal.Str("zh_CN")),
-            (14, ProtoVal.Sint(4)),
-            (16, ProtoVal.Flt(0f)),
-            (17, ProtoVal.Flt(0f)),
-            (18, ProtoVal.Flt(0f)),
-            (19, ProtoVal.Flt(0f)),
-            (20, ProtoVal.Flt(0f)),
-            (21, ProtoVal.Flt(0f)),
-            (22, ProtoVal.Str(osVersion)),
-            (23, ProtoVal.Sint(41)),
-            (24, ProtoVal.Sint(36)),
-            (25, ProtoVal.Sint(startMs)),
-            (26, ProtoVal.Sint(startMs)),
-            (27, ProtoVal.Sint(startMs)),
-            (28, ProtoVal.Sint(nowMs)),
-            (29, ProtoVal.Sint(-1)),
-            (30, ProtoVal.Str(deviceType)),
+            (14, ProtoVal.Sint(8)),
+            (16, ProtoVal.Flt(storage)),
+            (17, ProtoVal.Flt(freeStorage)),
+            (18, ProtoVal.Flt(memory)),
+            (19, ProtoVal.Flt(freeMemory)),
+            (20, ProtoVal.Flt(storage * 2f)),
+            (21, ProtoVal.Flt(freeStorage * 2f)),
+            (22, ProtoVal.Str(os)),
+            (23, ProtoVal.Sint(60)),
+            (24, ProtoVal.Sint(10)),
+            (25, ProtoVal.Sint(installMillis)),
+            (26, ProtoVal.Sint(launchMillis + 540L)),
+            (27, ProtoVal.Sint(installMillis)),
+            (28, ProtoVal.Sint(nowMillis)),
+            (29, ProtoVal.Sint(1)),
+            (30, ProtoVal.Str(model)),
             (31, ProtoVal.Str(brand)),
-            (32, ProtoVal.Str(deviceType)),
-            (33, ProtoVal.Str(deviceType)),
-            (34, ProtoVal.Str(brand)),
+            (32, ProtoVal.Str(notSet)),
+            (33, ProtoVal.Str(notSet)),
+            (34, ProtoVal.Str(notSet)),
             (35, ProtoVal.Str(brand)),
-            (36, ProtoVal.Str(brand)),
-            (38, ProtoVal.Sint(31))
+            (36, ProtoVal.Str(notSet)),
+            (38, ProtoVal.Sint(3)),
+            (40, ProtoVal.Sint(launchMillis))
         );
     }
 
@@ -545,28 +592,30 @@ internal static class XMedusaSigner
 
         byte[] f13Result = new byte[20];
         folded.CopyTo(f13Result, 0);
-        uint md5Check = SumMd5(folded) | 0x20u;
-        BinaryPrimitives.WriteUInt32LittleEndian(f13Result.AsSpan(16, 4), md5Check);
+        byte[] tail = HashF13Tail(folded);
+        tail.CopyTo(f13Result, 16);
         return f13Result;
     }
 
-    private static uint SumMd5(ReadOnlySpan<byte> data)
+    internal static byte[] HashF13Tail(ReadOnlySpan<byte> head)
     {
-        uint check = 0x20220420u;
-        for (int i = 0; i < 12; i++)
+        uint hash = 0x20220420u;
+        for (int i = 0; i < 8; i++)
         {
-            uint temp = (check >> ((i & 1) == 0 ? 3 : 5)) ^ check;
             if ((i & 1) == 0)
             {
-                check = data[i] ^ (check << 7);
+                hash = (hash << 7) ^ head[i] ^ (hash >> 3) ^ hash;
             }
             else
             {
-                check = ~(data[i] | (check << 11));
+                hash = ~(((hash << 11) | head[i]) ^ (hash >> 5) ^ hash);
             }
-            check ^= temp;
         }
-        return (check | 4u) ^ 0x1000000u;
+        byte[] tail = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(tail, hash);
+        tail[0] &= 0xdb;
+        tail[3] ^= 1;
+        return tail;
     }
 
     internal static byte[] XmXor(byte[] data, byte[] key)

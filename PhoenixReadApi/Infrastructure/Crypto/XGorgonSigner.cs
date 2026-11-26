@@ -139,12 +139,12 @@ internal static class XGorgonSigner
         Span<byte> key =
         [
             0x4A,
-            0x40,
+            0x04,
             0x16,
             (byte)((random >> 8) & 0xFF),
             0x47,
             0x6C,
-            0x01,
+            0x05,
             (byte)(random & 0xFF),
         ];
         Rc4(input, key);
@@ -165,8 +165,8 @@ internal static class XGorgonSigner
         signature[1] = 0x04;
         signature[2] = (byte)(random & 0xFF);
         signature[3] = (byte)((random >> 8) & 0xFF);
-        signature[4] = 0x40;
-        signature[5] = 0x01;
+        signature[4] = 0x04;
+        signature[5] = 0x05;
         output.CopyTo(signature[6..]);
         return Convert.ToHexStringLower(signature);
     }

@@ -12,17 +12,14 @@ public sealed class NewFeatureIntegrationTests
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
 
-        SearchQuery query = new()
-        {
-            Keyword = "总裁",
-            Offset = 0,
-            Count = 10,
-            Tab = SearchTab.SeriesVideo,
-        };
-
-        SearchResult result = await SharedScenario.Client.SearchAsync(query, timeout.Token);
+        SearchPage<Drama> result = await SharedScenario.Client.SearchDramasAsync(
+            "总裁",
+            offset: 0,
+            count: 10,
+            cancellationToken: timeout.Token
+        );
         await Assert.That(result).IsNotNull();
-        await Assert.That(result.Dramas).IsNotNull();
+        await Assert.That(result.Items).IsNotNull();
         await Assert.That(result.Total >= 0).IsTrue();
     }
 
@@ -165,66 +162,50 @@ public sealed class NewFeatureIntegrationTests
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
 
-        // 1. 默认短剧搜索 (ShortPlay) 与分页
-        SearchResult firstPage = await SharedScenario.Client.SearchAsync(
-            new SearchQuery
-            {
-                Keyword = "逆袭",
-                Tab = SearchTab.ShortPlay,
-                Count = 20,
-                Offset = 0,
-            },
-            timeout.Token
+        // 1. 默认短剧搜索与分页
+        SearchPage<Drama> firstPage = await SharedScenario.Client.SearchDramasAsync(
+            "逆袭",
+            count: 20,
+            offset: 0,
+            cancellationToken: timeout.Token
         );
 
         await Assert.That(firstPage).IsNotNull();
-        await Assert.That(firstPage.Dramas).IsNotNull();
-        await Assert.That(firstPage.Dramas.Count > 0).IsTrue();
+        await Assert.That(firstPage.Items).IsNotNull();
+        await Assert.That(firstPage.Items.Count > 0).IsTrue();
 
         if (firstPage.HasMore && firstPage.NextOffset > 0)
         {
-            SearchResult secondPage = await SharedScenario.Client.SearchAsync(
-                new SearchQuery
-                {
-                    Keyword = "逆袭",
-                    Tab = SearchTab.ShortPlay,
-                    Count = 20,
-                    Offset = firstPage.NextOffset,
-                    SearchId = firstPage.SearchId,
-                },
-                timeout.Token
+            SearchPage<Drama> secondPage = await SharedScenario.Client.SearchDramasAsync(
+                "逆袭",
+                count: 20,
+                offset: firstPage.NextOffset,
+                searchId: firstPage.SearchId,
+                cancellationToken: timeout.Token
             );
 
             await Assert.That(secondPage).IsNotNull();
-            await Assert.That(secondPage.Dramas).IsNotNull();
+            await Assert.That(secondPage.Items).IsNotNull();
         }
 
-        // 2. 原著小说搜索 (CommonBook)
-        SearchResult novelSearch = await SharedScenario.Client.SearchAsync(
-            new SearchQuery
-            {
-                Keyword = "逆袭",
-                Tab = SearchTab.CommonBook,
-                Count = 10,
-            },
-            timeout.Token
+        // 2. 原著小说搜索
+        SearchPage<Novel> novelSearch = await SharedScenario.Client.SearchNovelsAsync(
+            "逆袭",
+            count: 10,
+            cancellationToken: timeout.Token
         );
 
         await Assert.That(novelSearch).IsNotNull();
-        await Assert.That(novelSearch.Novels).IsNotNull();
+        await Assert.That(novelSearch.Items).IsNotNull();
 
-        // 3. 用户/演员搜索 (User)
-        SearchResult userSearch = await SharedScenario.Client.SearchAsync(
-            new SearchQuery
-            {
-                Keyword = "张",
-                Tab = SearchTab.User,
-                Count = 5,
-            },
-            timeout.Token
+        // 3. 用户/演员搜索
+        SearchPage<User> userSearch = await SharedScenario.Client.SearchUsersAsync(
+            "张",
+            count: 5,
+            cancellationToken: timeout.Token
         );
 
         await Assert.That(userSearch).IsNotNull();
-        await Assert.That(userSearch.Users).IsNotNull();
+        await Assert.That(userSearch.Items).IsNotNull();
     }
 }
