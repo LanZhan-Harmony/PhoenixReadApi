@@ -94,7 +94,7 @@ internal static partial class SampleSteps
             CommentTarget episodeTarget = CommentTarget.FromEpisode(dramaId, videoId);
             // 1. 发表分集评论
             string commentText = $"分集评论_{marker}";
-            PhoenixOperationResult? commentResult = await TryAsync(
+            Comment? commentResult = await TryAsync(
                 "SendCommentAsync(Episode)",
                 () => client.SendCommentAsync(episodeTarget, commentText, cancellationToken)
             );
@@ -109,7 +109,7 @@ internal static partial class SampleSteps
             {
                 // 2. 在自己刚刚发的评论里发表回复
                 string replyText = $"回复_{marker}";
-                PhoenixOperationResult? replyResult = await TryAsync(
+                CommentReply? replyResult = await TryAsync(
                     "SendCommentReplyAsync(on self comment)",
                     () =>
                         client.SendCommentReplyAsync(
@@ -155,11 +155,12 @@ internal static partial class SampleSteps
 
             // 6. 发表弹幕
             string danmakuText = $"弹幕_{marker}";
-            PhoenixOperationResult? danmakuResult = await TryAsync("SendDanmakuAsync", () =>
+            DanmakuItem? danmakuResult = await TryAsync("SendDanmakuAsync", () =>
                 client.SendDramaEpisodeDanmakuAsync(
                     dramaId,
                     videoId,
                     danmakuText,
+                    offsetMs: 0,
                     cancellationToken
                 )
             );
@@ -178,7 +179,7 @@ internal static partial class SampleSteps
             // 8. 剧评：发表与删除生命周期测试
             string reviewDramaId = dramaId;
             string reviewText = $"剧评_{marker}_{Guid.NewGuid().ToString("N")[..6]}";
-            PhoenixOperationResult? reviewResult = null;
+            DramaReview? reviewResult = null;
             try
             {
                 reviewResult = await client.SendDramaReviewAsync(

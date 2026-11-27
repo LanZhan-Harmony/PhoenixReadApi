@@ -141,7 +141,7 @@ public sealed class UserTests
             .FirstOrDefault(static x => x is not null);
         if (postItem is not null && postItem.Id.Length > 0)
         {
-            Post post = await SharedScenario.Client.GetCirclePostAsync(postItem.Id, timeout.Token);
+            Post post = await SharedScenario.Client.GetPostDetailsAsync(postItem.Id, timeout.Token);
             await SharedScenario.AssertValidCirclePost(post);
 
             CommentPage postComments = await SharedScenario.Client.GetCommentsAsync(
@@ -167,7 +167,7 @@ public sealed class UserTests
             .FirstOrDefault(static x => x is not null);
         if (videoItem is not null && videoItem.Id.Length > 0)
         {
-            ShortVideo video = await SharedScenario.Client.GetCircleVideoAsync(
+            ShortVideo video = await SharedScenario.Client.GetShortVideoDetailsAsync(
                 videoItem.Id,
                 timeout.Token
             );

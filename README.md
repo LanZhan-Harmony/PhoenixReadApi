@@ -668,13 +668,13 @@ foreach (CircleItem item in circle.Items)
     }
 }
 
-// 获取红果圈图文帖子正文详情（含高清图集与 #话题）与评论
-Post post = await client.GetCirclePostAsync("7699803166862688830", cts.Token);
+// 获取图文帖子正文详情（含高清图集与 #话题）与评论
+Post post = await client.GetPostDetailsAsync("7699803166862688830", cts.Token);
 Console.WriteLine($"图文正文: {post.PureText}, 配图数: {post.Images.Count}, 话题: {string.Join(", ", post.Topics)}");
 CommentPage postComments = await client.GetCommentsAsync(CommentTarget.FromPost("7699803166862688830"), count: 20, cancellationToken: cts.Token);
 
-// 获取红果圈短视频详情、播放链接与评论
-ShortVideo video = await client.GetCircleVideoAsync("7696233443998305342", cts.Token);
+// 获取独立短视频或合集子视频详情、播放链接与评论
+ShortVideo video = await client.GetShortVideoDetailsAsync("7696233443998305342", cts.Token);
 IReadOnlyList<PlaybackMedia> videoMedias = await client.ResolveShortVideoMediaAsync(video, cts.Token);
 Console.WriteLine($"视频标题: {video.Title}, 时长: {video.DurationSeconds}秒, 首选播放链接: {videoMedias[0].Url}");
 CommentPage videoComments = await client.GetCommentsAsync(CommentTarget.FromShortVideo("7696233443998305342"), count: 20, cancellationToken: cts.Token);

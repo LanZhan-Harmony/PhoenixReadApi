@@ -103,7 +103,7 @@ internal sealed class CommentService : PhoenixFeatureService
         };
     }
 
-    internal Task<PhoenixOperationResult> SendCommentAsync(
+    internal Task<Comment> SendCommentAsync(
         CommentTarget target,
         string text,
         CancellationToken cancellationToken
@@ -136,7 +136,7 @@ internal sealed class CommentService : PhoenixFeatureService
         };
     }
 
-    internal Task<PhoenixOperationResult> SendCommentReplyAsync(
+    internal Task<CommentReply> SendCommentReplyAsync(
         CommentTarget target,
         string commentId,
         string text,
@@ -539,14 +539,28 @@ internal sealed class CommentService : PhoenixFeatureService
         };
     }
 
-    internal Task<PhoenixOperationResult> SendCommentAsync(
+    internal async Task<Comment> SendCommentAsync(
         string dramaId,
         string videoId,
         string text,
         CancellationToken cancellationToken
-    ) => AddCommentAsync(dramaId, videoId, text, isEpisode: true, score: 0, cancellationToken);
+    )
+    {
+        string normalizedText = NormalizeText(text);
+        AppCommentAddData? data = await AddCommentAsync(
+                dramaId,
+                videoId,
+                normalizedText,
+                isEpisode: true,
+                score: 0,
+                offsetMs: 0,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return MapCreatedComment(data, normalizedText);
+    }
 
-    internal Task<PhoenixOperationResult> SendReviewAsync(
+    internal async Task<DramaReview> SendReviewAsync(
         string dramaId,
         double rating,
         string text,
@@ -560,39 +574,60 @@ internal sealed class CommentService : PhoenixFeatureService
                 "剧评分必须是 0.5 到 5 之间的半星倍数。"
             );
         }
-        return AddCommentAsync(
-            dramaId,
-            dramaId,
-            text,
-            isEpisode: false,
-            ScoreFromRating(rating),
-            cancellationToken
-        );
+
+        string normalizedText = NormalizeText(text);
+        int score = ScoreFromRating(rating);
+        AppCommentAddData? data = await AddCommentAsync(
+                dramaId,
+                dramaId,
+                normalizedText,
+                isEpisode: false,
+                score,
+                offsetMs: 0,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return MapCreatedReview(data, normalizedText, score);
     }
 
-    internal Task<PhoenixOperationResult> SendReviewAsync(
+    internal Task<DramaReview> SendReviewAsync(
         string dramaId,
         string text,
         CancellationToken cancellationToken
     ) => SendReviewAsync(dramaId, 5.0, text, cancellationToken);
 
-    internal Task<PhoenixOperationResult> SendDanmakuAsync(
+    internal async Task<DanmakuItem> SendDanmakuAsync(
         string dramaId,
         string videoId,
         string text,
+        long offsetMs,
         CancellationToken cancellationToken
-    ) =>
-        AddCommentAsync(
-            dramaId,
-            videoId,
-            text,
-            isEpisode: true,
-            score: 0,
-            cancellationToken,
-            danmaku: true
-        );
+    )
+    {
+        if (offsetMs < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(offsetMs),
+                "弹幕时间偏移不能为负数。"
+            );
+        }
 
-    internal async Task<PhoenixOperationResult> SendShortVideoDanmakuAsync(
+        string normalizedText = NormalizeText(text);
+        AppCommentAddData? data = await AddCommentAsync(
+                dramaId,
+                videoId,
+                normalizedText,
+                isEpisode: true,
+                score: 0,
+                offsetMs,
+                cancellationToken,
+                danmaku: true
+            )
+            .ConfigureAwait(false);
+        return MapCreatedDanmaku(data, normalizedText, offsetMs);
+    }
+
+    internal async Task<DanmakuItem> SendShortVideoDanmakuAsync(
         string videoId,
         string text,
         long offsetMs,
@@ -636,14 +671,10 @@ internal sealed class CommentService : PhoenixFeatureService
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
-        string createdId = ValueNormalizer.First(
-            response.Data?.CommentInfo?.CommentId,
-            response.Data?.CommentId
-        );
-        return Operation(response.Message, createdId);
+        return MapCreatedDanmaku(response.Data, text, offsetMs);
     }
 
-    internal async Task<PhoenixOperationResult> SendPostCommentAsync(
+    internal async Task<Comment> SendPostCommentAsync(
         string postId,
         string text,
         CancellationToken cancellationToken
@@ -677,14 +708,10 @@ internal sealed class CommentService : PhoenixFeatureService
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
-        string createdId = ValueNormalizer.First(
-            response.Data?.CommentInfo?.CommentId,
-            response.Data?.CommentId
-        );
-        return Operation(response.Message, createdId);
+        return MapCreatedComment(response.Data, text);
     }
 
-    internal async Task<PhoenixOperationResult> SendShortVideoCommentAsync(
+    internal async Task<Comment> SendShortVideoCommentAsync(
         string videoId,
         string text,
         CancellationToken cancellationToken
@@ -719,11 +746,7 @@ internal sealed class CommentService : PhoenixFeatureService
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
-        string createdId = ValueNormalizer.First(
-            response.Data?.CommentInfo?.CommentId,
-            response.Data?.CommentId
-        );
-        return Operation(response.Message, createdId);
+        return MapCreatedComment(response.Data, text);
     }
 
     internal async Task<PhoenixOperationResult> LikeCommentAsync(
@@ -932,7 +955,7 @@ internal sealed class CommentService : PhoenixFeatureService
             serverChannel: 26
         );
 
-    internal async Task<PhoenixOperationResult> SendReplyAsync(
+    internal async Task<CommentReply> SendReplyAsync(
         string commentId,
         string dramaId,
         string videoId,
@@ -987,15 +1010,10 @@ internal sealed class CommentService : PhoenixFeatureService
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
-        string replyId = ValueNormalizer.First(
-            response.Data?.Reply?.ReplyId,
-            response.Data?.Reply?.Id,
-            response.Data?.ReplyId
-        );
-        return Operation(response.Message, replyId);
+        return MapCreatedReply(response.Data, commentId, text, normalizedReplyUser ?? string.Empty);
     }
 
-    internal Task<PhoenixOperationResult> SendDramaReviewReplyAsync(
+    internal Task<CommentReply> SendDramaReviewReplyAsync(
         string commentId,
         string dramaId,
         string text,
@@ -1011,7 +1029,7 @@ internal sealed class CommentService : PhoenixFeatureService
             cancellationToken
         );
 
-    internal Task<PhoenixOperationResult> SendPostReplyAsync(
+    internal Task<CommentReply> SendPostReplyAsync(
         string commentId,
         string postId,
         string text,
@@ -1033,7 +1051,7 @@ internal sealed class CommentService : PhoenixFeatureService
             cancellationToken
         );
 
-    internal Task<PhoenixOperationResult> SendShortVideoReplyAsync(
+    internal Task<CommentReply> SendShortVideoReplyAsync(
         string commentId,
         string videoId,
         string text,
@@ -1055,7 +1073,7 @@ internal sealed class CommentService : PhoenixFeatureService
             cancellationToken
         );
 
-    private async Task<PhoenixOperationResult> SendTargetReplyAsync(
+    private async Task<CommentReply> SendTargetReplyAsync(
         string commentId,
         string groupId,
         string? bookId,
@@ -1104,12 +1122,7 @@ internal sealed class CommentService : PhoenixFeatureService
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
-        string replyId = ValueNormalizer.First(
-            response.Data?.Reply?.ReplyId,
-            response.Data?.Reply?.Id,
-            response.Data?.ReplyId
-        );
-        return Operation(response.Message, replyId);
+        return MapCreatedReply(response.Data, commentId, text, normalizedReplyUser ?? string.Empty);
     }
 
     internal Task<PhoenixOperationResult> DeleteReplyAsync(
@@ -1496,12 +1509,13 @@ internal sealed class CommentService : PhoenixFeatureService
             .. value.Select(static c => char.IsControl(c) || c is '\u2028' or '\u2029' ? ' ' : c),
         ]).Trim();
 
-    private async Task<PhoenixOperationResult> AddCommentAsync(
+    private async Task<AppCommentAddData?> AddCommentAsync(
         string dramaId,
         string targetId,
         string text,
         bool isEpisode,
         int score,
+        long offsetMs,
         CancellationToken cancellationToken,
         bool danmaku = false
     )
@@ -1534,7 +1548,7 @@ internal sealed class CommentService : PhoenixFeatureService
                     BusinessParameter = new AppCommentAddBusinessParameter
                     {
                         BookId = dramaId,
-                        Offset = 0,
+                        Offset = offsetMs,
                         Score = score,
                         VideoId = isEpisode ? targetId : string.Empty,
                     },
@@ -1546,11 +1560,121 @@ internal sealed class CommentService : PhoenixFeatureService
                 retryMode: AppRequestRetryMode.NoRetry
             )
             .ConfigureAwait(false);
-        string createdId = ValueNormalizer.First(
-            response.Data?.CommentInfo?.CommentId,
-            response.Data?.CommentId
-        );
-        return Operation(response.Message, createdId);
+        return response.Data;
+    }
+
+    private static Comment MapCreatedComment(AppCommentAddData? data, string fallbackText)
+    {
+        AppComment info = data?.CommentInfo ?? new();
+        AppCommentCommon common = info.Common ?? new();
+        AppCommentExpand expand = info.Expand ?? new();
+        AppCommentStat stat = info.Stat ?? new();
+        string id = ValueNormalizer.First(info.Id, data?.CommentId);
+        string text = SanitizeText(ValueNormalizer.First(common.Content?.Text, fallbackText));
+        return new Comment
+        {
+            Id = id,
+            Text = text,
+            Author = MapCommentUser(common.UserInfo),
+            CreatedAtUnixSeconds = Math.Max(0, common.CreatedAt),
+            OffsetMs = Math.Max(0, expand.OffsetTime),
+            LikeCount = Math.Max(0, stat.LikeCount),
+            ReplyCount = Math.Max(0, stat.ReplyCount),
+            Images = MapCommentImages(info),
+        };
+    }
+
+    private static DramaReview MapCreatedReview(
+        AppCommentAddData? data,
+        string fallbackText,
+        int fallbackScore
+    )
+    {
+        AppComment info = data?.CommentInfo ?? new();
+        AppCommentCommon common = info.Common ?? new();
+        AppCommentExpand expand = info.Expand ?? new();
+        AppCommentStat stat = info.Stat ?? new();
+        string id = ValueNormalizer.First(info.Id, data?.CommentId);
+        string text = SanitizeText(ValueNormalizer.First(common.Content?.Text, fallbackText));
+        return new DramaReview
+        {
+            Id = id,
+            Text = text,
+            Author = MapCommentUser(common.UserInfo),
+            CreatedAtUnixSeconds = Math.Max(0, common.CreatedAt),
+            Rating = expand.Score > 0 ? expand.Score : fallbackScore,
+            RatingText = expand.ScoreSuffixText,
+            LikeCount = Math.Max(0, stat.LikeCount),
+            ReplyCount = Math.Max(0, stat.ReplyCount),
+            Images = MapCommentImages(info),
+        };
+    }
+
+    private static DanmakuItem MapCreatedDanmaku(
+        AppCommentAddData? data,
+        string fallbackText,
+        long fallbackOffsetMs
+    )
+    {
+        AppComment info = data?.CommentInfo ?? new();
+        AppCommentCommon common = info.Common ?? new();
+        AppCommentExpand expand = info.Expand ?? new();
+        string id = ValueNormalizer.First(info.Id, data?.CommentId);
+        string text = SanitizeText(ValueNormalizer.First(common.Content?.Text, fallbackText));
+        return new DanmakuItem
+        {
+            Id = id,
+            Text = text,
+            OffsetMs = expand.OffsetTime > 0 ? expand.OffsetTime : Math.Max(0, fallbackOffsetMs),
+        };
+    }
+
+    private static CommentReply MapCreatedReply(
+        AppReplyAddData? data,
+        string fallbackCommentId,
+        string fallbackText,
+        string fallbackReplyToUserId
+    )
+    {
+        if (data?.Reply is { } record)
+        {
+            CommentReply mapped = MapReply(record);
+            string resolvedId = ValueNormalizer.First(mapped.Id, data.ReplyId);
+            return new CommentReply
+            {
+                Id = resolvedId,
+                CommentId = ValueNormalizer.First(mapped.CommentId, fallbackCommentId),
+                ReplyToUserId = ValueNormalizer.First(mapped.ReplyToUserId, fallbackReplyToUserId),
+                Text = ValueNormalizer.First(mapped.Text, SanitizeText(fallbackText)),
+                Author = mapped.Author,
+                CreatedAtUnixSeconds = mapped.CreatedAtUnixSeconds,
+                LikeCount = mapped.LikeCount,
+                Images = mapped.Images,
+            };
+        }
+
+        return new CommentReply
+        {
+            Id = data?.ReplyId ?? string.Empty,
+            CommentId = fallbackCommentId,
+            ReplyToUserId = fallbackReplyToUserId,
+            Text = SanitizeText(fallbackText),
+        };
+    }
+
+    private static User MapCommentUser(AppCommentUserInfo? userInfo)
+    {
+        AppCommentUserBaseInfo? baseInfo = userInfo?.BaseInfo;
+        return new User
+        {
+            Id = ValueNormalizer.First(userInfo?.Id, baseInfo?.UserId, string.Empty),
+            Name = ValueNormalizer.First(userInfo?.Name, baseInfo?.Name, string.Empty),
+            AvatarUrl = ValueNormalizer.First(
+                userInfo?.AvatarUrl,
+                baseInfo?.AvatarUrl,
+                string.Empty
+            ),
+        };
     }
 
     private static CommentReply MapReply(AppReplyRecord record)

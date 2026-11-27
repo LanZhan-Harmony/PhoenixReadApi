@@ -485,36 +485,39 @@ public sealed class AlbumAndShortVideoTests
         await Assert.That(dmPage.Items[0].Id).IsEqualTo("7712450675655525144");
         await Assert.That(dmPage.Items[0].OffsetMs).IsEqualTo(42121);
 
-        PhoenixOperationResult sendDm = await client.SendShortVideoDanmakuAsync(
+        DanmakuItem sendDm = await client.SendShortVideoDanmakuAsync(
             "7706480472527752216",
             "test dm",
             42121
         );
-        await Assert.That(sendDm.Succeeded).IsTrue();
         await Assert.That(sendDm.Id).IsEqualTo("7712448761013797694");
+        await Assert.That(sendDm.Text).IsEqualTo("test dm");
+        await Assert.That(sendDm.OffsetMs).IsEqualTo(42121);
 
         CommentTarget svTarget = CommentTarget.FromShortVideo("7706480472527752216");
-        PhoenixOperationResult sendSvComment = await client.SendCommentAsync(svTarget, "sv cmt");
+        Comment sendSvComment = await client.SendCommentAsync(svTarget, "sv cmt");
         await Assert.That(sendSvComment.Id).IsEqualTo("7712448761013797694");
+        await Assert.That(sendSvComment.Text).IsEqualTo("sv cmt");
 
-        PhoenixOperationResult sendSvReply = await client.SendCommentReplyAsync(
+        CommentReply sendSvReply = await client.SendCommentReplyAsync(
             svTarget,
             "7712448761013797694",
             "sv reply"
         );
         await Assert.That(sendSvReply.Id).IsEqualTo("7712451462601130776");
+        await Assert.That(sendSvReply.Text).IsEqualTo("sv reply");
 
         await client.DeleteReplyAsync(svTarget, "7712451462601130776");
         await client.DeleteCommentAsync(svTarget, "7712448761013797694");
 
         CommentTarget postTarget = CommentTarget.FromPost("7491964240782246425");
-        PhoenixOperationResult sendPostComment = await client.SendCommentAsync(
+        Comment sendPostComment = await client.SendCommentAsync(
             postTarget,
             "post cmt"
         );
         await Assert.That(sendPostComment.Id).IsEqualTo("7712448761013797694");
 
-        PhoenixOperationResult sendPostReply = await client.SendCommentReplyAsync(
+        CommentReply sendPostReply = await client.SendCommentReplyAsync(
             postTarget,
             "7712448761013797694",
             "post reply"

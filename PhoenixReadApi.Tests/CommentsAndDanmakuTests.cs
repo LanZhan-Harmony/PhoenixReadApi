@@ -308,17 +308,16 @@ public sealed class CommentsAndDanmakuTests
             scenario.Episode.VideoId
         );
         // 1. 发送分集评论并获取返回的 Comment ID
-        PhoenixOperationResult comment = await authClient.SendCommentAsync(
+        Comment comment = await authClient.SendCommentAsync(
             episodeTarget,
             marker,
             timeout.Token
         );
         await Assert.That(comment).IsNotNull();
-        await Assert.That(comment.Succeeded).IsTrue();
         await Assert.That(string.IsNullOrWhiteSpace(comment.Id)).IsFalse();
 
         // 2. 在自己刚刚发布的评论中发表回复并获取返回的 Reply ID
-        PhoenixOperationResult reply = await authClient.SendCommentReplyAsync(
+        CommentReply reply = await authClient.SendCommentReplyAsync(
             episodeTarget,
             comment.Id,
             $"回复_{marker}",
@@ -326,7 +325,6 @@ public sealed class CommentsAndDanmakuTests
             timeout.Token
         );
         await Assert.That(reply).IsNotNull();
-        await Assert.That(reply.Succeeded).IsTrue();
         await Assert.That(string.IsNullOrWhiteSpace(reply.Id)).IsFalse();
 
         // 3. 删除时先删回复！删除失败纳入测试失败范畴
@@ -348,14 +346,14 @@ public sealed class CommentsAndDanmakuTests
         await Assert.That(delComment.Succeeded).IsTrue();
 
         // 5. 弹幕生命周期：发送并删除
-        PhoenixOperationResult danmaku = await authClient.SendDramaEpisodeDanmakuAsync(
+        DanmakuItem danmaku = await authClient.SendDramaEpisodeDanmakuAsync(
             scenario.DramaId,
             scenario.Episode.VideoId,
             marker,
+            offsetMs: 0,
             timeout.Token
         );
         await Assert.That(danmaku).IsNotNull();
-        await Assert.That(danmaku.Succeeded).IsTrue();
         await Assert.That(string.IsNullOrWhiteSpace(danmaku.Id)).IsFalse();
 
         PhoenixOperationResult delDanmaku = await authClient.DeleteDanmakuAsync(
@@ -381,14 +379,13 @@ public sealed class CommentsAndDanmakuTests
         string reviewText =
             $"测试剧评_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Guid.NewGuid().ToString("N")[..6]}";
 
-        PhoenixOperationResult review = await authClient.SendDramaReviewAsync(
+        DramaReview review = await authClient.SendDramaReviewAsync(
             scenario.DramaId,
             5.0,
             reviewText,
             timeout.Token
         );
         await Assert.That(review).IsNotNull();
-        await Assert.That(review.Succeeded).IsTrue();
         await Assert.That(string.IsNullOrWhiteSpace(review.Id)).IsFalse();
 
         // 删除剧评！删除失败纳入测试失败范畴

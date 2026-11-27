@@ -22,9 +22,9 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="rating">用户评分，范围为 0.5 到 5.0，必须是 0.5 的倍数。</param>
     /// <param name="text">剧评文本，长度为 1 到 4000 个字符。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回剧评 ID。</returns>
+    /// <returns>已发送的剧评实体。</returns>
     /// <remarks>红果协议中的 score 会自动按 0.5 星映射为 0 到 9。</remarks>
-    public Task<PhoenixOperationResult> SendDramaReviewAsync(
+    public Task<DramaReview> SendDramaReviewAsync(
         string dramaId,
         double rating,
         string text,
@@ -65,8 +65,8 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="target">评论目标。</param>
     /// <param name="text">评论文本，长度为 1 到 4000 个字符。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回评论 ID。</returns>
-    public Task<PhoenixOperationResult> SendCommentAsync(
+    /// <returns>已发送的评论实体。</returns>
+    public Task<Comment> SendCommentAsync(
         CommentTarget target,
         string text,
         CancellationToken cancellationToken = default
@@ -78,8 +78,8 @@ public sealed partial class PhoenixReadApiClient
     /// <param name="text">回复文本，长度为 1 到 4000 个字符。</param>
     /// <param name="replyToUserId">要回复的用户 ID；没有指定时传空字符串。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回回复 ID。</returns>
-    public Task<PhoenixOperationResult> SendCommentReplyAsync(
+    /// <returns>已发送的回复实体。</returns>
+    public Task<CommentReply> SendCommentReplyAsync(
         CommentTarget target,
         string commentId,
         string text,

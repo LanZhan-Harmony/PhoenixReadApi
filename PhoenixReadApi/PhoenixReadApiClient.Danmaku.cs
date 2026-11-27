@@ -39,68 +39,35 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _danmaku.GetShortVideoAsync(videoId, startMs, durationMs, cancellationToken);
 
-    /// <summary>获取独立短视频或视频合集分集在指定时间窗口内的弹幕。</summary>
-    /// <param name="video">短视频模型。</param>
-    /// <param name="startMs">起始时间偏移（毫秒）。</param>
-    /// <param name="durationMs">查询窗口时长（毫秒），必须大于 0 且不超过 24 小时。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>按时间排序并清洗后的弹幕分页结果。</returns>
-    public Task<DanmakuPage> GetShortVideoDanmakuAsync(
-        ShortVideo video,
-        long startMs,
-        long durationMs,
-        CancellationToken cancellationToken = default
-    )
-    {
-        ArgumentNullException.ThrowIfNull(video);
-        return GetShortVideoDanmakuAsync(video.VideoId, startMs, durationMs, cancellationToken);
-    }
-
     /// <summary>为短剧分集发送一条弹幕。</summary>
     /// <param name="dramaId">剧集 ID。</param>
     /// <param name="videoId">分集视频 ID。</param>
     /// <param name="text">弹幕文本。</param>
+    /// <param name="offsetMs">弹幕在视频中的时间偏移（毫秒），默认为 0。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    /// <remarks>发送弹幕需要登录。当前接口不接受时间位置，服务端会按请求上下文处理。</remarks>
-    public Task<PhoenixOperationResult> SendDramaEpisodeDanmakuAsync(
+    /// <returns>已发送的弹幕实体。</returns>
+    /// <remarks>发送弹幕需要登录；服务端可能限制发送频率。</remarks>
+    public Task<DanmakuItem> SendDramaEpisodeDanmakuAsync(
         string dramaId,
         string videoId,
         string text,
+        long offsetMs = 0,
         CancellationToken cancellationToken = default
-    ) => _comment.SendDanmakuAsync(dramaId, videoId, text, cancellationToken);
+    ) => _comment.SendDanmakuAsync(dramaId, videoId, text, offsetMs, cancellationToken);
 
     /// <summary>为独立短视频或视频合集分集发送一条弹幕。</summary>
     /// <param name="videoId">短视频或合集分集视频 ID，必须是数字字符串。</param>
     /// <param name="text">弹幕文本。</param>
     /// <param name="offsetMs">弹幕在视频中的时间偏移（毫秒），默认为 0。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回弹幕 ID。</returns>
+    /// <returns>已发送的弹幕实体。</returns>
     /// <remarks>发送弹幕需要登录；服务端还可能限制发送频率。</remarks>
-    public Task<PhoenixOperationResult> SendShortVideoDanmakuAsync(
+    public Task<DanmakuItem> SendShortVideoDanmakuAsync(
         string videoId,
         string text,
         long offsetMs = 0,
         CancellationToken cancellationToken = default
     ) => _comment.SendShortVideoDanmakuAsync(videoId, text, offsetMs, cancellationToken);
-
-    /// <summary>为独立短视频或视频合集分集发送一条弹幕。</summary>
-    /// <param name="video">短视频模型。</param>
-    /// <param name="text">弹幕文本。</param>
-    /// <param name="offsetMs">弹幕在视频中的时间偏移（毫秒），默认为 0。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果，成功时在 <see cref="PhoenixOperationResult.Id"/> 中返回弹幕 ID。</returns>
-    /// <remarks>发送弹幕需要登录；服务端还可能限制发送频率。</remarks>
-    public Task<PhoenixOperationResult> SendShortVideoDanmakuAsync(
-        ShortVideo video,
-        string text,
-        long offsetMs = 0,
-        CancellationToken cancellationToken = default
-    )
-    {
-        ArgumentNullException.ThrowIfNull(video);
-        return SendShortVideoDanmakuAsync(video.VideoId, text, offsetMs, cancellationToken);
-    }
 
     /// <summary>点赞或取消点赞弹幕。</summary>
     /// <param name="commentId">弹幕 ID。</param>

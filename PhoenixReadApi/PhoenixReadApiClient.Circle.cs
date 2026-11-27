@@ -15,22 +15,4 @@ public sealed partial class PhoenixReadApiClient
         int count = 18,
         CancellationToken cancellationToken = default
     ) => _circle.GetUserCircleAsync(userId, cursor, count, cancellationToken);
-
-    /// <summary>获取指定红果圈图文帖子的完整正文、高清多图与关联短剧。</summary>
-    /// <param name="postId">图文帖子 ID，必须是数字字符串。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>红果圈图文帖子的详细资料实体。</returns>
-    public Task<Post> GetCirclePostAsync(
-        string postId,
-        CancellationToken cancellationToken = default
-    ) => _circle.GetCirclePostAsync(postId, cancellationToken);
-
-    /// <summary>获取指定红果圈短视频的完整元数据、演员阵容与关联短剧。</summary>
-    /// <param name="videoId">短视频 ID，必须是数字字符串。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>红果圈短视频的详细资料实体。</returns>
-    public Task<ShortVideo> GetCircleVideoAsync(
-        string videoId,
-        CancellationToken cancellationToken = default
-    ) => _circle.GetCircleVideoAsync(videoId, cancellationToken);
 }
