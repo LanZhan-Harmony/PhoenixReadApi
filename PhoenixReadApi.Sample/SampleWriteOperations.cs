@@ -46,16 +46,23 @@ internal static partial class SampleSteps
 
         if (dramaId.Length > 0 && videoId.Length > 0)
         {
+            await TryAsync("ReportHistoryAsync", () => client.ReportHistoryAsync(
+                    HistoryUpdate.FromDrama(
+                        dramaId,
+                        videoId,
+                        episode?.Number ?? 1,
+                        currentPositionMs: 1_000,
+                        accumulatedPlayTimeMs: 1_000
+                    ),
+                    cancellationToken
+                ));
             await TryAsync("ReportProgressAsync", () => client.ReportProgressAsync(
-                    new ProgressUpdate
-                    {
-                        DramaId = dramaId,
-                        VideoId = videoId,
-                        EpisodeNumber = episode?.Number ?? 0,
-                        CurrentPositionMs = 1_000,
-                        DurationMs = 60_000,
-                        AccumulatedPlayTimeMs = 1_000,
-                    },
+                    ProgressUpdate.FromDrama(
+                        dramaId,
+                        videoId,
+                        currentPlayTimeMs: 1_000,
+                        cumulativeTotalDurationMs: 60_000
+                    ),
                     cancellationToken
                 ));
             HistoryPage<Drama>? history = await TryAsync("GetDramaHistoryAsync", () =>
@@ -63,10 +70,18 @@ internal static partial class SampleSteps
             );
             PrintCount("  历史记录数", history?.Items.Count);
             await TryAsync("SetFavoriteAsync", () =>
-                client.SetFavoriteAsync(dramaId, videoId, true, cancellationToken)
+                client.SetFavoriteAsync(
+                    FavoriteTarget.FromDrama(dramaId, videoId),
+                    true,
+                    cancellationToken
+                )
             );
             await TryAsync("SetFavoriteAsync(false)", () =>
-                client.SetFavoriteAsync(dramaId, videoId, false, cancellationToken)
+                client.SetFavoriteAsync(
+                    FavoriteTarget.FromDrama(dramaId, videoId),
+                    false,
+                    cancellationToken
+                )
             );
 
             await TryAsync("SetDramaEpisodeLikeAsync", () =>

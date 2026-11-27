@@ -18,7 +18,58 @@ internal sealed class FavoriteService : LibraryServiceBase
     internal FavoriteService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
-    internal async Task<PhoenixOperationResult> SetFavoriteAsync(
+    internal Task<PhoenixOperationResult> SetFavoriteAsync(
+        FavoriteTarget target,
+        bool active,
+        CancellationToken cancellationToken
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.ContentType switch
+        {
+            HistoryContentType.Drama => SetDramaFavoriteAsync(
+                target.TargetId,
+                target.VideoId,
+                active,
+                cancellationToken
+            ),
+            HistoryContentType.VideoAlbum => SetVideoBookFavoriteAsync(
+                target.TargetId,
+                bookType: 3,
+                active,
+                cancellationToken
+            ),
+            HistoryContentType.ShortVideo => SetVideoBookFavoriteAsync(
+                target.TargetId,
+                bookType: 4,
+                active,
+                cancellationToken
+            ),
+            HistoryContentType.Post => SetPostFavoriteAsync(
+                target.TargetId,
+                active,
+                cancellationToken
+            ),
+            HistoryContentType.Novel => SetBookShelfFavoriteAsync(
+                target.TargetId,
+                bookType: 0,
+                active,
+                cancellationToken
+            ),
+            HistoryContentType.Audiobook => SetBookShelfFavoriteAsync(
+                target.TargetId,
+                bookType: 1,
+                active,
+                cancellationToken
+            ),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(target),
+                "不支持的收藏目标内容类型。"
+            ),
+        };
+    }
+
+    private async Task<PhoenixOperationResult> SetDramaFavoriteAsync(
         string dramaId,
         string videoId,
         bool active,
@@ -45,19 +96,7 @@ internal sealed class FavoriteService : LibraryServiceBase
         return Succeeded(response.Message);
     }
 
-    internal Task<PhoenixOperationResult> SetShortVideoFavoriteAsync(
-        string videoId,
-        bool active,
-        CancellationToken cancellationToken
-    ) => SetBookFavoriteAsync(videoId, bookType: 4, active, cancellationToken);
-
-    internal Task<PhoenixOperationResult> SetVideoAlbumFavoriteAsync(
-        string albumId,
-        bool active,
-        CancellationToken cancellationToken
-    ) => SetBookFavoriteAsync(albumId, bookType: 3, active, cancellationToken);
-
-    internal async Task<PhoenixOperationResult> SetPostFavoriteAsync(
+    private async Task<PhoenixOperationResult> SetPostFavoriteAsync(
         string postId,
         bool active,
         CancellationToken cancellationToken
@@ -90,7 +129,7 @@ internal sealed class FavoriteService : LibraryServiceBase
         return Succeeded(response.Message);
     }
 
-    private async Task<PhoenixOperationResult> SetBookFavoriteAsync(
+    private async Task<PhoenixOperationResult> SetVideoBookFavoriteAsync(
         string bookId,
         int bookType,
         bool active,
@@ -122,6 +161,67 @@ internal sealed class FavoriteService : LibraryServiceBase
             )
             .ConfigureAwait(false);
         return Succeeded(response.Message);
+    }
+
+    private async Task<PhoenixOperationResult> SetBookShelfFavoriteAsync(
+        string bookId,
+        int bookType,
+        bool active,
+        CancellationToken cancellationToken
+    )
+    {
+        bookId = NormalizeDramaId(bookId);
+        if (active)
+        {
+            AppBookShelfAddPayload addPayload = new()
+            {
+                AddBookSource = 0,
+                IdentifyData =
+                [
+                    new AppBookShelfIdentifyItem
+                    {
+                        Asterisked = false,
+                        BookId = bookId,
+                        BookType = bookType,
+                        ModifyTime = 0,
+                    },
+                ],
+            };
+            AppResponse<AppOperationResponse> addResponse = await _appTransport
+                .PostAsync<AppBookShelfAddPayload, AppOperationResponse>(
+                    "/reading/bookapi/bookshelf/add/v",
+                    addPayload,
+                    commentRequest: false,
+                    cancellationToken,
+                    retryMode: AppRequestRetryMode.NoRetry
+                )
+                .ConfigureAwait(false);
+            return Succeeded(addResponse.Message);
+        }
+
+        AppBookShelfDeletePayload deletePayload = new()
+        {
+            IdentifyData =
+            [
+                new AppBookShelfIdentifyItem
+                {
+                    Asterisked = false,
+                    BookId = bookId,
+                    BookType = bookType,
+                    ModifyTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                },
+            ],
+        };
+        AppResponse<AppOperationResponse> deleteResponse = await _appTransport
+            .PostAsync<AppBookShelfDeletePayload, AppOperationResponse>(
+                "/reading/bookapi/bookshelf/delete/v",
+                deletePayload,
+                commentRequest: false,
+                cancellationToken,
+                retryMode: AppRequestRetryMode.NoRetry
+            )
+            .ConfigureAwait(false);
+        return Succeeded(deleteResponse.Message);
     }
 
     internal async Task<IReadOnlyList<Novel>> GetNovelFavoritesAsync(
@@ -199,7 +299,7 @@ internal sealed class FavoriteService : LibraryServiceBase
         return dramas;
     }
 
-    internal async Task<IReadOnlyList<VideoAlbum>> GetAlbumFavoritesAsync(
+    internal async Task<IReadOnlyList<VideoAlbum>> GetVideoAlbumFavoritesAsync(
         CancellationToken cancellationToken
     )
     {
@@ -281,7 +381,9 @@ internal sealed class FavoriteService : LibraryServiceBase
                 [
                     new(
                         "server_time",
-                        DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)
+                        DateTimeOffset
+                            .UtcNow.ToUnixTimeSeconds()
+                            .ToString(CultureInfo.InvariantCulture)
                     ),
                 ],
                 cancellationToken
@@ -351,5 +453,8 @@ internal sealed class FavoriteService : LibraryServiceBase
     private static IReadOnlyList<string> ParseTags(string tags) =>
         string.IsNullOrWhiteSpace(tags)
             ? []
-            : tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            : tags.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            );
 }

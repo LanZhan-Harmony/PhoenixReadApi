@@ -864,10 +864,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 .ConfigureAwait(false);
 
             AppPlanCellDto? guessCell = plan.Data.FirstOrDefault(static c => c.ShowType == 506);
-            string resolvedSessionId = ValueNormalizer.First(
-                guessCell?.SessionId,
-                plan.SessionId
-            );
+            string resolvedSessionId = ValueNormalizer.First(guessCell?.SessionId, plan.SessionId);
             return guessCell is not null
                 ? MapFeedPage(guessCell, guessCell.NextOffset, guessCell.HasMore, resolvedSessionId)
                 : new RecommendationFeedPage { Title = "猜你喜欢", SessionId = resolvedSessionId };
@@ -907,7 +904,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
 
     internal async Task<Drama?> GetPlaybackEndRecommendationAsync(
         string id,
-        bool isAlbum,
+        bool isVideoAlbum,
         CancellationToken cancellationToken
     )
     {
@@ -918,7 +915,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 [
                     new("book_id", id),
                     new("filter_ids", id),
-                    new("from", isAlbum ? "series_end_recommend" : "series_end_bottom_bar"),
+                    new("from", isVideoAlbum ? "series_end_recommend" : "series_end_bottom_bar"),
                     new("scene", "10"),
                     new("user_is_login", UserIsLogin),
                 ],
@@ -1002,7 +999,10 @@ internal sealed partial class DramaService : PhoenixFeatureService
 
         IReadOnlyList<string> tags = string.IsNullOrWhiteSpace(book.Tags)
             ? []
-            : book.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            : book.Tags.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            );
 
         return new Novel
         {

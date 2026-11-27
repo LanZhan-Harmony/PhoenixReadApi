@@ -2,20 +2,6 @@ namespace PhoenixReadApi;
 
 public sealed partial class PhoenixReadApiClient
 {
-    /// <summary>获取当前客户端账号书架中收藏的小说列表（服务端 book_type=0，全量返回）。</summary>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>收藏的小说列表。</returns>
-    public Task<IReadOnlyList<Novel>> GetNovelFavoritesAsync(
-        CancellationToken cancellationToken = default
-    ) => _favorite.GetNovelFavoritesAsync(cancellationToken);
-
-    /// <summary>获取当前客户端账号书架中收藏的有声听书列表（服务端 book_type=1，全量返回）。</summary>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>收藏的有声听书列表。</returns>
-    public Task<IReadOnlyList<Audiobook>> GetAudiobookFavoritesAsync(
-        CancellationToken cancellationToken = default
-    ) => _favorite.GetAudiobookFavoritesAsync(cancellationToken);
-
     /// <summary>获取当前客户端账号收藏的短剧列表（服务端 book_type=2，全量返回）。</summary>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>收藏的短剧列表。</returns>
@@ -27,9 +13,9 @@ public sealed partial class PhoenixReadApiClient
     /// <summary>获取当前客户端账号收藏的视频合集列表（服务端 book_type=3，全量返回）。</summary>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>收藏的视频合集列表。</returns>
-    public Task<IReadOnlyList<VideoAlbum>> GetAlbumFavoritesAsync(
+    public Task<IReadOnlyList<VideoAlbum>> GetVideoAlbumFavoritesAsync(
         CancellationToken cancellationToken = default
-    ) => _favorite.GetAlbumFavoritesAsync(cancellationToken);
+    ) => _favorite.GetVideoAlbumFavoritesAsync(cancellationToken);
 
     /// <summary>获取当前客户端账号收藏的独立短视频列表（服务端 book_type=4，全量返回）。</summary>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
@@ -49,64 +35,28 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _favorite.GetPostFavoritesAsync(offset, count, cancellationToken);
 
-    /// <summary>收藏或取消收藏一部剧。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="videoId">用于定位收藏记录的分集视频 ID。</param>
+    /// <summary>获取当前客户端账号书架中收藏的小说列表（服务端 book_type=0，全量返回）。</summary>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>收藏的小说列表。</returns>
+    public Task<IReadOnlyList<Novel>> GetNovelFavoritesAsync(
+        CancellationToken cancellationToken = default
+    ) => _favorite.GetNovelFavoritesAsync(cancellationToken);
+
+    /// <summary>获取当前客户端账号书架中收藏的有声听书列表（服务端 book_type=1，全量返回）。</summary>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>收藏的有声听书列表。</returns>
+    public Task<IReadOnlyList<Audiobook>> GetAudiobookFavoritesAsync(
+        CancellationToken cancellationToken = default
+    ) => _favorite.GetAudiobookFavoritesAsync(cancellationToken);
+
+    /// <summary>收藏或取消收藏指定目标（支持短剧、视频合集、短视频、图文帖子、有声书与小说）。</summary>
+    /// <param name="target">收藏目标描述符（可通过 <see cref="FavoriteTarget"/> 的静态工厂方法构造）。</param>
     /// <param name="active">true 表示收藏，false 表示取消收藏。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>服务端操作结果。</returns>
     public Task<PhoenixOperationResult> SetFavoriteAsync(
-        string dramaId,
-        string videoId,
+        FavoriteTarget target,
         bool active = true,
         CancellationToken cancellationToken = default
-    ) => _favorite.SetFavoriteAsync(dramaId, videoId, active, cancellationToken);
-
-    /// <summary>收藏或取消收藏一个独立短视频。</summary>
-    /// <param name="videoId">短视频 ID，必须是数字字符串。</param>
-    /// <param name="active">true 表示收藏，false 表示取消收藏。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetShortVideoFavoriteAsync(
-        string videoId,
-        bool active = true,
-        CancellationToken cancellationToken = default
-    ) => _favorite.SetShortVideoFavoriteAsync(videoId, active, cancellationToken);
-
-    /// <summary>收藏或取消收藏一个视频合集。</summary>
-    /// <param name="albumId">视频合集 ID，必须是数字字符串。</param>
-    /// <param name="active">true 表示收藏，false 表示取消收藏。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetVideoAlbumFavoriteAsync(
-        string albumId,
-        bool active = true,
-        CancellationToken cancellationToken = default
-    ) => _favorite.SetVideoAlbumFavoriteAsync(albumId, active, cancellationToken);
-
-    /// <summary>收藏或取消收藏一个 <see cref="VideoAlbum"/> 视频合集实体。</summary>
-    /// <param name="album">视频合集实体。</param>
-    /// <param name="active">true 表示收藏，false 表示取消收藏。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetVideoAlbumFavoriteAsync(
-        VideoAlbum album,
-        bool active = true,
-        CancellationToken cancellationToken = default
-    )
-    {
-        ArgumentNullException.ThrowIfNull(album);
-        return SetVideoAlbumFavoriteAsync(album.Id, active, cancellationToken);
-    }
-
-    /// <summary>收藏或取消收藏一篇图文帖子。</summary>
-    /// <param name="postId">图文帖子 ID，必须是数字字符串。</param>
-    /// <param name="active">true 表示收藏，false 表示取消收藏。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetPostFavoriteAsync(
-        string postId,
-        bool active = true,
-        CancellationToken cancellationToken = default
-    ) => _favorite.SetPostFavoriteAsync(postId, active, cancellationToken);
+    ) => _favorite.SetFavoriteAsync(target, active, cancellationToken);
 }

@@ -19,6 +19,9 @@ public sealed class HistoryItem<T>
     /// <summary>最近播放位置（毫秒）。</summary>
     public long CurrentPositionMs { get; init; }
 
+    /// <summary>累计播放时长（毫秒）。</summary>
+    public long AccumulatedPlayTimeMs { get; init; }
+
     /// <summary>视频时长（毫秒）。</summary>
     public long DurationMs { get; init; }
 

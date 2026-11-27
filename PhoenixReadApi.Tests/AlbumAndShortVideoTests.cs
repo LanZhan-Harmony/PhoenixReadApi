@@ -553,6 +553,8 @@ public sealed class AlbumAndShortVideoTests
                 if (
                     path.Contains("/bookshelf/video/update/v")
                     || path.Contains("/articleapi/do_action/v1/")
+                    || path.Contains("/bookshelf/add/v")
+                    || path.Contains("/bookshelf/delete/v")
                 )
                 {
                     requests.Add((path, body ?? string.Empty));
@@ -564,12 +566,16 @@ public sealed class AlbumAndShortVideoTests
         using HttpClient httpClient = new(handler);
         using PhoenixReadApiClient client = new(httpClient);
 
-        await client.SetShortVideoFavoriteAsync("7711744740370156569", true);
-        await client.SetShortVideoFavoriteAsync("7711744740370156569", false);
-        await client.SetVideoAlbumFavoriteAsync("7706480483017690137", true);
-        await client.SetVideoAlbumFavoriteAsync("7706480483017690137", false);
-        await client.SetPostFavoriteAsync("7679289401964298776", true);
-        await client.SetPostFavoriteAsync("7679289401964298776", false);
+        await client.SetFavoriteAsync(FavoriteTarget.FromShortVideo("7711744740370156569"), true);
+        await client.SetFavoriteAsync(FavoriteTarget.FromShortVideo("7711744740370156569"), false);
+        await client.SetFavoriteAsync(FavoriteTarget.FromVideoAlbum("7706480483017690137"), true);
+        await client.SetFavoriteAsync(FavoriteTarget.FromVideoAlbum("7706480483017690137"), false);
+        await client.SetFavoriteAsync(FavoriteTarget.FromPost("7679289401964298776"), true);
+        await client.SetFavoriteAsync(FavoriteTarget.FromPost("7679289401964298776"), false);
+        await client.SetFavoriteAsync(FavoriteTarget.FromAudiobook("7259706204455373885"), true);
+        await client.SetFavoriteAsync(FavoriteTarget.FromAudiobook("7181811308424072249"), false);
+        await client.SetFavoriteAsync(FavoriteTarget.FromNovel("7414011485757639704"), true);
+        await client.SetFavoriteAsync(FavoriteTarget.FromNovel("7414011485757639704"), false);
         await client.SetShortVideoLikeAsync("7711744740370156569", true);
         await client.SetShortVideoLikeAsync("7711744740370156569", false);
         await client.SetPostLikeAsync("7679289401964298776", true);
@@ -584,18 +590,26 @@ public sealed class AlbumAndShortVideoTests
         await Assert.That(requests[2].Body.Contains("\"video_shelf_operate_type\":0")).IsTrue();
         await Assert.That(requests[3].Body.Contains("\"video_shelf_operate_type\":1")).IsTrue();
 
+        await Assert.That(requests[6].Path.Contains("/bookshelf/add/v")).IsTrue();
+        await Assert.That(requests[6].Body.Contains("\"book_type\":1")).IsTrue();
+        await Assert.That(requests[7].Path.Contains("/bookshelf/delete/v")).IsTrue();
+        await Assert.That(requests[7].Body.Contains("\"book_type\":1")).IsTrue();
+        await Assert.That(requests[8].Path.Contains("/bookshelf/add/v")).IsTrue();
+        await Assert.That(requests[8].Body.Contains("\"book_type\":0")).IsTrue();
+        await Assert.That(requests[9].Path.Contains("/bookshelf/delete/v")).IsTrue();
+
         await Assert.That(requests[4].Path.Contains("/articleapi/do_action/v1/")).IsTrue();
         await Assert.That(requests[4].Body.Contains("\"object_type\":16")).IsTrue();
         await Assert.That(requests[4].Body.Contains("\"action_type\":25")).IsTrue();
         await Assert.That(requests[5].Body.Contains("\"action_type\":26")).IsTrue();
 
-        await Assert.That(requests[6].Body.Contains("\"object_type\":10")).IsTrue();
-        await Assert.That(requests[6].Body.Contains("\"action_type\":3")).IsTrue();
-        await Assert.That(requests[7].Body.Contains("\"action_type\":4")).IsTrue();
+        await Assert.That(requests[10].Body.Contains("\"object_type\":10")).IsTrue();
+        await Assert.That(requests[10].Body.Contains("\"action_type\":3")).IsTrue();
+        await Assert.That(requests[11].Body.Contains("\"action_type\":4")).IsTrue();
 
-        await Assert.That(requests[8].Body.Contains("\"object_type\":16")).IsTrue();
-        await Assert.That(requests[8].Body.Contains("\"action_type\":3")).IsTrue();
-        await Assert.That(requests[9].Body.Contains("\"action_type\":4")).IsTrue();
+        await Assert.That(requests[12].Body.Contains("\"object_type\":16")).IsTrue();
+        await Assert.That(requests[12].Body.Contains("\"action_type\":3")).IsTrue();
+        await Assert.That(requests[13].Body.Contains("\"action_type\":4")).IsTrue();
     }
 
     [Test]
@@ -684,7 +698,7 @@ public sealed class AlbumAndShortVideoTests
         await Assert.That(shortVideos.Count).IsEqualTo(1);
         await Assert.That(shortVideos[0].VideoId).IsEqualTo("7666132887825042494");
 
-        IReadOnlyList<VideoAlbum> albums = await client.GetAlbumFavoritesAsync();
+        IReadOnlyList<VideoAlbum> albums = await client.GetVideoAlbumFavoritesAsync();
         await Assert.That(albums.Count).IsEqualTo(1);
         await Assert.That(albums[0].Id).IsEqualTo("7706480483017690137");
 
@@ -785,25 +799,34 @@ public sealed class AlbumAndShortVideoTests
             }
             """;
 
-        using MockHandler handler = new((req, _) =>
-        {
-            string path = req.RequestUri?.AbsolutePath ?? string.Empty;
-            string query = req.RequestUri?.Query ?? string.Empty;
-            if (path.Contains("/bookmall/cell/change/")) return cellChangeJson;
-            if (path.Contains("/plan/v") && query.Contains("detail_page_more_related")) return planRelatedJson;
-            if (path.Contains("/plan/v") && query.Contains("series_end_")) return playbackEndJson;
-            return "{}";
-        });
+        using MockHandler handler = new(
+            (req, _) =>
+            {
+                string path = req.RequestUri?.AbsolutePath ?? string.Empty;
+                string query = req.RequestUri?.Query ?? string.Empty;
+                if (path.Contains("/bookmall/cell/change/"))
+                    return cellChangeJson;
+                if (path.Contains("/plan/v") && query.Contains("detail_page_more_related"))
+                    return planRelatedJson;
+                if (path.Contains("/plan/v") && query.Contains("series_end_"))
+                    return playbackEndJson;
+                return "{}";
+            }
+        );
 
         using HttpClient httpClient = new(handler);
         using PhoenixReadApiClient client = new(httpClient);
 
-        IReadOnlyList<RelatedWorkItem> related = await client.GetDramaRelatedWorksAsync("7527125460430375961");
+        IReadOnlyList<RelatedWorkItem> related = await client.GetDramaRelatedWorksAsync(
+            "7527125460430375961"
+        );
         await Assert.That(related.Count).IsEqualTo(2);
         await Assert.That((related[0].Value as Drama)?.Id).IsEqualTo("7593750960325790745");
         await Assert.That((related[1].Value as Novel)?.Id).IsEqualTo("7111111111111111111");
 
-        RecommendationFeedPage page1 = await client.GetDramaGuessYouLikeAsync("7527125460430375961");
+        RecommendationFeedPage page1 = await client.GetDramaGuessYouLikeAsync(
+            "7527125460430375961"
+        );
         await Assert.That(page1.CellId).IsEqualTo("6975711477277655048");
         await Assert.That(page1.NextOffset).IsEqualTo(9);
         await Assert.That(page1.HasMore).IsTrue();
@@ -821,8 +844,138 @@ public sealed class AlbumAndShortVideoTests
         await Assert.That(page2.NextOffset).IsEqualTo(18);
         await Assert.That((page2.Items[0].Value as Drama)?.Id).IsEqualTo("7527615368282508350");
 
-        Drama? endDrama = await client.GetPlaybackEndRecommendationAsync("7706480483017690137", isAlbum: true);
+        Drama? endDrama = await client.GetPlaybackEndRecommendationAsync(
+            "7706480483017690137",
+            isVideoAlbum: true
+        );
         await Assert.That(endDrama?.Id).IsEqualTo("7697682916310010905");
+    }
+
+    [Test]
+    public async Task HistoryAndProgressReporting_SendExpectedPayloadsAndMapAccumulatedTime()
+    {
+        List<(string Path, string? Body)> requests = [];
+        const string historyListJson = """
+            {
+              "code": 0,
+              "message": "SUCCESS",
+              "data": {
+                "data_list": [
+                  {
+                    "id": "h1",
+                    "book_id_str": "7707621265934126142",
+                    "vid": "7707623348863241278",
+                    "vid_index": 4,
+                    "title": "测试短剧",
+                    "current_play_position": 10168,
+                    "player_accumulate_total_time": 143986,
+                    "duration": 180000
+                  }
+                ],
+                "total": 1,
+                "next_offset": 1,
+                "has_more": false
+              }
+            }
+            """;
+
+        using MockHandler handler = new(
+            (req, body) =>
+            {
+                string path = req.RequestUri?.AbsolutePath ?? string.Empty;
+                requests.Add((path, body));
+                if (path.Contains("/read_history/list/v"))
+                {
+                    return historyListJson;
+                }
+
+                return """{"code":0,"message":"SUCCESS","data":[]}""";
+            }
+        );
+
+        using HttpClient httpClient = new(handler);
+        using PhoenixReadApiClient client = new(httpClient);
+
+        HistoryPage<Drama> history = await client.GetDramaHistoryAsync();
+        await Assert.That(history.Items.Count).IsEqualTo(1);
+        await Assert.That(history.Items[0].CurrentPositionMs).IsEqualTo(10168);
+        await Assert.That(history.Items[0].AccumulatedPlayTimeMs).IsEqualTo(143986);
+
+        await client.ReportHistoryAsync([
+            HistoryUpdate.FromDrama("7707621265934126142", "7707623346887740478", 3, 14075, 51375),
+            HistoryUpdate.FromVideoAlbum(
+                "7706480483017690137",
+                "7712411168840633406",
+                56,
+                8345,
+                71381
+            ),
+            HistoryUpdate.FromShortVideo("7705807590516608024", 100, 5025),
+            HistoryUpdate.FromPost("7712163266184757785"),
+            HistoryUpdate.FromNovel("7414011485757639704", 2),
+            HistoryUpdate.FromAudiobook("7181811308424072249", "7259706204455373885", 1),
+        ]);
+
+        await client.ReportProgressAsync([
+            ProgressUpdate.FromNovel(
+                "7414011485757639704",
+                "7414011725348864536",
+                pageIndex: 7,
+                pageProgressRate: 0.0011f,
+                chapterProgressRate: "26.1334",
+                bookProgressRate: "0.0019",
+                paragraphId: "44",
+                paragraphOffset: 0,
+                position: new ReadingPosition
+                {
+                    StartContainerIndex = 44,
+                    StartElementIndex = 0,
+                    StartElementOffset = 0,
+                }
+            ),
+            ProgressUpdate.FromAudiobook(
+                "7259706204455373885",
+                "7283088135259491390",
+                3200,
+                "0.003",
+                "0"
+            ),
+            ProgressUpdate.FromDrama("7707621265934126142", "7707623348863241278", 10168, 143986),
+            ProgressUpdate.FromVideoAlbum(
+                "7706480483017690137",
+                "7712411168714804286",
+                5441,
+                685625
+            ),
+            ProgressUpdate.FromShortVideo("7705807590516608024", 100, 5025),
+        ]);
+
+        await Assert
+            .That(async () =>
+            {
+                await client.ReportProgressAsync(
+                    new ProgressUpdate
+                    {
+                        ContentType = HistoryContentType.Post,
+                        TargetId = "7712163266184757785",
+                    }
+                );
+            })
+            .Throws<ArgumentOutOfRangeException>();
+
+        (string Path, string? Body) historyReq = requests.Single(r =>
+            r.Path.EndsWith("/read_history/update/v", StringComparison.Ordinal)
+        );
+        await Assert.That(historyReq.Body).Contains("\"book_type\":3");
+        await Assert.That(historyReq.Body).Contains("\"listen_book_id\":\"7259706204455373885\"");
+        await Assert.That(historyReq.Body).Contains("\"chapter_index\":2");
+
+        (string Path, string? Body) progressReq = requests.Single(r =>
+            r.Path.EndsWith("/read_progress/upload/v", StringComparison.Ordinal)
+        );
+        await Assert.That(progressReq.Body).Contains("\"books\":[");
+        await Assert.That(progressReq.Body).Contains("\"start_container_index\":44");
+        await Assert.That(progressReq.Body).Contains("\"player_cumulative_total_duration\":143986");
     }
 
     private sealed class MockHandler(Func<HttpRequestMessage, string?, string> responder)

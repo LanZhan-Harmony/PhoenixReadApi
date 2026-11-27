@@ -134,6 +134,50 @@ public sealed partial class PhoenixReadApiClient
             cancellationToken
         );
 
+    /// <summary>上报单条粗粒度阅读/观看历史记录（走 read_history/update/v，支持全部 6 种内容类型）。</summary>
+    /// <param name="update">历史记录更新描述符（可通过 <see cref="HistoryUpdate"/> 的静态工厂方法构造）。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> ReportHistoryAsync(
+        HistoryUpdate update,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(update);
+        return _history.ReportHistoryAsync([update], cancellationToken);
+    }
+
+    /// <summary>批量上报一条或多条粗粒度阅读/观看历史记录（支持在同一次请求中混合多种类型）。</summary>
+    /// <param name="updates">待上报的历史记录更新集合。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> ReportHistoryAsync(
+        IEnumerable<HistoryUpdate> updates,
+        CancellationToken cancellationToken = default
+    ) => _history.ReportHistoryAsync(updates, cancellationToken);
+
+    /// <summary>上报单条细粒度阅读/播放进度（走 read_progress/upload/v，支持小说、有声书、短剧、合集与短视频）。</summary>
+    /// <param name="update">精细进度更新描述符（可通过 <see cref="ProgressUpdate"/> 的静态工厂方法构造）。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> ReportProgressAsync(
+        ProgressUpdate update,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(update);
+        return _history.ReportProgressAsync([update], cancellationToken);
+    }
+
+    /// <summary>批量上报一条或多条细粒度阅读/播放进度。</summary>
+    /// <param name="updates">待上报的精细进度更新集合。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>服务端操作结果。</returns>
+    public Task<PhoenixOperationResult> ReportProgressAsync(
+        IEnumerable<ProgressUpdate> updates,
+        CancellationToken cancellationToken = default
+    ) => _history.ReportProgressAsync(updates, cancellationToken);
+
     /// <summary>批量删除一条或多条阅读/观看历史（支持在同一次请求中混合多种类型）。</summary>
     /// <param name="entries">待删除的历史条目集合（可通过 <see cref="HistoryDeleteEntry"/> 的静态工厂方法构造）。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
@@ -152,66 +196,4 @@ public sealed partial class PhoenixReadApiClient
         HistoryItem<T> item,
         CancellationToken cancellationToken = default
     ) => _history.DeleteHistoryAsync([HistoryDeleteEntry.FromItem(item)], cancellationToken);
-
-    /// <summary>上报当前分集的播放进度。</summary>
-    /// <param name="update">视频、剧集和播放位置；UseSoftDelete 为 true 时会删除历史。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> ReportProgressAsync(
-        ProgressUpdate update,
-        CancellationToken cancellationToken = default
-    ) => _history.ReportProgressAsync(update, cancellationToken);
-
-    /// <summary>获取未上线预约的剧集。</summary>
-    /// <param name="offset">偏移量。</param>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>预约记录和分页状态。</returns>
-    public Task<ReservationPage> GetPendingReservationsAsync(
-        int offset = 0,
-        int count = 20,
-        CancellationToken cancellationToken = default
-    ) => _reservation.GetReservationsAsync(offset, count, isAvailable: false, cancellationToken);
-
-    /// <summary>获取已上线预约的剧集。</summary>
-    /// <param name="offset">偏移量。</param>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>预约记录；服务端提供的日历字段已转换为统一的预约实体。</returns>
-    public Task<ReservationPage> GetAvailableReservationsAsync(
-        int offset = 0,
-        int count = 20,
-        CancellationToken cancellationToken = default
-    ) => _reservation.GetReservationsAsync(offset, count, isAvailable: true, cancellationToken);
-
-    /// <summary>获取可预约的新剧列表。</summary>
-    /// <param name="offset">分页偏移量。</param>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>可预约剧集及分页状态。</returns>
-    public Task<ReservationPage> GetUpcomingReservationsAsync(
-        int offset = 0,
-        int count = 20,
-        CancellationToken cancellationToken = default
-    ) => _reservation.GetUpcomingReservationsAsync(offset, count, cancellationToken);
-
-    /// <summary>设置或取消剧集预约。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="active">true 表示预约，false 表示取消预约。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> SetReservationAsync(
-        string dramaId,
-        bool active = true,
-        CancellationToken cancellationToken = default
-    ) => _reservation.SetReservationAsync(dramaId, active, cancellationToken);
-
-    /// <summary>取消剧集预约。</summary>
-    /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>服务端操作结果。</returns>
-    public Task<PhoenixOperationResult> DeleteReservationAsync(
-        string dramaId,
-        CancellationToken cancellationToken = default
-    ) => _reservation.SetReservationAsync(dramaId, active: false, cancellationToken);
 }

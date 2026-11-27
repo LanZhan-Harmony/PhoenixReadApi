@@ -79,13 +79,13 @@ public sealed partial class PhoenixReadApiClient
         );
 
     /// <summary>获取单部短剧或视频合集播放完毕后的系列/相关推荐短剧。</summary>
-    /// <param name="id">短剧 ID（当 <paramref name="isAlbum"/> 为 false）或合集 ID（当 <paramref name="isAlbum"/> 为 true）。</param>
-    /// <param name="isAlbum">true 表示合集播完推荐，false 表示单部短剧播完底部系列剧推荐。</param>
+    /// <param name="id">短剧 ID（当 <paramref name="isVideoAlbum"/> 为 false）或合集 ID（当 <paramref name="isVideoAlbum"/> 为 true）。</param>
+    /// <param name="isVideoAlbum">true 表示合集播完推荐，false 表示单部短剧播完底部系列剧推荐。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>推荐的下一部短剧；若无推荐则返回 null。</returns>
     public Task<Drama?> GetPlaybackEndRecommendationAsync(
         string id,
-        bool isAlbum = false,
+        bool isVideoAlbum = false,
         CancellationToken cancellationToken = default
-    ) => _drama.GetPlaybackEndRecommendationAsync(id, isAlbum, cancellationToken);
+    ) => _drama.GetPlaybackEndRecommendationAsync(id, isVideoAlbum, cancellationToken);
 }

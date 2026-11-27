@@ -362,7 +362,7 @@ RecommendationFeedPage guessPage = await client.GetDramaGuessYouLikeAsync("74123
 Console.WriteLine($"猜你喜欢返回 {guessPage.Items.Count} 条，HasMore: {guessPage.HasMore}");
 
 // 单剧或合集播放完毕后的系列/相关推荐
-Drama? nextDrama = await client.GetPlaybackEndRecommendationAsync("74123456789", isAlbum: false, cts.Token);
+Drama? nextDrama = await client.GetPlaybackEndRecommendationAsync("74123456789", isVideoAlbum: false, cts.Token);
 
 // 批量获取多部剧集基础信息（单次最多 50 部）
 IReadOnlyList<Drama> batchDramas = await client.GetBatchDramaDetailsAsync(
@@ -490,25 +490,27 @@ if (reviews.Items.FirstOrDefault() is { } firstReview)
 // 查询个人短剧观看历史（另有 GetVideoAlbumHistoryAsync / GetShortVideoHistoryAsync / GetPostHistoryAsync / GetNovelHistoryAsync / GetAudiobookHistoryAsync）
 HistoryPage<Drama> history = await client.GetDramaHistoryAsync(cancellationToken: cts.Token);
 
-// 上报当前分集的播放进度（也会同步写入观看历史）
-await client.ReportProgressAsync(new ProgressUpdate
-{
-    DramaId = dramaId,
-    VideoId = videoId,
-    EpisodeNumber = 1,
-    CurrentPositionMs = 45_000,
-    DurationMs = 120_000
-}, cts.Token);
+// 上报粗粒度阅读/观看历史（支持短剧、合集、短视频、图文、小说、有声书）
+await client.ReportHistoryAsync(
+    HistoryUpdate.FromDrama(dramaId, videoId, episodeNumber: 1, currentPositionMs: 45_000, accumulatedPlayTimeMs: 45_000),
+    cts.Token
+);
 
-// 收藏或取消收藏（传入 active: false 即可取消；另有 SetShortVideoFavoriteAsync / SetVideoAlbumFavoriteAsync / SetPostFavoriteAsync）
-await client.SetFavoriteAsync(dramaId, videoId, active: true, cancellationToken: cts.Token);
+// 上报细粒度阅读/播放进度（支持小说段落、有声书章节、短剧、合集、短视频）
+await client.ReportProgressAsync(
+    ProgressUpdate.FromDrama(dramaId, videoId, currentPlayTimeMs: 45_000, cumulativeTotalDurationMs: 120_000),
+    cts.Token
+);
+
+// 收藏或取消收藏（通过 FavoriteTarget 统一支持短剧、合集、短视频、图文、有声书与小说）
+await client.SetFavoriteAsync(FavoriteTarget.FromDrama(dramaId, videoId), active: true, cancellationToken: cts.Token);
 
 // 点赞或取消点赞（另有 SetShortVideoLikeAsync / SetPostLikeAsync）
 await client.SetDramaEpisodeLikeAsync(dramaId, videoId, active: true, cancellationToken: cts.Token);
 
 // 分别查询各类型的收藏列表
 IReadOnlyList<Drama> dramaFavorites = await client.GetDramaFavoritesAsync(cts.Token);
-IReadOnlyList<VideoAlbum> albumFavorites = await client.GetAlbumFavoritesAsync(cts.Token);
+IReadOnlyList<VideoAlbum> albumFavorites = await client.GetVideoAlbumFavoritesAsync(cts.Token);
 IReadOnlyList<ShortVideo> shortVideoFavorites = await client.GetShortVideoFavoritesAsync(cts.Token);
 IReadOnlyList<Novel> novelFavorites = await client.GetNovelFavoritesAsync(cts.Token);
 IReadOnlyList<Audiobook> audiobookFavorites = await client.GetAudiobookFavoritesAsync(cts.Token);

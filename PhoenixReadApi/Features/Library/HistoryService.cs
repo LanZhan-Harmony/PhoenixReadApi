@@ -253,6 +253,7 @@ internal sealed class HistoryService : LibraryServiceBase
                     VideoId = videoId,
                     EpisodeNumber = ep,
                     CurrentPositionMs = Math.Max(raw.CurrentPositionMs, raw.CurrentPositionAlias),
+                    AccumulatedPlayTimeMs = Math.Max(0, raw.AccumulatedPlayTimeMs),
                     DurationMs = Math.Max(0, raw.DurationMs),
                     UpdatedAtUnixMilliseconds = Math.Max(
                         Math.Max(0, raw.UpdatedAtUnixMilliseconds),
@@ -271,48 +272,186 @@ internal sealed class HistoryService : LibraryServiceBase
         };
     }
 
-    internal async Task<PhoenixOperationResult> ReportProgressAsync(
-        ProgressUpdate update,
+    internal async Task<PhoenixOperationResult> ReportHistoryAsync(
+        IEnumerable<HistoryUpdate> updates,
         CancellationToken cancellationToken
     )
     {
-        ArgumentNullException.ThrowIfNull(update);
-        string videoId = NormalizeVideoId(update.VideoId);
-        string dramaId = NormalizeDramaId(update.DramaId);
-        long timestamp =
-            update.UpdatedAtUnixMilliseconds > 0
-                ? update.UpdatedAtUnixMilliseconds
-                : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        long bookId = long.Parse(dramaId, CultureInfo.InvariantCulture);
-        long videoNumericId = long.Parse(videoId, CultureInfo.InvariantCulture);
-        int videoIndex = update.EpisodeNumber > 0 ? update.EpisodeNumber : 1;
-        long accumulated =
-            update.AccumulatedPlayTimeMs > 0
-                ? update.AccumulatedPlayTimeMs
-                : Math.Max(0, update.CurrentPositionMs);
-        AppReadHistoryUpdatePayload payload = new()
+        ArgumentNullException.ThrowIfNull(updates);
+        List<AppReadHistoryUpdateItem> items = [];
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        foreach (HistoryUpdate update in updates)
         {
-            Items =
-            [
+            if (update is null)
+            {
+                continue;
+            }
+
+            if (!Enum.IsDefined(update.ContentType))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(updates),
+                    "不支持的历史记录内容类型。"
+                );
+            }
+
+            string targetId = NormalizeDramaId(update.TargetId);
+            long bookId = long.Parse(targetId, CultureInfo.InvariantCulture);
+            bool isVideoType =
+                update.ContentType
+                is HistoryContentType.Drama
+                    or HistoryContentType.VideoAlbum
+                    or HistoryContentType.ShortVideo;
+
+            long videoId = 0;
+            if (isVideoType)
+            {
+                string rawVid =
+                    update.ContentType == HistoryContentType.ShortVideo
+                        ? ValueNormalizer.First(update.VideoId, targetId)
+                        : update.VideoId;
+                videoId = long.Parse(NormalizeVideoId(rawVid), CultureInfo.InvariantCulture);
+            }
+
+            long timestamp =
+                update.UpdatedAtUnixMilliseconds > 0 ? update.UpdatedAtUnixMilliseconds : nowMs;
+            long currentPosition = isVideoType ? Math.Max(0, update.CurrentPositionMs) : 0;
+            long accumulated = isVideoType
+                ? (
+                    update.AccumulatedPlayTimeMs > 0
+                        ? update.AccumulatedPlayTimeMs
+                        : currentPosition
+                )
+                : 0;
+            bool isTextOrAudioBook =
+                update.ContentType is HistoryContentType.Novel or HistoryContentType.Audiobook;
+
+            items.Add(
                 new AppReadHistoryUpdateItem
                 {
                     BookId = bookId,
-                    BookType = 2,
-                    ChapterIndex = 0,
-                    CurrentPlayPosition = Math.Max(0, update.CurrentPositionMs),
-                    IsDelete = update.UseSoftDelete,
+                    BookType = (int)update.ContentType,
+                    ChapterIndex = isTextOrAudioBook ? Math.Max(0, update.ChapterIndex) : 0,
+                    CurrentPlayPosition = currentPosition,
+                    IsDelete = false,
+                    ListenBookId =
+                        update.ContentType == HistoryContentType.Audiobook
+                        && !string.IsNullOrWhiteSpace(update.ListenBookId)
+                            ? update.ListenBookId.Trim()
+                            : null,
                     PlayerAccumulateTotalTime = accumulated,
                     ReadTimestampMs = timestamp,
-                    UpdateTimestampMs = 0,
-                    UseSoftDelete = update.UseSoftDelete,
-                    VideoId = videoNumericId,
-                    VideoIndex = videoIndex,
-                },
-            ],
-        };
+                    UpdateTimestampMs = isTextOrAudioBook ? timestamp : 0,
+                    UseSoftDelete = false,
+                    VideoId = videoId,
+                    VideoIndex = isVideoType
+                        ? (update.EpisodeNumber > 0 ? update.EpisodeNumber : 1)
+                        : 0,
+                }
+            );
+        }
+
+        if (items.Count == 0)
+        {
+            throw new ArgumentException("至少需要指定一条待上报的历史记录。", nameof(updates));
+        }
+
+        AppReadHistoryUpdatePayload payload = new() { Items = items };
         AppResponse<AppOperationResponse> response = await _appTransport
             .PostAsync<AppReadHistoryUpdatePayload, AppOperationResponse>(
                 "/reading/bookapi/read_history/update/v",
+                payload,
+                commentRequest: false,
+                cancellationToken,
+                retryMode: AppRequestRetryMode.NoRetry
+            )
+            .ConfigureAwait(false);
+        return Succeeded(response.Message);
+    }
+
+    internal async Task<PhoenixOperationResult> ReportProgressAsync(
+        IEnumerable<ProgressUpdate> updates,
+        CancellationToken cancellationToken
+    )
+    {
+        ArgumentNullException.ThrowIfNull(updates);
+        List<AppReadProgressUploadItem> books = [];
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        foreach (ProgressUpdate update in updates)
+        {
+            if (update is null)
+            {
+                continue;
+            }
+
+            if (
+                !Enum.IsDefined(update.ContentType)
+                || update.ContentType == HistoryContentType.Post
+            )
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(updates),
+                    "精细进度上报仅支持小说、有声书、短剧、合集与短视频。"
+                );
+            }
+
+            string bookId = NormalizeDramaId(update.TargetId);
+            string rawItemId =
+                update.ContentType == HistoryContentType.ShortVideo
+                    ? ValueNormalizer.First(update.ItemId, bookId)
+                    : update.ItemId;
+            string itemId = NormalizeVideoId(rawItemId);
+            long timestamp =
+                update.UpdatedAtUnixMilliseconds > 0 ? update.UpdatedAtUnixMilliseconds : nowMs;
+
+            books.Add(
+                new AppReadProgressUploadItem
+                {
+                    BookId = bookId,
+                    BookType = (int)update.ContentType,
+                    ChannelId = update.ChannelId,
+                    CheckTimestamp = false,
+                    CurrentChannelId = update.CurrentChannelId,
+                    CurrentPlayTime = Math.Max(0, update.CurrentPlayTimeMs),
+                    GenreType = update.GenreType,
+                    IsListenMode = false,
+                    IsLocalBook = false,
+                    ItemId = itemId,
+                    ItemProgressRate = update.ItemProgressRate,
+                    ListenAndRead = false,
+                    PageIndex = Math.Max(0, update.PageIndex),
+                    PageProgressRate = update.PageProgressRate,
+                    ParagraphId = update.ParagraphId,
+                    ParagraphOffset = Math.Max(0, update.ParagraphOffset),
+                    PlayerCumulativeTotalDuration = Math.Max(0, update.CumulativeTotalDurationMs),
+                    ProgressPosInfoV2 = update.Position is { } pos
+                        ? new AppReadProgressPosition
+                        {
+                            StartContainerIndex = pos.StartContainerIndex,
+                            StartElementIndex = pos.StartElementIndex,
+                            StartElementOffset = pos.StartElementOffset,
+                        }
+                        : null,
+                    ProgressRate = update.ProgressRate,
+                    ProgressType = 0,
+                    ReadTimestampMs = timestamp,
+                    ToneId = update.ToneId,
+                    VideoIndex = Math.Max(0, update.VideoIndex),
+                }
+            );
+        }
+
+        if (books.Count == 0)
+        {
+            throw new ArgumentException("至少需要指定一条待上报的精细进度。", nameof(updates));
+        }
+
+        AppReadProgressUploadPayload payload = new() { Books = books };
+        AppResponse<AppOperationResponse> response = await _appTransport
+            .PostAsync<AppReadProgressUploadPayload, AppOperationResponse>(
+                "/reading/bookapi/read_progress/upload/v",
                 payload,
                 commentRequest: false,
                 cancellationToken,
@@ -348,23 +487,22 @@ internal sealed class HistoryService : LibraryServiceBase
 
             string targetId = NormalizeDramaId(entry.TargetId);
             long bookId = long.Parse(targetId, CultureInfo.InvariantCulture);
-            bool isVideoType = entry.ContentType
+            bool isVideoType =
+                entry.ContentType
                 is HistoryContentType.Drama
-                    or HistoryContentType.Album
+                    or HistoryContentType.VideoAlbum
                     or HistoryContentType.ShortVideo;
 
             long videoId = 0;
             if (isVideoType)
             {
-                string rawVid = entry.ContentType == HistoryContentType.ShortVideo
-                    ? ValueNormalizer.First(entry.VideoId, targetId)
-                    : entry.VideoId;
+                string rawVid =
+                    entry.ContentType == HistoryContentType.ShortVideo
+                        ? ValueNormalizer.First(entry.VideoId, targetId)
+                        : entry.VideoId;
                 if (!string.IsNullOrWhiteSpace(rawVid))
                 {
-                    videoId = long.Parse(
-                        NormalizeVideoId(rawVid),
-                        CultureInfo.InvariantCulture
-                    );
+                    videoId = long.Parse(NormalizeVideoId(rawVid), CultureInfo.InvariantCulture);
                 }
             }
 
@@ -415,9 +553,5 @@ internal sealed class HistoryService : LibraryServiceBase
         string dramaId,
         string videoId,
         CancellationToken cancellationToken
-    ) =>
-        DeleteHistoryAsync(
-            [HistoryDeleteEntry.FromDrama(dramaId, videoId)],
-            cancellationToken
-        );
+    ) => DeleteHistoryAsync([HistoryDeleteEntry.FromDrama(dramaId, videoId)], cancellationToken);
 }

@@ -13,7 +13,7 @@ public enum HistoryContentType
     Drama = 2,
 
     /// <summary>多季/短视频合集（book_type = 3）。</summary>
-    Album = 3,
+    VideoAlbum = 3,
 
     /// <summary>独立短视频（book_type = 4）。</summary>
     ShortVideo = 4,

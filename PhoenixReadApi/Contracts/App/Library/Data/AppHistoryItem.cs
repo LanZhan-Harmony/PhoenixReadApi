@@ -57,6 +57,10 @@ internal sealed class AppHistoryItem
     [JsonConverter(typeof(FlexibleLongConverter))]
     public long CurrentPositionAlias { get; init; }
 
+    [JsonPropertyName("player_accumulate_total_time")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long AccumulatedPlayTimeMs { get; init; }
+
     [JsonPropertyName("duration")]
     [JsonConverter(typeof(FlexibleLongConverter))]
     public long DurationMs { get; init; }

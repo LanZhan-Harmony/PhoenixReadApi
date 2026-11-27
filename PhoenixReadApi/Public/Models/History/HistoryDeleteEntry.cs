@@ -19,7 +19,11 @@ public sealed class HistoryDeleteEntry
     public int EpisodeNumber { get; init; }
 
     /// <summary>构造删除短剧历史的条目。</summary>
-    public static HistoryDeleteEntry FromDrama(string dramaId, string videoId, int episodeNumber = 1) =>
+    public static HistoryDeleteEntry FromDrama(
+        string dramaId,
+        string videoId,
+        int episodeNumber = 1
+    ) =>
         new()
         {
             ContentType = HistoryContentType.Drama,
@@ -29,10 +33,14 @@ public sealed class HistoryDeleteEntry
         };
 
     /// <summary>构造删除合集历史的条目。</summary>
-    public static HistoryDeleteEntry FromAlbum(string albumId, string videoId = "", int episodeNumber = 1) =>
+    public static HistoryDeleteEntry FromVideoAlbum(
+        string albumId,
+        string videoId = "",
+        int episodeNumber = 1
+    ) =>
         new()
         {
-            ContentType = HistoryContentType.Album,
+            ContentType = HistoryContentType.VideoAlbum,
             TargetId = albumId,
             VideoId = videoId,
             EpisodeNumber = episodeNumber > 0 ? episodeNumber : 1,
@@ -50,19 +58,11 @@ public sealed class HistoryDeleteEntry
 
     /// <summary>构造删除图文帖子历史的条目。</summary>
     public static HistoryDeleteEntry FromPost(string postId) =>
-        new()
-        {
-            ContentType = HistoryContentType.Post,
-            TargetId = postId,
-        };
+        new() { ContentType = HistoryContentType.Post, TargetId = postId };
 
     /// <summary>构造删除小说或漫画历史的条目。</summary>
     public static HistoryDeleteEntry FromNovel(string bookId) =>
-        new()
-        {
-            ContentType = HistoryContentType.Novel,
-            TargetId = bookId,
-        };
+        new() { ContentType = HistoryContentType.Novel, TargetId = bookId };
 
     /// <summary>构造删除有声听书历史的条目。</summary>
     public static HistoryDeleteEntry FromAudiobook(string bookId, string listenBookId = "") =>
@@ -80,8 +80,10 @@ public sealed class HistoryDeleteEntry
         return item.Target switch
         {
             Drama d => FromDrama(d.Id, item.VideoId, item.EpisodeNumber),
-            VideoAlbum a => FromAlbum(a.Id, item.VideoId, item.EpisodeNumber),
-            ShortVideo s => FromShortVideo(!string.IsNullOrWhiteSpace(item.VideoId) ? item.VideoId : s.VideoId),
+            VideoAlbum a => FromVideoAlbum(a.Id, item.VideoId, item.EpisodeNumber),
+            ShortVideo s => FromShortVideo(
+                !string.IsNullOrWhiteSpace(item.VideoId) ? item.VideoId : s.VideoId
+            ),
             Post p => FromPost(p.Id),
             Novel n => FromNovel(n.Id),
             Audiobook ab => FromAudiobook(ab.Id, ab.ListenBookId),

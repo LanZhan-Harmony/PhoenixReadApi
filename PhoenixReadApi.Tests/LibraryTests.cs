@@ -71,12 +71,20 @@ public sealed class LibraryTests
     [Test]
     public async Task TestLibraryOperations_Validation()
     {
-        // ReportProgress 参数空校验
+        // ReportHistory / ReportProgress 参数空校验
+        await Assert
+            .That(async () =>
+            {
+                await SharedScenario.Client.ReportHistoryAsync(
+                    HistoryUpdate.FromDrama("", "")
+                );
+            })
+            .Throws<ArgumentException>();
         await Assert
             .That(async () =>
             {
                 await SharedScenario.Client.ReportProgressAsync(
-                    new ProgressUpdate { DramaId = "", VideoId = "" }
+                    ProgressUpdate.FromDrama("", "")
                 );
             })
             .Throws<ArgumentException>();
@@ -85,7 +93,9 @@ public sealed class LibraryTests
         await Assert
             .That(async () =>
             {
-                await SharedScenario.Client.SetFavoriteAsync("", "");
+                await SharedScenario.Client.SetFavoriteAsync(
+                    FavoriteTarget.FromDrama("", "")
+                );
             })
             .Throws<ArgumentException>();
 
@@ -172,8 +182,7 @@ public sealed class LibraryTests
 
         // 1. 收藏短剧
         PhoenixOperationResult favResult = await authClient.SetFavoriteAsync(
-            scenario.DramaId,
-            scenario.Episode.VideoId,
+            FavoriteTarget.FromDrama(scenario.DramaId, scenario.Episode.VideoId),
             true,
             timeout.Token
         );
@@ -182,8 +191,7 @@ public sealed class LibraryTests
 
         // 2. 移除收藏
         PhoenixOperationResult removeResult = await authClient.SetFavoriteAsync(
-            scenario.DramaId,
-            scenario.Episode.VideoId,
+            FavoriteTarget.FromDrama(scenario.DramaId, scenario.Episode.VideoId),
             false,
             timeout.Token
         );
@@ -244,16 +252,27 @@ public sealed class LibraryTests
 
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        // 1. 上报播放进度
+        // 1. 上报历史与精细播放进度
+        PhoenixOperationResult historyResult = await authClient.ReportHistoryAsync(
+            HistoryUpdate.FromDrama(
+                scenario.DramaId,
+                scenario.Episode.VideoId,
+                scenario.Episode.Number,
+                currentPositionMs: 5000,
+                accumulatedPlayTimeMs: 5000
+            ),
+            timeout.Token
+        );
+        await Assert.That(historyResult).IsNotNull();
+        await Assert.That(historyResult.Succeeded).IsTrue();
+
         PhoenixOperationResult reportResult = await authClient.ReportProgressAsync(
-            new ProgressUpdate
-            {
-                DramaId = scenario.DramaId,
-                VideoId = scenario.Episode.VideoId,
-                EpisodeNumber = scenario.Episode.Number,
-                CurrentPositionMs = 5000,
-                DurationMs = 60000,
-            },
+            ProgressUpdate.FromDrama(
+                scenario.DramaId,
+                scenario.Episode.VideoId,
+                currentPlayTimeMs: 5000,
+                cumulativeTotalDurationMs: 60000
+            ),
             timeout.Token
         );
         await Assert.That(reportResult).IsNotNull();
