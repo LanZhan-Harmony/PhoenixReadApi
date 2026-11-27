@@ -122,8 +122,8 @@ internal sealed class LikeService : LibraryServiceBase
     }
 
     internal async Task<DramaPage> GetLikesAsync(
-        int count,
         int offset,
+        int count,
         CancellationToken cancellationToken
     )
     {

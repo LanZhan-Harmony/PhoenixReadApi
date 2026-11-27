@@ -47,8 +47,8 @@ internal sealed class ReservationService : LibraryServiceBase
     }
 
     internal async Task<ReservationPage> GetReservationsAsync(
-        int count,
         int offset,
+        int count,
         bool isAvailable,
         CancellationToken cancellationToken
     )
@@ -80,8 +80,8 @@ internal sealed class ReservationService : LibraryServiceBase
     }
 
     internal async Task<ReservationPage> GetUpcomingReservationsAsync(
-        int count,
         int offset,
+        int count,
         CancellationToken cancellationToken
     )
     {

@@ -564,38 +564,15 @@ internal sealed partial class DramaService : PhoenixFeatureService
         };
     }
 
-    internal async Task<DramaAlbum> GetAlbumAsync(
+    internal async Task<VideoAlbumDetails> GetVideoAlbumDetailsAsync(
         string albumId,
         CancellationToken cancellationToken
     )
     {
-        albumId = (albumId ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(albumId))
-        {
-            throw new ArgumentException("合集 ID 不能为空。", nameof(albumId));
-        }
-
-        AppAlbumPayload payload = new() { AlbumId = albumId, NeedVideoDetailInfo = true };
-
-        AppResponse<AppAlbumData> response = await _appTransport
-            .PostAsync<AppAlbumPayload, AppAlbumData>(
-                "/novel/player/album_detail/v1/",
-                payload,
-                commentRequest: false,
-                cancellationToken
-            )
+        AppAlbumModel model = await FetchAlbumModelAsync(albumId, cancellationToken)
             .ConfigureAwait(false);
 
-        AppAlbumModel? model = response.Data?.AlbumData;
-        if (
-            model is null
-            || (string.IsNullOrWhiteSpace(model.EffectiveId) && model.EffectiveItems.Count == 0)
-        )
-        {
-            throw new PhoenixReadApiResponseException("合集信息不存在或暂不可用。", "album");
-        }
-
-        List<DramaSeason> seasons = [];
+        List<ShortVideo> videos = [];
         foreach (AppAlbumSeasonItemDto item in model.EffectiveItems)
         {
             string sid = item.EffectiveSeriesId;
@@ -604,36 +581,43 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 continue;
             }
 
-            seasons.Add(
-                new DramaSeason
+            string videoId = !string.IsNullOrWhiteSpace(item.VideoId) ? item.VideoId : sid;
+            videos.Add(
+                new ShortVideo
                 {
-                    DramaId = sid,
+                    Id = sid,
+                    VideoId = videoId,
                     Title = item.Title,
-                    Index = item.SeasonIndex > 0 ? item.SeasonIndex : seasons.Count + 1,
+                    Description = item.Intro,
                     CoverUrl = item.Cover,
-                    EpisodeCount = item.EpisodeCount,
-                    Status =
-                        item.EffectiveSeriesStatus == 1
-                            ? DramaReleaseStatus.Finished
-                            : DramaReleaseStatus.Ongoing,
+                    DurationSeconds = item.Duration,
                 }
             );
         }
 
-        seasons.Sort(static (a, b) => a.Index.CompareTo(b.Index));
+        string resolvedId = !string.IsNullOrWhiteSpace(model.EffectiveId)
+            ? model.EffectiveId
+            : albumId.Trim();
+        int count =
+            model.EpisodeCount > 0 ? model.EpisodeCount
+            : model.SeasonCount > 0 ? model.SeasonCount
+            : videos.Count;
 
-        return new DramaAlbum
+        return new VideoAlbumDetails
         {
-            Id = !string.IsNullOrWhiteSpace(model.EffectiveId) ? model.EffectiveId : albumId,
-            Title = model.EffectiveTitle,
-            Description = model.EffectiveIntro,
-            CoverUrl = model.EffectiveCover,
-            SeasonCount = model.SeasonCount > 0 ? model.SeasonCount : seasons.Count,
-            Seasons = seasons,
+            Album = new VideoAlbum
+            {
+                Id = resolvedId,
+                Title = model.EffectiveTitle,
+                Description = model.EffectiveIntro,
+                CoverUrl = model.EffectiveCover,
+                VideoCount = count,
+            },
+            Videos = videos,
         };
     }
 
-    internal async Task<DramaAlbum> GetDramaSeasonsAsync(
+    internal async Task<IReadOnlyList<DramaSeason>> GetDramaSeasonsAsync(
         string dramaId,
         CancellationToken cancellationToken
     )
@@ -695,13 +679,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 if (seasons.Count > 0)
                 {
                     seasons.Sort(static (a, b) => a.Index.CompareTo(b.Index));
-                    return new DramaAlbum
-                    {
-                        Id = details.AlbumId,
-                        Title = ExtractBaseTitle(details.Drama.Title),
-                        SeasonCount = seasons.Count,
-                        Seasons = seasons,
-                    };
+                    return seasons;
                 }
             }
         }
@@ -715,11 +693,37 @@ internal sealed partial class DramaService : PhoenixFeatureService
         {
             try
             {
-                DramaAlbum album = await GetAlbumAsync(details.AlbumId, cancellationToken)
+                AppAlbumModel model = await FetchAlbumModelAsync(details.AlbumId, cancellationToken)
                     .ConfigureAwait(false);
-                if (album.Seasons.Count > 0)
+                List<DramaSeason> seasons = [];
+                foreach (AppAlbumSeasonItemDto item in model.EffectiveItems)
                 {
-                    return album;
+                    string sid = item.EffectiveSeriesId;
+                    if (string.IsNullOrWhiteSpace(sid))
+                    {
+                        continue;
+                    }
+
+                    seasons.Add(
+                        new DramaSeason
+                        {
+                            DramaId = sid,
+                            Title = item.Title,
+                            Index = item.SeasonIndex > 0 ? item.SeasonIndex : seasons.Count + 1,
+                            CoverUrl = item.Cover,
+                            EpisodeCount = item.EpisodeCount,
+                            Status =
+                                item.EffectiveSeriesStatus == 1
+                                    ? DramaReleaseStatus.Finished
+                                    : DramaReleaseStatus.Ongoing,
+                        }
+                    );
+                }
+
+                if (seasons.Count > 0)
+                {
+                    seasons.Sort(static (a, b) => a.Index.CompareTo(b.Index));
+                    return seasons;
                 }
             }
             catch (Exception)
@@ -729,27 +733,52 @@ internal sealed partial class DramaService : PhoenixFeatureService
         }
 
         // 3. 基础作品单季快速返回
-        string baseTitle = ExtractBaseTitle(details.Drama.Title);
-        return new DramaAlbum
+        return
+        [
+            new DramaSeason
+            {
+                DramaId = dramaId,
+                Title = details.Drama.Title,
+                Index = details.SeasonIndex > 0 ? details.SeasonIndex : 1,
+                CoverUrl = details.Drama.CoverUrl,
+                EpisodeCount = details.Episodes.Count,
+                Status = details.Drama.ReleaseStatus,
+            },
+        ];
+    }
+
+    private async Task<AppAlbumModel> FetchAlbumModelAsync(
+        string albumId,
+        CancellationToken cancellationToken
+    )
+    {
+        albumId = (albumId ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(albumId))
         {
-            Id = details.AlbumId,
-            Title = baseTitle,
-            Description = details.Drama.Description,
-            CoverUrl = details.Drama.CoverUrl,
-            SeasonCount = 1,
-            Seasons =
-            [
-                new DramaSeason
-                {
-                    DramaId = dramaId,
-                    Title = details.Drama.Title,
-                    Index = details.SeasonIndex > 0 ? details.SeasonIndex : 1,
-                    CoverUrl = details.Drama.CoverUrl,
-                    EpisodeCount = details.Episodes.Count,
-                    Status = details.Drama.ReleaseStatus,
-                },
-            ],
-        };
+            throw new ArgumentException("合集 ID 不能为空。", nameof(albumId));
+        }
+
+        AppAlbumPayload payload = new() { AlbumId = albumId, NeedVideoDetailInfo = true };
+
+        AppResponse<AppAlbumData> response = await _appTransport
+            .PostAsync<AppAlbumPayload, AppAlbumData>(
+                "/novel/player/album_detail/v1/",
+                payload,
+                commentRequest: false,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        AppAlbumModel? model = response.Data?.AlbumData;
+        if (
+            model is null
+            || (string.IsNullOrWhiteSpace(model.EffectiveId) && model.EffectiveItems.Count == 0)
+        )
+        {
+            throw new PhoenixReadApiResponseException("合集信息不存在或暂不可用。", "album");
+        }
+
+        return model;
     }
 
     internal async Task<IReadOnlyList<RelatedWorkItem>> GetDramaRelatedWorksAsync(

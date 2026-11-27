@@ -29,11 +29,9 @@ public sealed class NewFeatureIntegrationTests
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
         TestDramaScenario scenario = await SharedScenario.GetScenarioAsync(timeout.Token);
 
-        DramaAlbum album = await SharedScenario.Client.GetDramaSeasonsAsync(scenario.DramaId, timeout.Token);
-        await Assert.That(album).IsNotNull();
-        await Assert.That(album.Seasons).IsNotNull();
-        await Assert.That(album.SeasonCount > 0).IsTrue();
-        await Assert.That(album.Seasons.Count > 0).IsTrue();
+        IReadOnlyList<DramaSeason> seasons = await SharedScenario.Client.GetDramaSeasonsAsync(scenario.DramaId, timeout.Token);
+        await Assert.That(seasons).IsNotNull();
+        await Assert.That(seasons.Count > 0).IsTrue();
     }
 
     [Test, NotInParallel("phoenix-read-api")]

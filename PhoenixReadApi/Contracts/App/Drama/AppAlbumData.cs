@@ -49,6 +49,10 @@ internal sealed class AppAlbumModel
     [JsonConverter(typeof(FlexibleIntConverter))]
     public int SeasonCount { get; init; }
 
+    [JsonPropertyName("episode_cnt")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int EpisodeCount { get; init; }
+
     [JsonPropertyName("series_list")]
     public IReadOnlyList<AppAlbumSeasonItemDto> SeriesList { get; init; } = [];
 
@@ -98,6 +102,18 @@ internal sealed class AppAlbumSeasonItemDto
     [JsonPropertyName("series_cover")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Cover { get; init; } = string.Empty;
+
+    [JsonPropertyName("series_intro")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Intro { get; init; } = string.Empty;
+
+    [JsonPropertyName("vid")]
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string VideoId { get; init; } = string.Empty;
+
+    [JsonPropertyName("duration")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int Duration { get; init; }
 
     [JsonPropertyName("episode_cnt")]
     [JsonConverter(typeof(FlexibleIntConverter))]

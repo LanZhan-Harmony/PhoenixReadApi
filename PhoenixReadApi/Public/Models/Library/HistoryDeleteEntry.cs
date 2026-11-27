@@ -80,7 +80,7 @@ public sealed class HistoryDeleteEntry
         return item.Target switch
         {
             Drama d => FromDrama(d.Id, item.VideoId, item.EpisodeNumber),
-            DramaAlbum a => FromAlbum(a.Id, item.VideoId, item.EpisodeNumber),
+            VideoAlbum a => FromAlbum(a.Id, item.VideoId, item.EpisodeNumber),
             ShortVideo s => FromShortVideo(!string.IsNullOrWhiteSpace(item.VideoId) ? item.VideoId : s.VideoId),
             Post p => FromPost(p.Id),
             Novel n => FromNovel(n.Id),

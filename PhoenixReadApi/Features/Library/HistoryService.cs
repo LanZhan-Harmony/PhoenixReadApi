@@ -17,16 +17,16 @@ internal sealed class HistoryService : LibraryServiceBase
         : base(runtime) { }
 
     internal Task<HistoryPage<Drama>> GetDramaHistoryAsync(
-        int count,
         int offset,
+        int count,
         bool querySoftDeleted,
         long lastMinReadTimestampMilliseconds,
         CancellationToken cancellationToken
     ) =>
         FetchHistoryAsync(
             bookType: "2",
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             static (item, id, videoId, ep, title, cover) =>
@@ -42,43 +42,43 @@ internal sealed class HistoryService : LibraryServiceBase
             cancellationToken
         );
 
-    internal Task<HistoryPage<DramaAlbum>> GetAlbumHistoryAsync(
-        int count,
+    internal Task<HistoryPage<VideoAlbum>> GetVideoAlbumHistoryAsync(
         int offset,
+        int count,
         bool querySoftDeleted,
         long lastMinReadTimestampMilliseconds,
         CancellationToken cancellationToken
     ) =>
         FetchHistoryAsync(
             bookType: "3",
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             static (item, id, _, _, title, cover) =>
                 id.Length == 0
                     ? null
-                    : new DramaAlbum
+                    : new VideoAlbum
                     {
                         Id = id,
                         Title = title,
                         CoverUrl = cover,
-                        SeasonCount = Math.Max(0, item.EpisodeCount),
+                        VideoCount = Math.Max(0, item.EpisodeCount),
                     },
             cancellationToken
         );
 
     internal Task<HistoryPage<ShortVideo>> GetShortVideoHistoryAsync(
-        int count,
         int offset,
+        int count,
         bool querySoftDeleted,
         long lastMinReadTimestampMilliseconds,
         CancellationToken cancellationToken
     ) =>
         FetchHistoryAsync(
             bookType: "4",
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             static (item, id, videoId, _, title, cover) =>
@@ -105,16 +105,16 @@ internal sealed class HistoryService : LibraryServiceBase
         );
 
     internal Task<HistoryPage<Post>> GetPostHistoryAsync(
-        int count,
         int offset,
+        int count,
         bool querySoftDeleted,
         long lastMinReadTimestampMilliseconds,
         CancellationToken cancellationToken
     ) =>
         FetchHistoryAsync(
             bookType: "5",
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             static (item, id, _, _, title, cover) =>
@@ -138,16 +138,16 @@ internal sealed class HistoryService : LibraryServiceBase
         );
 
     internal Task<HistoryPage<Novel>> GetNovelHistoryAsync(
-        int count,
         int offset,
+        int count,
         bool querySoftDeleted,
         long lastMinReadTimestampMilliseconds,
         CancellationToken cancellationToken
     ) =>
         FetchHistoryAsync(
             bookType: "0",
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             static (item, id, _, _, title, cover) =>
@@ -164,16 +164,16 @@ internal sealed class HistoryService : LibraryServiceBase
         );
 
     internal Task<HistoryPage<Audiobook>> GetAudiobookHistoryAsync(
-        int count,
         int offset,
+        int count,
         bool querySoftDeleted,
         long lastMinReadTimestampMilliseconds,
         CancellationToken cancellationToken
     ) =>
         FetchHistoryAsync(
             bookType: "1",
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             static (item, id, _, _, title, cover) =>
@@ -191,8 +191,8 @@ internal sealed class HistoryService : LibraryServiceBase
 
     private async Task<HistoryPage<T>> FetchHistoryAsync<T>(
         string bookType,
-        int count,
         int offset,
+        int count,
         bool querySoftDeleted,
         long lastMinReadTimestampMilliseconds,
         Func<AppHistoryItem, string, string, int, string, string, T?> targetMapper,

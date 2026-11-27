@@ -50,17 +50,4 @@ public sealed partial class PhoenixReadApiClient
         string videoId = !string.IsNullOrWhiteSpace(video.VideoId) ? video.VideoId : video.Id;
         return _playback.ResolveShortVideoAsync(videoId, cancellationToken);
     }
-
-    /// <summary>根据合集子视频条目 <see cref="DramaSeason"/> 解析对应短视频的可播放媒体列表。</summary>
-    /// <param name="season">通过 <see cref="GetAlbumAsync"/> 获取到的合集子项。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>按画质综合得分从高到低排序的可播放媒体列表。</returns>
-    public Task<IReadOnlyList<PlaybackMedia>> ResolveShortVideoMediaAsync(
-        DramaSeason season,
-        CancellationToken cancellationToken = default
-    )
-    {
-        ArgumentNullException.ThrowIfNull(season);
-        return _playback.ResolveShortVideoAsync(season.DramaId, cancellationToken);
-    }
 }

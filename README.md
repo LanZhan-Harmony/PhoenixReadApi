@@ -264,15 +264,15 @@ foreach (SearchSuggestion suggestion in suggestions)
 SearchPage<Drama> dramaSearch = await client.SearchDramasAsync("逆袭", cancellationToken: cts.Token);
 Console.WriteLine($"短剧命中: {dramaSearch.Items.Count} 部 (总计: {dramaSearch.Total}, 是否受限: {dramaSearch.Limited})");
 
-// 2. 搜索视频（返回合集 DramaAlbum 或独立短视频 ShortVideo 的 C# 15 原生 Union）
+// 2. 搜索视频（返回视频合集 VideoAlbum 或独立短视频 ShortVideo 的 C# 15 原生 Union）
 SearchPage<VideoSearchItem> videoSearch = await client.SearchVideosAsync("娇女诡爱畸恋", cancellationToken: cts.Token);
 foreach (VideoSearchItem item in videoSearch.Items)
 {
     switch (item)
     {
-        case DramaAlbum album:
-            DramaAlbum albumDetail = await client.GetAlbumAsync(album.Id, cts.Token);
-            Console.WriteLine($"合集: 《{albumDetail.Title}》 子视频数: {albumDetail.Seasons.Count}");
+        case VideoAlbum album:
+            VideoAlbumDetails albumDetail = await client.GetVideoAlbumDetailsAsync(album.Id, cts.Token);
+            Console.WriteLine($"合集: 《{albumDetail.Album.Title}》 子视频数: {albumDetail.Videos.Count}");
             break;
         case ShortVideo shortVideo:
             IReadOnlyList<PlaybackMedia> shortMedias = await client.ResolveShortVideoMediaAsync(shortVideo, cts.Token);
@@ -337,10 +337,9 @@ foreach (DramaCredit credit in details.Drama.Credits)
     Console.WriteLine($"  主页作品数: {profile.Works.Count}");
 }
 
-// 多季合集与智能聚合（自动获取多季合集中的所有季及分集）
-DramaAlbum seasonsAlbum = await client.GetDramaSeasonsAsync("74123456789", cts.Token);
-Console.WriteLine($"合集: 《{seasonsAlbum.Title}》 (总季数: {seasonsAlbum.Seasons.Count})");
-foreach (DramaSeason season in seasonsAlbum.Seasons)
+// 多季短剧季数聚合（自动获取多季短剧的所有季）
+IReadOnlyList<DramaSeason> seasons = await client.GetDramaSeasonsAsync("74123456789", cts.Token);
+foreach (DramaSeason season in seasons)
 {
     Console.WriteLine($"  - 第 {season.Index} 季: 《{season.Title}》 ({season.EpisodeCount}集)");
 }
@@ -488,7 +487,7 @@ if (reviews.Items.FirstOrDefault() is { } firstReview)
 ### 6. 书架、阅读历史与播放进度
 
 ```csharp
-// 查询个人短剧观看历史（另有 GetAlbumHistoryAsync / GetShortVideoHistoryAsync / GetPostHistoryAsync / GetNovelHistoryAsync / GetAudiobookHistoryAsync）
+// 查询个人短剧观看历史（另有 GetVideoAlbumHistoryAsync / GetShortVideoHistoryAsync / GetPostHistoryAsync / GetNovelHistoryAsync / GetAudiobookHistoryAsync）
 HistoryPage<Drama> history = await client.GetDramaHistoryAsync(cancellationToken: cts.Token);
 
 // 上报当前分集的播放进度（也会同步写入观看历史）
@@ -501,7 +500,7 @@ await client.ReportProgressAsync(new ProgressUpdate
     DurationMs = 120_000
 }, cts.Token);
 
-// 收藏或取消收藏（传入 active: false 即可取消；另有 SetShortVideoFavoriteAsync / SetDramaAlbumFavoriteAsync / SetPostFavoriteAsync）
+// 收藏或取消收藏（传入 active: false 即可取消；另有 SetShortVideoFavoriteAsync / SetVideoAlbumFavoriteAsync / SetPostFavoriteAsync）
 await client.SetFavoriteAsync(dramaId, videoId, active: true, cancellationToken: cts.Token);
 
 // 点赞或取消点赞（另有 SetShortVideoLikeAsync / SetPostLikeAsync）
@@ -509,7 +508,7 @@ await client.SetDramaEpisodeLikeAsync(dramaId, videoId, active: true, cancellati
 
 // 分别查询各类型的收藏列表
 IReadOnlyList<Drama> dramaFavorites = await client.GetDramaFavoritesAsync(cts.Token);
-IReadOnlyList<DramaAlbum> albumFavorites = await client.GetAlbumFavoritesAsync(cts.Token);
+IReadOnlyList<VideoAlbum> albumFavorites = await client.GetAlbumFavoritesAsync(cts.Token);
 IReadOnlyList<ShortVideo> shortVideoFavorites = await client.GetShortVideoFavoritesAsync(cts.Token);
 IReadOnlyList<Novel> novelFavorites = await client.GetNovelFavoritesAsync(cts.Token);
 IReadOnlyList<Audiobook> audiobookFavorites = await client.GetAudiobookFavoritesAsync(cts.Token);

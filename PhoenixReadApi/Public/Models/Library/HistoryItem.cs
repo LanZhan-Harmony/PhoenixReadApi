@@ -1,7 +1,7 @@
 namespace PhoenixReadApi;
 
 /// <summary>阅读或观看历史中的一条记录。</summary>
-/// <typeparam name="T">目标内容实体类型（如 <see cref="Drama"/>、<see cref="DramaAlbum"/>、<see cref="ShortVideo"/> 或 <see cref="Post"/>）。</typeparam>
+/// <typeparam name="T">目标内容实体类型（如 <see cref="Drama"/>、<see cref="VideoAlbum"/>、<see cref="ShortVideo"/> 或 <see cref="Post"/>）。</typeparam>
 public sealed class HistoryItem<T>
 {
     /// <summary>服务端记录 ID。</summary>

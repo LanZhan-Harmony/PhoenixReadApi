@@ -3,132 +3,132 @@ namespace PhoenixReadApi;
 public sealed partial class PhoenixReadApiClient
 {
     /// <summary>获取当前客户端账号的短剧观看历史（服务端 book_type=2）。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="querySoftDeleted">是否包含已软删除的历史记录。</param>
     /// <param name="lastMinReadTimestampMilliseconds">只读取该时间之后的记录，0 表示不限制。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>短剧观看历史和分页状态。</returns>
     public Task<HistoryPage<Drama>> GetDramaHistoryAsync(
-        int count = 20,
         int offset = 0,
+        int count = 20,
         bool querySoftDeleted = false,
         long lastMinReadTimestampMilliseconds = 0,
         CancellationToken cancellationToken = default
     ) =>
         _history.GetDramaHistoryAsync(
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             cancellationToken
         );
 
     /// <summary>获取当前客户端账号的合集观看历史（服务端 book_type=3）。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="querySoftDeleted">是否包含已软删除的历史记录。</param>
     /// <param name="lastMinReadTimestampMilliseconds">只读取该时间之后的记录，0 表示不限制。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>合集观看历史和分页状态。</returns>
-    public Task<HistoryPage<DramaAlbum>> GetAlbumHistoryAsync(
-        int count = 20,
+    public Task<HistoryPage<VideoAlbum>> GetVideoAlbumHistoryAsync(
         int offset = 0,
+        int count = 20,
         bool querySoftDeleted = false,
         long lastMinReadTimestampMilliseconds = 0,
         CancellationToken cancellationToken = default
     ) =>
-        _history.GetAlbumHistoryAsync(
-            count,
+        _history.GetVideoAlbumHistoryAsync(
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             cancellationToken
         );
 
     /// <summary>获取当前客户端账号的独立短视频观看历史（服务端 book_type=4）。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="querySoftDeleted">是否包含已软删除的历史记录。</param>
     /// <param name="lastMinReadTimestampMilliseconds">只读取该时间之后的记录，0 表示不限制。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>独立短视频观看历史和分页状态。</returns>
     public Task<HistoryPage<ShortVideo>> GetShortVideoHistoryAsync(
-        int count = 20,
         int offset = 0,
+        int count = 20,
         bool querySoftDeleted = false,
         long lastMinReadTimestampMilliseconds = 0,
         CancellationToken cancellationToken = default
     ) =>
         _history.GetShortVideoHistoryAsync(
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             cancellationToken
         );
 
     /// <summary>获取当前客户端账号的图文帖子浏览历史（服务端 book_type=5）。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="querySoftDeleted">是否包含已软删除的历史记录。</param>
     /// <param name="lastMinReadTimestampMilliseconds">只读取该时间之后的记录，0 表示不限制。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>图文帖子浏览历史和分页状态。</returns>
     public Task<HistoryPage<Post>> GetPostHistoryAsync(
-        int count = 20,
         int offset = 0,
+        int count = 20,
         bool querySoftDeleted = false,
         long lastMinReadTimestampMilliseconds = 0,
         CancellationToken cancellationToken = default
     ) =>
         _history.GetPostHistoryAsync(
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             cancellationToken
         );
 
     /// <summary>获取当前客户端账号的小说与漫画阅读历史（服务端 book_type=0）。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="querySoftDeleted">是否包含已软删除的历史记录。</param>
     /// <param name="lastMinReadTimestampMilliseconds">只读取该时间之后的记录，0 表示不限制。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>小说与漫画阅读历史和分页状态。</returns>
     public Task<HistoryPage<Novel>> GetNovelHistoryAsync(
-        int count = 20,
         int offset = 0,
+        int count = 20,
         bool querySoftDeleted = false,
         long lastMinReadTimestampMilliseconds = 0,
         CancellationToken cancellationToken = default
     ) =>
         _history.GetNovelHistoryAsync(
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             cancellationToken
         );
 
     /// <summary>获取当前客户端账号的有声听书历史（服务端 book_type=1）。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="querySoftDeleted">是否包含已软删除的历史记录。</param>
     /// <param name="lastMinReadTimestampMilliseconds">只读取该时间之后的记录，0 表示不限制。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>有声听书历史和分页状态。</returns>
     public Task<HistoryPage<Audiobook>> GetAudiobookHistoryAsync(
-        int count = 20,
         int offset = 0,
+        int count = 20,
         bool querySoftDeleted = false,
         long lastMinReadTimestampMilliseconds = 0,
         CancellationToken cancellationToken = default
     ) =>
         _history.GetAudiobookHistoryAsync(
-            count,
             offset,
+            count,
             querySoftDeleted,
             lastMinReadTimestampMilliseconds,
             cancellationToken
@@ -163,37 +163,37 @@ public sealed partial class PhoenixReadApiClient
     ) => _history.ReportProgressAsync(update, cancellationToken);
 
     /// <summary>获取未上线预约的剧集。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>预约记录和分页状态。</returns>
     public Task<ReservationPage> GetPendingReservationsAsync(
-        int count = 20,
         int offset = 0,
+        int count = 20,
         CancellationToken cancellationToken = default
-    ) => _reservation.GetReservationsAsync(count, offset, isAvailable: false, cancellationToken);
+    ) => _reservation.GetReservationsAsync(offset, count, isAvailable: false, cancellationToken);
 
     /// <summary>获取已上线预约的剧集。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>预约记录；服务端提供的日历字段已转换为统一的预约实体。</returns>
     public Task<ReservationPage> GetAvailableReservationsAsync(
-        int count = 20,
         int offset = 0,
+        int count = 20,
         CancellationToken cancellationToken = default
-    ) => _reservation.GetReservationsAsync(count, offset, isAvailable: true, cancellationToken);
+    ) => _reservation.GetReservationsAsync(offset, count, isAvailable: true, cancellationToken);
 
     /// <summary>获取可预约的新剧列表。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">分页偏移量。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>可预约剧集及分页状态。</returns>
     public Task<ReservationPage> GetUpcomingReservationsAsync(
-        int count = 20,
         int offset = 0,
+        int count = 20,
         CancellationToken cancellationToken = default
-    ) => _reservation.GetUpcomingReservationsAsync(count, offset, cancellationToken);
+    ) => _reservation.GetUpcomingReservationsAsync(offset, count, cancellationToken);
 
     /// <summary>设置或取消剧集预约。</summary>
     /// <param name="dramaId">剧集 ID。</param>

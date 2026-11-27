@@ -3,15 +3,15 @@ namespace PhoenixReadApi;
 public sealed partial class PhoenixReadApiClient
 {
     /// <summary>获取当前客户端账号点赞的剧集。</summary>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>点赞剧集和分页状态。</returns>
     public Task<DramaPage> GetDramaLikesAsync(
-        int count = 20,
         int offset = 0,
+        int count = 20,
         CancellationToken cancellationToken = default
-    ) => _like.GetLikesAsync(count, offset, cancellationToken);
+    ) => _like.GetLikesAsync(offset, count, cancellationToken);
 
     /// <summary>点赞或取消点赞一部剧的一集。</summary>
     /// <param name="dramaId">剧集 ID。</param>

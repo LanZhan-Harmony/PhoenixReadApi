@@ -137,8 +137,8 @@ internal sealed class UserService : PhoenixFeatureService
 
     internal async Task<DramaPage> GetFavoritesAsync(
         string userId,
-        int count,
         int offset,
+        int count,
         CancellationToken cancellationToken
     )
     {
@@ -163,8 +163,8 @@ internal sealed class UserService : PhoenixFeatureService
 
     internal async Task<UserDramaPage> GetLikesAsync(
         string userId,
-        int count,
         int offset,
+        int count,
         CancellationToken cancellationToken
     )
     {
@@ -252,7 +252,7 @@ internal sealed class UserService : PhoenixFeatureService
                 : Task.FromResult<AppUserProfileData?>(null);
 
         Task<CirclePage> circleTask = tabTypes.Contains((int)UserProfileTabType.Circle)
-            ? _circleService.GetUserCircleAsync(user.Id, PageSize, string.Empty, cancellationToken)
+            ? _circleService.GetUserCircleAsync(user.Id, string.Empty, PageSize, cancellationToken)
             : Task.FromResult(new CirclePage());
         Task<AppUserShelfData?> collectionsTask = tabTypes.Contains(
             (int)UserProfileTabType.Favorite
@@ -508,37 +508,17 @@ internal sealed class UserService : PhoenixFeatureService
                     continue;
                 }
 
-                List<DramaSeason> seasons = [];
-                int seasonNumber = 1;
-                foreach (AppUserVideo sub in record.Album.Videos ?? [])
-                {
-                    string subId = sub.Id.Trim();
-                    if (!ValueNormalizer.IsNumericId(subId))
-                    {
-                        continue;
-                    }
-
-                    seasons.Add(
-                        new DramaSeason
-                        {
-                            Index = seasonNumber++,
-                            DramaId = subId,
-                            Title = ValueNormalizer.First(sub.Common.Title, subId),
-                            CoverUrl = sub.Common.CoverUrl,
-                            EpisodeCount = Math.Max(1, sub.Expand?.EpisodeCount ?? 1),
-                        }
-                    );
-                }
-
                 result.Add(
-                    new DramaAlbum
+                    new VideoAlbum
                     {
                         Id = albumId,
                         Title = ValueNormalizer.First(record.Album.AlbumName, albumId),
                         Description = record.Album.Description,
                         CoverUrl = record.Album.ThumbUrl,
-                        SeasonCount = Math.Max(record.Album.VideoCount, seasons.Count),
-                        Seasons = seasons,
+                        VideoCount = Math.Max(
+                            record.Album.VideoCount,
+                            record.Album.Videos?.Count ?? 0
+                        ),
                     }
                 );
                 continue;

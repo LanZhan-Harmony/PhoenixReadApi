@@ -150,7 +150,7 @@ public sealed class AlbumAndShortVideoTests
         SearchPage<VideoSearchItem> videos = await client.SearchVideosAsync("娇女诡爱畸恋");
         await Assert.That(videos.Items.Count).IsEqualTo(2);
 
-        DramaAlbum? albumHit = videos.Items[0].Value as DramaAlbum;
+        VideoAlbum? albumHit = videos.Items[0].Value as VideoAlbum;
         ShortVideo? shortHit = videos.Items[1].Value as ShortVideo;
         await Assert.That(albumHit).IsNotNull();
         await Assert.That(shortHit).IsNotNull();
@@ -158,10 +158,10 @@ public sealed class AlbumAndShortVideoTests
         await Assert.That(shortHit!.VideoId).IsEqualTo("7689008778074655806");
         await Assert.That(shortHit.DurationSeconds).IsEqualTo(189);
 
-        DramaAlbum album = await client.GetAlbumAsync(albumHit.Id);
-        await Assert.That(album.Id).IsEqualTo("7706480483017690137");
-        await Assert.That(album.Seasons.Count).IsEqualTo(1);
-        await Assert.That(album.Seasons[0].DramaId).IsEqualTo("7706480472527752216");
+        VideoAlbumDetails albumDetails = await client.GetVideoAlbumDetailsAsync(albumHit.Id);
+        await Assert.That(albumDetails.Album.Id).IsEqualTo("7706480483017690137");
+        await Assert.That(albumDetails.Videos.Count).IsEqualTo(1);
+        await Assert.That(albumDetails.Videos[0].VideoId).IsEqualTo("7706480472527752216");
     }
 
     [Test]
@@ -566,8 +566,8 @@ public sealed class AlbumAndShortVideoTests
 
         await client.SetShortVideoFavoriteAsync("7711744740370156569", true);
         await client.SetShortVideoFavoriteAsync("7711744740370156569", false);
-        await client.SetDramaAlbumFavoriteAsync("7706480483017690137", true);
-        await client.SetDramaAlbumFavoriteAsync("7706480483017690137", false);
+        await client.SetVideoAlbumFavoriteAsync("7706480483017690137", true);
+        await client.SetVideoAlbumFavoriteAsync("7706480483017690137", false);
         await client.SetPostFavoriteAsync("7679289401964298776", true);
         await client.SetPostFavoriteAsync("7679289401964298776", false);
         await client.SetShortVideoLikeAsync("7711744740370156569", true);
@@ -684,7 +684,7 @@ public sealed class AlbumAndShortVideoTests
         await Assert.That(shortVideos.Count).IsEqualTo(1);
         await Assert.That(shortVideos[0].VideoId).IsEqualTo("7666132887825042494");
 
-        IReadOnlyList<DramaAlbum> albums = await client.GetAlbumFavoritesAsync();
+        IReadOnlyList<VideoAlbum> albums = await client.GetAlbumFavoritesAsync();
         await Assert.That(albums.Count).IsEqualTo(1);
         await Assert.That(albums[0].Id).IsEqualTo("7706480483017690137");
 

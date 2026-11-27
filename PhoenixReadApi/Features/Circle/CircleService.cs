@@ -23,8 +23,8 @@ internal sealed class CircleService : PhoenixFeatureService
     /// <summary>获取指定用户/演职人员的红果圈 Feed 混合流。</summary>
     internal async Task<CirclePage> GetUserCircleAsync(
         string userId,
-        int count,
         string cursor,
+        int count,
         CancellationToken cancellationToken
     )
     {

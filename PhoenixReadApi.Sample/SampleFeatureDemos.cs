@@ -208,13 +208,13 @@ internal static partial class SampleSteps
             Console.WriteLine(
                 $"\n--- [功能展示 6: 《{sampleDrama.Title}》多季合集与关联好剧推荐] ---"
             );
-            DramaAlbum? album = await TryAsync("GetDramaSeasonsAsync", () =>
+            IReadOnlyList<DramaSeason>? seasons = await TryAsync("GetDramaSeasonsAsync", () =>
                 client.GetDramaSeasonsAsync(sampleDrama.Id, cancellationToken)
             );
-            if (album is not null)
+            if (seasons is not null)
             {
-                Console.WriteLine($"  ★ 合集: 《{album.Title}》 (总季数: {album.Seasons.Count})");
-                foreach (DramaSeason season in album.Seasons)
+                Console.WriteLine($"  ★ 系列季数: {seasons.Count}");
+                foreach (DramaSeason season in seasons)
                 {
                     Console.WriteLine(
                         $"     - 第 {season.Index} 季: 《{season.Title}》 (ID: {season.DramaId}, {season.EpisodeCount}集)"

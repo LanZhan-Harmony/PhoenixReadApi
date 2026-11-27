@@ -36,7 +36,7 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _search.SearchDramasAsync(keyword, offset, count, searchId, passback, cancellationToken);
 
-    /// <summary>搜索视频内容（返回合集 <see cref="DramaAlbum"/> 或独立短视频 <see cref="ShortVideo"/> 的联合类型）。</summary>
+    /// <summary>搜索视频内容（返回合集 <see cref="VideoAlbum"/> 或独立短视频 <see cref="ShortVideo"/> 的联合类型）。</summary>
     /// <param name="keyword">搜索关键词，不能为空，最多 80 个字符。</param>
     /// <param name="offset">分页偏移量，从 0 开始。</param>
     /// <param name="count">每页返回数量（1～50）。</param>

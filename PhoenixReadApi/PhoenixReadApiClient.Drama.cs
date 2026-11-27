@@ -35,20 +35,11 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _drama.GetBatchDramaDetailsWithEpisodesAsync(dramaIds, cancellationToken);
 
-    /// <summary>根据合集 ID 获取短剧多季合集详情及各季列表。</summary>
-    /// <param name="albumId">多季合集 ID（可从 <see cref="DramaDetails.AlbumId"/> 获取）。</param>
-    /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>包含各季剧集元数据的 <see cref="DramaAlbum"/> 对象。</returns>
-    public Task<DramaAlbum> GetAlbumAsync(
-        string albumId,
-        CancellationToken cancellationToken = default
-    ) => _drama.GetAlbumAsync(albumId, cancellationToken);
-
-    /// <summary>智能聚合短剧的所有季数（多源回退与派生聚合）。</summary>
+    /// <summary>获取短剧的所有季数。</summary>
     /// <param name="dramaId">当前短剧的 ID。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>按季数升序排列的完整季集合。</returns>
-    public Task<DramaAlbum> GetDramaSeasonsAsync(
+    /// <returns>按季数升序排列的完整季列表。</returns>
+    public Task<IReadOnlyList<DramaSeason>> GetDramaSeasonsAsync(
         string dramaId,
         CancellationToken cancellationToken = default
     ) => _drama.GetDramaSeasonsAsync(dramaId, cancellationToken);
@@ -77,7 +68,15 @@ public sealed partial class PhoenixReadApiClient
         string sessionId = "",
         int limit = 10,
         CancellationToken cancellationToken = default
-    ) => _drama.GetDramaGuessYouLikeAsync(dramaId, offset, cellId, sessionId, limit, cancellationToken);
+    ) =>
+        _drama.GetDramaGuessYouLikeAsync(
+            dramaId,
+            offset,
+            cellId,
+            sessionId,
+            limit,
+            cancellationToken
+        );
 
     /// <summary>获取单部短剧或视频合集播放完毕后的系列/相关推荐短剧。</summary>
     /// <param name="id">短剧 ID（当 <paramref name="isAlbum"/> 为 false）或合集 ID（当 <paramref name="isAlbum"/> 为 true）。</param>

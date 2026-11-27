@@ -4,18 +4,18 @@ public sealed partial class PhoenixReadApiClient
 {
     /// <summary>获取一页短剧剧评。</summary>
     /// <param name="dramaId">剧集 ID。</param>
-    /// <param name="count">本页最多返回的评论数，范围为 1 到 90。</param>
     /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
+    /// <param name="count">本页最多返回的评论数，范围为 1 到 90。</param>
     /// <param name="sort">排序方式：默认为 <see cref="CommentSortOrder.Hot"/>（最热）。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>包含剧评列表、全剧公信评分、打分人数、AI综评、总数、下一页游标和 HasMore 状态的 <see cref="DramaReviewPage"/>。</returns>
     public Task<DramaReviewPage> GetDramaReviewsAsync(
         string dramaId,
-        int count = 10,
         string cursor = "",
+        int count = 10,
         CommentSortOrder sort = CommentSortOrder.Hot,
         CancellationToken cancellationToken = default
-    ) => _comment.GetDramaReviewsAsync(dramaId, count, cursor, cancellationToken, sort);
+    ) => _comment.GetDramaReviewsAsync(dramaId, cursor, count, cancellationToken, sort);
 
     /// <summary>按 0~5 星评分发送一条剧评。</summary>
     /// <param name="dramaId">剧集 ID。</param>
@@ -32,34 +32,34 @@ public sealed partial class PhoenixReadApiClient
     ) => _comment.SendReviewAsync(dramaId, rating, text, cancellationToken);
 
     /// <summary>获取指定目标（短剧分集、短视频或图文帖子）的一页评论。</summary>
-    /// <param name="target">评论目标（可通过 <see cref="CommentTarget"/> 工厂方法。</param>
-    /// <param name="count">本页最多返回的评论数，范围为 1 到 90。</param>
+    /// <param name="target">评论目标（可通过 <see cref="CommentTarget"/> 工厂方法构造）。</param>
     /// <param name="cursor">上一页返回的 Cursor；首次请求传空字符串。</param>
+    /// <param name="count">本页最多返回的评论数，范围为 1 到 90。</param>
     /// <param name="sort">排序方式：默认为 <see cref="CommentSortOrder.Hot"/>（最热）。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>包含评论、作者、总数、下一页游标和 HasMore 状态的 <see cref="CommentPage"/>。</returns>
     public Task<CommentPage> GetCommentsAsync(
         CommentTarget target,
-        int count = 20,
         string cursor = "",
+        int count = 20,
         CommentSortOrder sort = CommentSortOrder.Hot,
         CancellationToken cancellationToken = default
-    ) => _comment.GetCommentsAsync(target, count, cursor, sort, cancellationToken);
+    ) => _comment.GetCommentsAsync(target, cursor, count, sort, cancellationToken);
 
     /// <summary>获取指定评论或剧评下的回复列表。</summary>
     /// <param name="target">目标定位信息（支持剧评、短剧分集、短视频或图文帖子）。</param>
     /// <param name="commentId">目标评论或剧评 ID。</param>
-    /// <param name="count">本页最多返回的回复数，范围为 1 到 90。</param>
     /// <param name="cursor">上一页返回的游标；首次请求传空字符串。</param>
+    /// <param name="count">本页最多返回的回复数，范围为 1 到 90。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>回复、总数、下一页游标和 HasMore 状态。</returns>
     public Task<CommentReplyPage> GetCommentRepliesAsync(
         CommentTarget target,
         string commentId,
-        int count = 20,
         string cursor = "",
+        int count = 20,
         CancellationToken cancellationToken = default
-    ) => _comment.GetCommentRepliesAsync(target, commentId, count, cursor, cancellationToken);
+    ) => _comment.GetCommentRepliesAsync(target, commentId, cursor, count, cancellationToken);
 
     /// <summary>为指定目标（短剧分集、短视频或图文帖子）发送一条评论。</summary>
     /// <param name="target">评论目标。</param>

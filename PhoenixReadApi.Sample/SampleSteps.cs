@@ -280,7 +280,7 @@ internal static partial class SampleSteps
         }
 
         context.Reviews = await TryWhenIdAsync("GetDramaReviewsAsync", context.DramaId, id =>
-            client.GetDramaReviewsAsync(id, 10, cancellationToken: cancellationToken)
+            client.GetDramaReviewsAsync(id, count: 10, cancellationToken: cancellationToken)
         );
         PrintReviews("  剧评", context.Reviews);
 
@@ -291,7 +291,7 @@ internal static partial class SampleSteps
             (drama, video) =>
                 client.GetCommentsAsync(
                     CommentTarget.FromEpisode(drama, video),
-                    10,
+                    count: 10,
                     cancellationToken: cancellationToken
                 )
         );

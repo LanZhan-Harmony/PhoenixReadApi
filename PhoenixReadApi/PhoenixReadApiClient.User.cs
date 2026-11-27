@@ -40,29 +40,29 @@ public sealed partial class PhoenixReadApiClient
 
     /// <summary>获取账号收藏剧集的一页。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">分页偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>收藏剧集及 NextOffset、HasMore 和 Total 分页信息。</returns>
     /// <remarks>当 HasMore 为 true 时，将 NextOffset 原样传给下一次调用。</remarks>
     public Task<DramaPage> GetUserFavoritesAsync(
         string userId,
-        int count = 18,
         int offset = 0,
+        int count = 18,
         CancellationToken cancellationToken = default
-    ) => _user.GetFavoritesAsync(userId, count, offset, cancellationToken);
+    ) => _user.GetFavoritesAsync(userId, offset, count, cancellationToken);
 
     /// <summary>获取账号点赞剧集的一页。</summary>
     /// <param name="userId">账号 ID，必须是数字字符串。</param>
-    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="offset">分页偏移量；首次请求使用 0，后续使用上一页的 NextOffset。</param>
+    /// <param name="count">本页数量，范围为 1 到 50。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>点赞剧集及 NextOffset、HasMore 和 Total 分页信息。</returns>
     /// <remarks>当 HasMore 为 true 时，将 NextOffset 原样传给下一次调用。</remarks>
     public Task<UserDramaPage> GetUserLikesAsync(
         string userId,
-        int count = 18,
         int offset = 0,
+        int count = 18,
         CancellationToken cancellationToken = default
-    ) => _user.GetLikesAsync(userId, count, offset, cancellationToken);
+    ) => _user.GetLikesAsync(userId, offset, count, cancellationToken);
 }

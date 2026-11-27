@@ -1475,7 +1475,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
                         string albumId = video.AlbumInfo.EffectiveAlbumId;
                         if (albumId.Length > 0 && seenAlbums.Add(albumId))
                         {
-                            DramaAlbum album = new()
+                            VideoAlbum album = new()
                             {
                                 Id = albumId,
                                 Title = ValueNormalizer.First(
@@ -1493,7 +1493,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
                                     video.SeriesCover,
                                     string.Empty
                                 ),
-                                SeasonCount = Math.Max(0, video.AlbumInfo.EpisodeCount),
+                                VideoCount = Math.Max(0, video.AlbumInfo.EpisodeCount),
                             };
                             result.Albums.Add(album);
                             result.Videos.Add(album);
@@ -1798,7 +1798,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
     {
         public List<ComprehensiveSearchItem> Comprehensive { get; } = [];
         public List<Drama> Dramas { get; } = [];
-        public List<DramaAlbum> Albums { get; } = [];
+        public List<VideoAlbum> Albums { get; } = [];
         public List<ShortVideo> ShortVideos { get; } = [];
         public List<VideoSearchItem> Videos { get; } = [];
         public List<Post> Discussions { get; } = [];

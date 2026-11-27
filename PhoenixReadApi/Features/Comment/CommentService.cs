@@ -20,8 +20,8 @@ internal sealed class CommentService : PhoenixFeatureService
 
     internal Task<CommentPage> GetCommentsAsync(
         CommentTarget target,
-        int count,
         string cursor,
+        int count,
         CommentSortOrder sort,
         CancellationToken cancellationToken
     )
@@ -62,8 +62,8 @@ internal sealed class CommentService : PhoenixFeatureService
     internal Task<CommentReplyPage> GetCommentRepliesAsync(
         CommentTarget target,
         string commentId,
-        int count,
         string cursor,
+        int count,
         CancellationToken cancellationToken
     )
     {
@@ -319,8 +319,8 @@ internal sealed class CommentService : PhoenixFeatureService
 
     internal Task<DramaReviewPage> GetDramaReviewsAsync(
         string dramaId,
-        int count,
         string cursor,
+        int count,
         CancellationToken cancellationToken,
         CommentSortOrder sort = CommentSortOrder.Hot
     )

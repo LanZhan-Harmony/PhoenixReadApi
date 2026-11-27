@@ -51,7 +51,7 @@ internal sealed class FavoriteService : LibraryServiceBase
         CancellationToken cancellationToken
     ) => SetBookFavoriteAsync(videoId, bookType: 4, active, cancellationToken);
 
-    internal Task<PhoenixOperationResult> SetDramaAlbumFavoriteAsync(
+    internal Task<PhoenixOperationResult> SetVideoAlbumFavoriteAsync(
         string albumId,
         bool active,
         CancellationToken cancellationToken
@@ -199,13 +199,13 @@ internal sealed class FavoriteService : LibraryServiceBase
         return dramas;
     }
 
-    internal async Task<IReadOnlyList<DramaAlbum>> GetAlbumFavoritesAsync(
+    internal async Task<IReadOnlyList<VideoAlbum>> GetAlbumFavoritesAsync(
         CancellationToken cancellationToken
     )
     {
         IReadOnlyList<AppShelfItem> rawItems = await FetchVideoShelfAsync(cancellationToken)
             .ConfigureAwait(false);
-        List<DramaAlbum> albums = [];
+        List<VideoAlbum> albums = [];
         foreach (AppShelfItem raw in rawItems)
         {
             if (raw.BookType != 3)
@@ -221,12 +221,13 @@ internal sealed class FavoriteService : LibraryServiceBase
             }
 
             albums.Add(
-                new DramaAlbum
+                new VideoAlbum
                 {
                     Id = id,
                     Title = raw.Title,
                     Description = raw.Description,
                     CoverUrl = raw.CoverUrl,
+                    VideoCount = video.EpisodeCount,
                 }
             );
         }
@@ -307,8 +308,8 @@ internal sealed class FavoriteService : LibraryServiceBase
     }
 
     internal async Task<PostFavoritePage> GetPostFavoritesAsync(
-        int count,
         int offset,
+        int count,
         CancellationToken cancellationToken
     )
     {
