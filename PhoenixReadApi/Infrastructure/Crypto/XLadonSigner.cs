@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Buffers.Text;
 using System.Globalization;
 using System.Numerics;
 using System.Security.Cryptography;
@@ -50,29 +51,38 @@ internal static class XLadonSigner
             k = x ^ BitOperations.RotateLeft(k, 3);
         }
 
-        string rawText =
-            $"{timestamp.ToString(CultureInfo.InvariantCulture)}-{PlaybackLicenseId}-{aid}";
-        int rawByteCount = Encoding.UTF8.GetByteCount(rawText);
-        Span<byte> rawBytes = stackalloc byte[rawByteCount];
-        Encoding.UTF8.GetBytes(rawText, rawBytes);
-        byte[] plain = Pad(rawBytes);
-
-        for (int at = 0; at < plain.Length; at += 16)
+        Span<byte> plain = stackalloc byte[32];
+        int rawLen = 0;
+        if (Utf8Formatter.TryFormat(timestamp, plain, out int tsWritten))
         {
-            ulong a = BinaryPrimitives.ReadUInt64LittleEndian(plain.AsSpan(at));
-            ulong b = BinaryPrimitives.ReadUInt64LittleEndian(plain.AsSpan(at + 8));
+            rawLen = tsWritten;
+        }
+        plain[rawLen++] = (byte)'-';
+        int licLen = Encoding.UTF8.GetBytes(PlaybackLicenseId, plain[rawLen..]);
+        rawLen += licLen;
+        plain[rawLen++] = (byte)'-';
+        int aidLen = Encoding.UTF8.GetBytes(aid, plain[rawLen..]);
+        rawLen += aidLen;
+
+        byte pad = (byte)(32 - rawLen);
+        plain[rawLen..32].Fill(pad);
+
+        for (int at = 0; at < 32; at += 16)
+        {
+            ulong a = BinaryPrimitives.ReadUInt64LittleEndian(plain.Slice(at, 8));
+            ulong b = BinaryPrimitives.ReadUInt64LittleEndian(plain.Slice(at + 8, 8));
             foreach (ulong rk in keys)
             {
                 b = rk ^ (a + BitOperations.RotateRight(b, 8));
                 a = b ^ BitOperations.RotateLeft(a, 3);
             }
-            BinaryPrimitives.WriteUInt64LittleEndian(plain.AsSpan(at), a);
-            BinaryPrimitives.WriteUInt64LittleEndian(plain.AsSpan(at + 8), b);
+            BinaryPrimitives.WriteUInt64LittleEndian(plain.Slice(at, 8), a);
+            BinaryPrimitives.WriteUInt64LittleEndian(plain.Slice(at + 8, 8), b);
         }
 
-        byte[] result = new byte[4 + plain.Length];
+        Span<byte> result = stackalloc byte[4 + 32];
         seed.CopyTo(result);
-        plain.CopyTo(result.AsSpan(4));
+        plain.CopyTo(result[4..]);
         return Convert.ToBase64String(result);
     }
 

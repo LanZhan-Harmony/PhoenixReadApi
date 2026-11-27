@@ -350,5 +350,5 @@ internal sealed class FavoriteService : LibraryServiceBase
     private static IReadOnlyList<string> ParseTags(string tags) =>
         string.IsNullOrWhiteSpace(tags)
             ? []
-            : [.. tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+            : tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }

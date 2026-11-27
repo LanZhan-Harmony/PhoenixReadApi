@@ -273,28 +273,21 @@ internal sealed class PhoenixReadPlaybackTransport
         byte[] bodyMd5 = MD5.HashData(gzipBody);
         string stub = Convert.ToHexString(bodyMd5);
 
-        long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
-            t =>
-                PhoenixReadPlaybackSigner.BuildPlaybackV5Url(
-                    $"{BaseHost}{path}",
-                    deviceId,
-                    installId,
-                    cdid,
-                    t,
-                    egdi
-                ),
-            bodyMd5,
-            baseSec,
-            nowMs
-        );
-        string fullUrl = PhoenixReadPlaybackSigner.BuildPlaybackV5Url(
+        (string prefix, string suffix) = PhoenixReadPlaybackSigner.BuildPlaybackV5UrlParts(
             $"{BaseHost}{path}",
             deviceId,
             installId,
             cdid,
-            ticket,
             egdi
         );
+        long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
+            prefix,
+            suffix,
+            bodyMd5,
+            baseSec,
+            nowMs
+        );
+        string fullUrl = $"{prefix}{ticket}{suffix}";
 
         (
             string khronos,
@@ -304,7 +297,14 @@ internal sealed class PhoenixReadPlaybackTransport
             string argus,
             string ladon,
             _
-        ) = PhoenixReadPlaybackSigner.SignV5(fullUrl, gzipBody, baseSec, deviceId, installId);
+        ) = PhoenixReadPlaybackSigner.SignV5(
+            fullUrl,
+            gzipBody,
+            baseSec,
+            deviceId,
+            installId,
+            precomputedBodyMd5: bodyMd5
+        );
 
         using HttpRequestMessage request = new(HttpMethod.Post, fullUrl);
         request.Headers.TryAddWithoutValidation(
@@ -318,7 +318,7 @@ internal sealed class PhoenixReadPlaybackTransport
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation(
             "x-ss-dp",
-            PhoenixReadDeviceProfile.Aid.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            PhoenixReadDeviceProfile.AidString
         );
         request.Headers.TryAddWithoutValidation("lc", "101");
         request.Headers.TryAddWithoutValidation("sdk-version", "2");
@@ -393,28 +393,21 @@ internal sealed class PhoenixReadPlaybackTransport
         string stub = Convert.ToHexString(bodyMd5);
         string? egdi = _deviceManager.KlinkEgdi;
 
-        long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
-            t =>
-                PhoenixReadPlaybackSigner.BuildPlaybackV5Url(
-                    $"{BaseHost}{SingleVideoModelPath}",
-                    deviceId,
-                    installId,
-                    cdid,
-                    t,
-                    egdi
-                ),
-            bodyMd5,
-            baseSec,
-            nowMs
-        );
-        string fullUrl = PhoenixReadPlaybackSigner.BuildPlaybackV5Url(
+        (string prefix, string suffix) = PhoenixReadPlaybackSigner.BuildPlaybackV5UrlParts(
             $"{BaseHost}{SingleVideoModelPath}",
             deviceId,
             installId,
             cdid,
-            ticket,
             egdi
         );
+        long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
+            prefix,
+            suffix,
+            bodyMd5,
+            baseSec,
+            nowMs
+        );
+        string fullUrl = $"{prefix}{ticket}{suffix}";
 
         (
             string khronos,
@@ -424,7 +417,14 @@ internal sealed class PhoenixReadPlaybackTransport
             string argus,
             string ladon,
             _
-        ) = PhoenixReadPlaybackSigner.SignV5(fullUrl, jsonBytes, baseSec, deviceId, installId);
+        ) = PhoenixReadPlaybackSigner.SignV5(
+            fullUrl,
+            jsonBytes,
+            baseSec,
+            deviceId,
+            installId,
+            precomputedBodyMd5: bodyMd5
+        );
 
         using HttpRequestMessage request = new(HttpMethod.Post, fullUrl);
         request.Headers.TryAddWithoutValidation(
@@ -438,7 +438,7 @@ internal sealed class PhoenixReadPlaybackTransport
         request.Headers.TryAddWithoutValidation("X-XS-From-Web", "0");
         request.Headers.TryAddWithoutValidation(
             "x-ss-dp",
-            PhoenixReadDeviceProfile.Aid.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            PhoenixReadDeviceProfile.AidString
         );
         request.Headers.TryAddWithoutValidation("lc", "101");
         request.Headers.TryAddWithoutValidation("sdk-version", "2");
@@ -497,30 +497,22 @@ internal sealed class PhoenixReadPlaybackTransport
     {
         Span<byte> zeroMd5 = stackalloc byte[16];
         string? egdi = _deviceManager.KlinkEgdi;
-        long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
-            t =>
-                PhoenixReadPlaybackSigner.BuildVideoTabUrl(
-                    $"{VideoTabHost}{VideoTabPath}",
-                    videoId,
-                    deviceId,
-                    installId,
-                    cdid,
-                    t,
-                    egdi
-                ),
-            zeroMd5,
-            baseSec,
-            nowMs
-        );
-        string tabUrl = PhoenixReadPlaybackSigner.BuildVideoTabUrl(
+        string prefix = PhoenixReadPlaybackSigner.BuildVideoTabUrlPrefix(
             $"{VideoTabHost}{VideoTabPath}",
             videoId,
             deviceId,
             installId,
             cdid,
-            ticket,
             egdi
         );
+        long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
+            prefix,
+            string.Empty,
+            zeroMd5,
+            baseSec,
+            nowMs
+        );
+        string tabUrl = $"{prefix}{ticket}";
 
         (
             string khronos,

@@ -361,13 +361,20 @@ public sealed class PlaybackSignTests
                 : gzipBody;
             byte[] bodyMd5 = System.Security.Cryptography.MD5.HashData(bodyBytes);
 
+            (string prefix, string suffix) = PhoenixReadPlaybackSigner.BuildPlaybackV5UrlParts(
+                targetHost,
+                deviceId,
+                installId,
+                cdid
+            );
             long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
-                t => PhoenixReadPlaybackSigner.BuildPlaybackV5Url(targetHost, deviceId, installId, cdid, t),
+                prefix,
+                suffix,
                 bodyMd5,
                 (uint)baseSec,
                 baseSec * 1000
             );
-            string candUrl = PhoenixReadPlaybackSigner.BuildPlaybackV5Url(targetHost, deviceId, installId, cdid, ticket);
+            string candUrl = $"{prefix}{ticket}{suffix}";
             (string? khronos, string? gorgon, string? helios, string? medusa, string? argus, string? ladon, string? ssStub) =
                 PhoenixReadPlaybackSigner.SignV5(candUrl, bodyBytes, (uint)baseSec, deviceId, installId);
 
@@ -417,28 +424,21 @@ public sealed class PlaybackSignTests
         {
             const string liveVideoId = "7484637255605160985";
             Span<byte> zeroMd5 = stackalloc byte[16];
-            long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
-                t =>
-                    PhoenixReadPlaybackSigner.BuildVideoTabUrl(
-                        "https://api5-normal-sinfonlinea.fqnovel.com/reading/bookapi/video_tab/multi_video_model/v1/",
-                        liveVideoId,
-                        deviceId,
-                        installId,
-                        cdid,
-                        t
-                    ),
-                zeroMd5,
-                (uint)baseSec,
-                baseSec * 1000
-            );
-            string tabUrl = PhoenixReadPlaybackSigner.BuildVideoTabUrl(
+            string tabPrefix = PhoenixReadPlaybackSigner.BuildVideoTabUrlPrefix(
                 "https://api5-normal-sinfonlinea.fqnovel.com/reading/bookapi/video_tab/multi_video_model/v1/",
                 liveVideoId,
                 deviceId,
                 installId,
-                cdid,
-                ticket
+                cdid
             );
+            long ticket = PhoenixReadPlaybackSigner.FindTicketMsForBranch12(
+                tabPrefix,
+                string.Empty,
+                zeroMd5,
+                (uint)baseSec,
+                baseSec * 1000
+            );
+            string tabUrl = $"{tabPrefix}{ticket}";
             string khronos = XKhronosSigner.Format((uint)baseSec);
             string helios = XHeliosSigner.SignV5((uint)baseSec);
             string medusa = XMedusaSigner.SignV5(tabUrl, [], (uint)baseSec, deviceId);

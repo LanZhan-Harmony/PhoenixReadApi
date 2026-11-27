@@ -221,7 +221,7 @@ internal sealed class PhoenixReadDeviceManager
             [
                 new("req_id", reqId),
                 new("tt_data", "a"),
-                new("aid", PhoenixReadDeviceProfile.Aid.ToString(CultureInfo.InvariantCulture)),
+                new("aid", PhoenixReadDeviceProfile.AidString),
                 new("app_name", PhoenixReadDeviceProfile.AppName),
                 new("version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
                 new("version_name", PhoenixReadDeviceProfile.VersionName),
@@ -342,7 +342,7 @@ internal sealed class PhoenixReadDeviceManager
             long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             KeyValuePair<string, string>[] query =
             [
-                new("aid", PhoenixReadDeviceProfile.Aid.ToString(CultureInfo.InvariantCulture)),
+                new("aid", PhoenixReadDeviceProfile.AidString),
                 new("app_name", PhoenixReadDeviceProfile.AppName),
                 new("channel", PhoenixReadDeviceProfile.Channel),
                 new("device_id", deviceId),

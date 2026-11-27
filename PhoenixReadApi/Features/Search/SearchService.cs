@@ -1409,13 +1409,45 @@ internal sealed partial class SearchService : PhoenixFeatureService
     )
     {
         ParsedSearchTabData result = new();
-        HashSet<string> seenDramas = [with(StringComparer.Ordinal)];
-        HashSet<string> seenAlbums = [with(StringComparer.Ordinal)];
-        HashSet<string> seenShortVideos = [with(StringComparer.Ordinal)];
-        HashSet<string> seenDiscussions = [with(StringComparer.Ordinal)];
-        HashSet<string> seenNovels = [with(StringComparer.Ordinal)];
-        HashSet<string> seenAudiobooks = [with(StringComparer.Ordinal)];
-        HashSet<string> seenUsers = [with(StringComparer.Ordinal)];
+        HashSet<string>? seenDramas = null;
+        HashSet<string>? seenAlbums = null;
+        HashSet<string>? seenShortVideos = null;
+        HashSet<string>? seenDiscussions = null;
+        HashSet<string>? seenNovels = null;
+        HashSet<string>? seenAudiobooks = null;
+        HashSet<string>? seenUsers = null;
+
+        switch (tabType)
+        {
+            case "29":
+                seenDramas = new(StringComparer.Ordinal);
+                break;
+            case "30":
+                seenAlbums = new(StringComparer.Ordinal);
+                seenShortVideos = new(StringComparer.Ordinal);
+                break;
+            case "31":
+                seenDiscussions = new(StringComparer.Ordinal);
+                break;
+            case "1":
+                seenNovels = new(StringComparer.Ordinal);
+                break;
+            case "2":
+                seenAudiobooks = new(StringComparer.Ordinal);
+                break;
+            case "27":
+                seenUsers = new(StringComparer.Ordinal);
+                break;
+            default:
+                seenDramas = new(StringComparer.Ordinal);
+                seenAlbums = new(StringComparer.Ordinal);
+                seenShortVideos = new(StringComparer.Ordinal);
+                seenDiscussions = new(StringComparer.Ordinal);
+                seenNovels = new(StringComparer.Ordinal);
+                seenAudiobooks = new(StringComparer.Ordinal);
+                seenUsers = new(StringComparer.Ordinal);
+                break;
+        }
 
         foreach (AppSearchTabCell cell in cells)
         {
@@ -1424,141 +1456,193 @@ internal sealed partial class SearchService : PhoenixFeatureService
                 continue;
             }
 
-            foreach (DramaDto video in cell.VideoData ?? [])
+            if ((seenDramas is not null || seenAlbums is not null || seenShortVideos is not null) && cell.VideoData is { Count: > 0 })
             {
-                if (video is null)
+                foreach (DramaDto video in cell.VideoData)
                 {
-                    continue;
-                }
-
-                if (video.AlbumInfo is not null)
-                {
-                    string albumId = video.AlbumInfo.EffectiveAlbumId;
-                    if (albumId.Length > 0 && seenAlbums.Add(albumId))
+                    if (video is null)
                     {
-                        DramaAlbum album = new()
-                        {
-                            Id = albumId,
-                            Title = ValueNormalizer.First(
-                                video.AlbumInfo.Title,
-                                video.Title,
-                                string.Empty
-                            ),
-                            Description = ValueNormalizer.First(
-                                video.AlbumInfo.Intro,
-                                video.Intro,
-                                string.Empty
-                            ),
-                            CoverUrl = ValueNormalizer.First(
-                                video.AlbumInfo.Cover,
-                                video.SeriesCover,
-                                string.Empty
-                            ),
-                            SeasonCount = Math.Max(0, video.AlbumInfo.EpisodeCount),
-                        };
-                        result.Albums.Add(album);
-                        result.Videos.Add(album);
-                        result.Comprehensive.Add(album);
+                        continue;
                     }
-                    continue;
-                }
 
-                if (video.ContentType == 1001)
-                {
-                    string vid = ValueNormalizer.First(
-                        video.SeriesId,
-                        video.SeriesIdNumber,
-                        string.Empty
-                    );
-                    if (vid.Length > 0 && seenShortVideos.Add(vid))
+                    if (video.AlbumInfo is not null)
                     {
-                        ShortVideo shortVideo = new()
+                        if (seenAlbums is null)
                         {
-                            Id = vid,
-                            VideoId = vid,
-                            Title = ValueNormalizer.First(
-                                video.SeriesTitle,
-                                video.Title,
-                                video.SeriesName,
-                                string.Empty
-                            ),
-                            Description = ValueNormalizer.First(
-                                video.SeriesIntro,
-                                video.VideoDescription,
-                                video.Intro,
-                                string.Empty
-                            ),
-                            CoverUrl = ValueNormalizer.First(video.SeriesCover, string.Empty),
-                            DurationSeconds = Math.Max(0, video.DurationSeconds),
-                        };
-                        result.ShortVideos.Add(shortVideo);
-                        result.Videos.Add(shortVideo);
-                        result.Comprehensive.Add(shortVideo);
-                    }
-                    continue;
-                }
+                            continue;
+                        }
 
-                Drama drama = DramaMapper.FromDto(video, "短剧");
-                if (drama.Id.Length > 0 && seenDramas.Add(drama.Id))
-                {
-                    result.Dramas.Add(drama);
-                    result.Comprehensive.Add(drama);
+                        string albumId = video.AlbumInfo.EffectiveAlbumId;
+                        if (albumId.Length > 0 && seenAlbums.Add(albumId))
+                        {
+                            DramaAlbum album = new()
+                            {
+                                Id = albumId,
+                                Title = ValueNormalizer.First(
+                                    video.AlbumInfo.Title,
+                                    video.Title,
+                                    string.Empty
+                                ),
+                                Description = ValueNormalizer.First(
+                                    video.AlbumInfo.Intro,
+                                    video.Intro,
+                                    string.Empty
+                                ),
+                                CoverUrl = ValueNormalizer.First(
+                                    video.AlbumInfo.Cover,
+                                    video.SeriesCover,
+                                    string.Empty
+                                ),
+                                SeasonCount = Math.Max(0, video.AlbumInfo.EpisodeCount),
+                            };
+                            result.Albums.Add(album);
+                            result.Videos.Add(album);
+                            result.Comprehensive.Add(album);
+                        }
+                        continue;
+                    }
+
+                    if (video.ContentType == 1001)
+                    {
+                        if (seenShortVideos is null)
+                        {
+                            continue;
+                        }
+
+                        string vid = ValueNormalizer.First(
+                            video.SeriesId,
+                            video.SeriesIdNumber,
+                            string.Empty
+                        );
+                        if (vid.Length > 0 && seenShortVideos.Add(vid))
+                        {
+                            ShortVideo shortVideo = new()
+                            {
+                                Id = vid,
+                                VideoId = vid,
+                                Title = ValueNormalizer.First(
+                                    video.SeriesTitle,
+                                    video.Title,
+                                    video.SeriesName,
+                                    string.Empty
+                                ),
+                                Description = ValueNormalizer.First(
+                                    video.SeriesIntro,
+                                    video.VideoDescription,
+                                    video.Intro,
+                                    string.Empty
+                                ),
+                                CoverUrl = ValueNormalizer.First(video.SeriesCover, string.Empty),
+                                DurationSeconds = Math.Max(0, video.DurationSeconds),
+                            };
+                            result.ShortVideos.Add(shortVideo);
+                            result.Videos.Add(shortVideo);
+                            result.Comprehensive.Add(shortVideo);
+                        }
+                        continue;
+                    }
+
+                    if (seenDramas is not null)
+                    {
+                        Drama drama = DramaMapper.FromDto(video, "短剧");
+                        if (drama.Id.Length > 0 && seenDramas.Add(drama.Id))
+                        {
+                            result.Dramas.Add(drama);
+                            result.Comprehensive.Add(drama);
+                        }
+                    }
                 }
             }
 
-            foreach (AppSearchPostDto post in cell.PostData ?? [])
+            if (seenDiscussions is not null && cell.PostData is { Count: > 0 })
             {
-                if (post is null || string.IsNullOrWhiteSpace(post.PostId))
+                foreach (AppSearchPostDto post in cell.PostData)
                 {
-                    continue;
-                }
+                    if (post is null || string.IsNullOrWhiteSpace(post.PostId))
+                    {
+                        continue;
+                    }
 
-                if (seenDiscussions.Add(post.PostId))
-                {
-                    Post mapped = MapSearchPost(post);
-                    result.Discussions.Add(mapped);
-                    result.Comprehensive.Add(mapped);
+                    if (seenDiscussions.Add(post.PostId))
+                    {
+                        Post mapped = MapSearchPost(post);
+                        result.Discussions.Add(mapped);
+                        result.Comprehensive.Add(mapped);
+                    }
                 }
             }
 
-            foreach (AppSearchBookDto book in cell.BookData ?? [])
+            if ((seenAudiobooks is not null || seenNovels is not null) && cell.BookData is { Count: > 0 })
             {
-                if (
-                    book is null
-                    || string.IsNullOrWhiteSpace(book.BookId)
-                    || string.IsNullOrWhiteSpace(book.BookName)
-                )
+                foreach (AppSearchBookDto book in cell.BookData)
                 {
-                    continue;
-                }
-
-                bool isAudio =
-                    tabType == "2"
-                    || book.Genre == "4"
-                    || !string.IsNullOrWhiteSpace(book.AudioThumbUri);
-
-                if (isAudio)
-                {
-                    if (seenAudiobooks.Add(book.BookId))
+                    if (
+                        book is null
+                        || string.IsNullOrWhiteSpace(book.BookId)
+                        || string.IsNullOrWhiteSpace(book.BookName)
+                    )
                     {
-                        Audiobook audiobook = new()
+                        continue;
+                    }
+
+                    bool isAudio =
+                        tabType == "2"
+                        || book.Genre == "4"
+                        || !string.IsNullOrWhiteSpace(book.AudioThumbUri);
+
+                    if (isAudio && seenAudiobooks is not null)
+                    {
+                        if (seenAudiobooks.Add(book.BookId))
+                        {
+                            Audiobook audiobook = new()
+                            {
+                                Id = book.BookId,
+                                Title = book.BookName,
+                                Author = book.Author,
+                                Description = book.Abstract,
+                                Category = book.Category,
+                                Status = MapNovelStatus(book.CreationStatus),
+                                StatusText = book.CreationStatus,
+                                CoverUrl = ValueNormalizer.First(
+                                    book.AudioThumbUrlHd,
+                                    book.AudioThumbUri,
+                                    book.CoverUrl,
+                                    string.Empty
+                                ),
+                                ListenCount = Math.Max(book.ListenCount, book.ReadCount),
+                                Score = book.Score,
+                                SerialCount = book.SerialCount,
+                                Tags =
+                                [
+                                    .. book
+                                        .Tags.Select(static t => t.Name)
+                                        .Where(static s => !string.IsNullOrWhiteSpace(s)),
+                                ],
+                            };
+                            result.Audiobooks.Add(audiobook);
+                            result.Comprehensive.Add(audiobook);
+                        }
+
+                        if (tabType == "2")
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (seenNovels is not null && seenNovels.Add(book.BookId))
+                    {
+                        Novel novel = new()
                         {
                             Id = book.BookId,
                             Title = book.BookName,
+                            ShortTitle = book.BookShortName,
                             Author = book.Author,
                             Description = book.Abstract,
-                            Category = book.Category,
                             Status = MapNovelStatus(book.CreationStatus),
                             StatusText = book.CreationStatus,
-                            CoverUrl = ValueNormalizer.First(
-                                book.AudioThumbUrlHd,
-                                book.AudioThumbUri,
-                                book.CoverUrl,
-                                string.Empty
-                            ),
-                            ListenCount = Math.Max(book.ListenCount, book.ReadCount),
-                            Score = book.Score,
+                            CoverUrl = book.CoverUrl,
                             SerialCount = book.SerialCount,
+                            ReadCount = book.ReadCount,
                             Tags =
                             [
                                 .. book
@@ -1566,70 +1650,43 @@ internal sealed partial class SearchService : PhoenixFeatureService
                                     .Where(static s => !string.IsNullOrWhiteSpace(s)),
                             ],
                         };
-                        result.Audiobooks.Add(audiobook);
-                        result.Comprehensive.Add(audiobook);
-                    }
-
-                    if (tabType == "2")
-                    {
-                        continue;
-                    }
-                }
-
-                if (seenNovels.Add(book.BookId))
-                {
-                    Novel novel = new()
-                    {
-                        Id = book.BookId,
-                        Title = book.BookName,
-                        ShortTitle = book.BookShortName,
-                        Author = book.Author,
-                        Description = book.Abstract,
-                        Status = MapNovelStatus(book.CreationStatus),
-                        StatusText = book.CreationStatus,
-                        CoverUrl = book.CoverUrl,
-                        SerialCount = book.SerialCount,
-                        ReadCount = book.ReadCount,
-                        Tags =
-                        [
-                            .. book
-                                .Tags.Select(static t => t.Name)
-                                .Where(static s => !string.IsNullOrWhiteSpace(s)),
-                        ],
-                    };
-                    result.Novels.Add(novel);
-                    if (!isAudio)
-                    {
-                        result.Comprehensive.Add(novel);
+                        result.Novels.Add(novel);
+                        if (!isAudio)
+                        {
+                            result.Comprehensive.Add(novel);
+                        }
                     }
                 }
             }
 
-            foreach (AppSearchUserDto userDto in cell.CelebrityUserList ?? [])
+            if (seenUsers is not null && cell.CelebrityUserList is { Count: > 0 })
             {
-                if (userDto is null || string.IsNullOrWhiteSpace(userDto.UserId))
+                foreach (AppSearchUserDto userDto in cell.CelebrityUserList)
                 {
-                    continue;
-                }
-
-                string userName = userDto.BaseInfo?.UserName ?? string.Empty;
-
-                if (string.IsNullOrWhiteSpace(userName))
-                {
-                    continue;
-                }
-
-                if (seenUsers.Add(userDto.UserId))
-                {
-                    User user = new()
+                    if (userDto is null || string.IsNullOrWhiteSpace(userDto.UserId))
                     {
-                        Id = userDto.UserId,
-                        Name = userName,
-                        Introduction = userDto.BaseInfo?.Description ?? string.Empty,
-                        AvatarUrl = userDto.BaseInfo?.EffectiveAvatarUrl ?? string.Empty,
-                    };
-                    result.Users.Add(user);
-                    result.Comprehensive.Add(user);
+                        continue;
+                    }
+
+                    string userName = userDto.BaseInfo?.UserName ?? string.Empty;
+
+                    if (string.IsNullOrWhiteSpace(userName))
+                    {
+                        continue;
+                    }
+
+                    if (seenUsers.Add(userDto.UserId))
+                    {
+                        User user = new()
+                        {
+                            Id = userDto.UserId,
+                            Name = userName,
+                            Introduction = userDto.BaseInfo?.Description ?? string.Empty,
+                            AvatarUrl = userDto.BaseInfo?.EffectiveAvatarUrl ?? string.Empty,
+                        };
+                        result.Users.Add(user);
+                        result.Comprehensive.Add(user);
+                    }
                 }
             }
         }

@@ -154,7 +154,7 @@ internal sealed class PhoenixReadPassportTransport
             new("device_id", _deviceManager.DeviceId),
             new("ac", PhoenixReadDeviceProfile.Access),
             new("channel", PhoenixReadDeviceProfile.Channel),
-            new("aid", PhoenixReadDeviceProfile.Aid.ToString(CultureInfo.InvariantCulture)),
+            new("aid", PhoenixReadDeviceProfile.AidString),
             new("app_name", PhoenixReadDeviceProfile.AppName),
             new("version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture)),
             new("version_name", PhoenixReadDeviceProfile.VersionName),
@@ -201,7 +201,7 @@ internal sealed class PhoenixReadPassportTransport
         Add("device_id", _deviceManager.DeviceId);
         Add("ac", PhoenixReadDeviceProfile.Access);
         Add("channel", PhoenixReadDeviceProfile.Channel);
-        Add("aid", PhoenixReadDeviceProfile.Aid.ToString(CultureInfo.InvariantCulture));
+        Add("aid", PhoenixReadDeviceProfile.AidString);
         Add("app_name", PhoenixReadDeviceProfile.AppName);
         Add("version_code", PhoenixReadDeviceProfile.VersionCode.ToString(CultureInfo.InvariantCulture));
         Add("version_name", PhoenixReadDeviceProfile.VersionName);

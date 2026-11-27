@@ -63,6 +63,9 @@ internal static class PhoenixReadDeviceProfile
     /// <summary>红果免费短剧应用 ID。</summary>
     public const int Aid = 8662;
 
+    /// <summary>红果免费短剧应用 ID（字符串格式）。</summary>
+    public const string AidString = "8662";
+
     /// <summary>应用名称。</summary>
     public const string AppName = "novelread";
 

@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Buffers.Binary;
+using System.Buffers.Text;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
@@ -30,41 +32,45 @@ internal static class PhoenixReadPlaybackSigner
         return raw;
     }
 
-    internal static string BuildPlaybackUrlPrefix(
+    /// <summary>
+    /// 生成 V5 播放查询 URL 的前后缀部分，便于高效拼装与分支探测。
+    /// </summary>
+    internal static (string Prefix, string Suffix) BuildPlaybackV5UrlParts(
         string baseUri,
         string deviceId,
-        string iid,
-        string cdid
+        string installId,
+        string cdid,
+        string? klinkEgdi = null
     )
     {
-        StringBuilder sb = new(512);
-        sb.Append(baseUri)
-            .Append("?aid=")
-            .Append(PhoenixReadDeviceProfile.Aid)
-            .Append("&app_name=")
-            .Append(PhoenixReadDeviceProfile.AppName)
-            .Append("&version_code=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&version_name=")
-            .Append(PhoenixReadDeviceProfile.VersionName)
-            .Append("&channel=")
-            .Append(PhoenixReadDeviceProfile.Channel)
-            .Append("&device_platform=")
-            .Append(PhoenixReadDeviceProfile.DevicePlatform)
-            .Append("&device_type=")
-            .Append(PhoenixReadDeviceProfile.DeviceModel)
-            .Append("&os_version=")
-            .Append(PhoenixReadDeviceProfile.OsVersion)
-            .Append("&update_version_code=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&iid=")
-            .Append(Uri.EscapeDataString(iid))
-            .Append("&cdid=")
-            .Append(Uri.EscapeDataString(cdid))
-            .Append("&device_id=")
-            .Append(Uri.EscapeDataString(deviceId))
-            .Append("&_rticket=");
-        return sb.ToString();
+        string prefix = $"{baseUri}?device_platform={PhoenixReadDeviceProfile.DevicePlatform}&os=android&ssmix=a&_rticket=";
+        string suffix =
+            $"&cdid={Uri.EscapeDataString(cdid)}"
+            + $"&channel={PhoenixReadDeviceProfile.Channel}"
+            + $"&aid={PhoenixReadDeviceProfile.AidString}"
+            + $"&app_name={PhoenixReadDeviceProfile.AppName}"
+            + $"&version_code={PhoenixReadDeviceProfile.VersionCode}"
+            + $"&version_name={PhoenixReadDeviceProfile.VersionName}"
+            + $"&manifest_version_code={PhoenixReadDeviceProfile.VersionCode}"
+            + $"&update_version_code={PhoenixReadDeviceProfile.VersionCode}"
+            + $"&resolution={Uri.EscapeDataString(PhoenixReadDeviceProfile.Resolution)}"
+            + $"&dpi={PhoenixReadDeviceProfile.Dpi}"
+            + $"&device_type={Uri.EscapeDataString(PhoenixReadDeviceProfile.DeviceModel)}"
+            + $"&device_brand={Uri.EscapeDataString(PhoenixReadDeviceProfile.DeviceBrand)}"
+            + $"&language={PhoenixReadDeviceProfile.Language}"
+            + $"&os_api={PhoenixReadDeviceProfile.OsApi}"
+            + $"&os_version={Uri.EscapeDataString(PhoenixReadDeviceProfile.OsVersion)}"
+            + $"&ac={PhoenixReadDeviceProfile.Access}"
+            + $"&host_abi={PhoenixReadDeviceProfile.CpuAbi}"
+            + "&dragon_device_type=phone"
+            + $"&pv_player={PhoenixReadDeviceProfile.VersionCode}"
+            + "&compliance_status=0&need_personal_recommend=1&player_so_load=1&is_android_pad_screen=0"
+            + $"&rom_version={Uri.EscapeDataString(PhoenixReadDeviceProfile.RomVersion)}"
+            + $"&iid={Uri.EscapeDataString(installId)}"
+            + $"&device_id={Uri.EscapeDataString(deviceId)}"
+            + (string.IsNullOrWhiteSpace(klinkEgdi) ? string.Empty : $"&klink_egdi={Uri.EscapeDataString(klinkEgdi)}");
+
+        return (prefix, suffix);
     }
 
     /// <summary>
@@ -79,66 +85,50 @@ internal static class PhoenixReadPlaybackSigner
         string? klinkEgdi = null
     )
     {
-        StringBuilder sb = new(512);
-        sb.Append(baseUri)
-            .Append("?device_platform=")
-            .Append(PhoenixReadDeviceProfile.DevicePlatform)
-            .Append("&os=android")
-            .Append("&ssmix=a")
-            .Append("&_rticket=")
-            .Append(ticketMs)
-            .Append("&cdid=")
-            .Append(Uri.EscapeDataString(cdid))
-            .Append("&channel=")
-            .Append(PhoenixReadDeviceProfile.Channel)
-            .Append("&aid=")
-            .Append(PhoenixReadDeviceProfile.Aid)
-            .Append("&app_name=")
-            .Append(PhoenixReadDeviceProfile.AppName)
-            .Append("&version_code=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&version_name=")
-            .Append(PhoenixReadDeviceProfile.VersionName)
-            .Append("&manifest_version_code=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&update_version_code=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&resolution=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.Resolution))
-            .Append("&dpi=")
-            .Append(PhoenixReadDeviceProfile.Dpi)
-            .Append("&device_type=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.DeviceModel))
-            .Append("&device_brand=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.DeviceBrand))
-            .Append("&language=")
-            .Append(PhoenixReadDeviceProfile.Language)
-            .Append("&os_api=")
-            .Append(PhoenixReadDeviceProfile.OsApi)
-            .Append("&os_version=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.OsVersion))
-            .Append("&ac=")
-            .Append(PhoenixReadDeviceProfile.Access)
-            .Append("&host_abi=")
-            .Append(PhoenixReadDeviceProfile.CpuAbi)
-            .Append("&dragon_device_type=phone")
-            .Append("&pv_player=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&compliance_status=0")
-            .Append("&need_personal_recommend=1")
-            .Append("&player_so_load=1")
-            .Append("&is_android_pad_screen=0")
-            .Append("&rom_version=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.RomVersion))
-            .Append("&iid=")
-            .Append(Uri.EscapeDataString(installId))
-            .Append("&device_id=")
-            .Append(Uri.EscapeDataString(deviceId));
-        if (!string.IsNullOrWhiteSpace(klinkEgdi))
-        {
-            sb.Append("&klink_egdi=").Append(Uri.EscapeDataString(klinkEgdi));
-        }
-        return sb.ToString();
+        (string prefix, string suffix) = BuildPlaybackV5UrlParts(baseUri, deviceId, installId, cdid, klinkEgdi);
+        return $"{prefix}{ticketMs}{suffix}";
+    }
+
+    /// <summary>
+    /// 生成 VideoTab 回退查询 URL 前缀，以 &amp;_rticket= 结尾。
+    /// </summary>
+    internal static string BuildVideoTabUrlPrefix(
+        string baseUri,
+        string episodeId,
+        string deviceId,
+        string installId,
+        string cdid,
+        string? klinkEgdi = null
+    )
+    {
+        return $"{baseUri}?device_platform={PhoenixReadDeviceProfile.DevicePlatform}"
+            + "&os=android&ssmix=a"
+            + $"&cdid={Uri.EscapeDataString(cdid)}"
+            + $"&channel={PhoenixReadDeviceProfile.Channel}"
+            + $"&aid={PhoenixReadDeviceProfile.AidString}"
+            + $"&app_name={PhoenixReadDeviceProfile.AppName}"
+            + $"&version_code={PhoenixReadDeviceProfile.VersionCode}"
+            + $"&version_name={PhoenixReadDeviceProfile.VersionName}"
+            + $"&manifest_version_code={PhoenixReadDeviceProfile.VersionCode}"
+            + $"&update_version_code={PhoenixReadDeviceProfile.VersionCode}"
+            + $"&resolution={Uri.EscapeDataString(PhoenixReadDeviceProfile.Resolution)}"
+            + $"&dpi={PhoenixReadDeviceProfile.Dpi}"
+            + $"&device_type={Uri.EscapeDataString(PhoenixReadDeviceProfile.DeviceModel)}"
+            + $"&device_brand={Uri.EscapeDataString(PhoenixReadDeviceProfile.DeviceBrand)}"
+            + $"&language={PhoenixReadDeviceProfile.Language}"
+            + $"&os_api={PhoenixReadDeviceProfile.OsApi}"
+            + $"&os_version={Uri.EscapeDataString(PhoenixReadDeviceProfile.OsVersion)}"
+            + $"&ac={PhoenixReadDeviceProfile.Access}"
+            + $"&host_abi={PhoenixReadDeviceProfile.CpuAbi}"
+            + "&dragon_device_type=phone"
+            + $"&pv_player={PhoenixReadDeviceProfile.VersionCode}"
+            + "&compliance_status=0&need_personal_recommend=1&player_so_load=1&is_android_pad_screen=0"
+            + $"&rom_version={Uri.EscapeDataString(PhoenixReadDeviceProfile.RomVersion)}"
+            + $"&iid={Uri.EscapeDataString(installId)}"
+            + $"&device_id={Uri.EscapeDataString(deviceId)}"
+            + (string.IsNullOrWhiteSpace(klinkEgdi) ? string.Empty : $"&klink_egdi={Uri.EscapeDataString(klinkEgdi)}")
+            + $"&video_id={Uri.EscapeDataString(episodeId)}"
+            + "&video_id_type=0&device_level=1&need_all_video_definition=1&need_mp4_align=0&use_os_player=0&video_platform=1024&source=0&from_video_id=&_rticket=";
     }
 
     /// <summary>
@@ -152,141 +142,7 @@ internal static class PhoenixReadPlaybackSigner
         string cdid,
         long ticketMs,
         string? klinkEgdi = null
-    )
-    {
-        StringBuilder sb = new(512);
-        sb.Append(baseUri)
-            .Append("?device_platform=")
-            .Append(PhoenixReadDeviceProfile.DevicePlatform)
-            .Append("&os=android")
-            .Append("&ssmix=a")
-            .Append("&cdid=")
-            .Append(Uri.EscapeDataString(cdid))
-            .Append("&channel=")
-            .Append(PhoenixReadDeviceProfile.Channel)
-            .Append("&aid=")
-            .Append(PhoenixReadDeviceProfile.Aid)
-            .Append("&app_name=")
-            .Append(PhoenixReadDeviceProfile.AppName)
-            .Append("&version_code=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&version_name=")
-            .Append(PhoenixReadDeviceProfile.VersionName)
-            .Append("&manifest_version_code=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&update_version_code=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&resolution=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.Resolution))
-            .Append("&dpi=")
-            .Append(PhoenixReadDeviceProfile.Dpi)
-            .Append("&device_type=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.DeviceModel))
-            .Append("&device_brand=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.DeviceBrand))
-            .Append("&language=")
-            .Append(PhoenixReadDeviceProfile.Language)
-            .Append("&os_api=")
-            .Append(PhoenixReadDeviceProfile.OsApi)
-            .Append("&os_version=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.OsVersion))
-            .Append("&ac=")
-            .Append(PhoenixReadDeviceProfile.Access)
-            .Append("&host_abi=")
-            .Append(PhoenixReadDeviceProfile.CpuAbi)
-            .Append("&dragon_device_type=phone")
-            .Append("&pv_player=")
-            .Append(PhoenixReadDeviceProfile.VersionCode)
-            .Append("&compliance_status=0")
-            .Append("&need_personal_recommend=1")
-            .Append("&player_so_load=1")
-            .Append("&is_android_pad_screen=0")
-            .Append("&rom_version=")
-            .Append(Uri.EscapeDataString(PhoenixReadDeviceProfile.RomVersion))
-            .Append("&iid=")
-            .Append(Uri.EscapeDataString(installId))
-            .Append("&device_id=")
-            .Append(Uri.EscapeDataString(deviceId));
-        if (!string.IsNullOrWhiteSpace(klinkEgdi))
-        {
-            sb.Append("&klink_egdi=").Append(Uri.EscapeDataString(klinkEgdi));
-        }
-        sb.Append("&video_id=")
-            .Append(Uri.EscapeDataString(episodeId))
-            .Append("&video_id_type=0")
-            .Append("&device_level=1")
-            .Append("&need_all_video_definition=1")
-            .Append("&need_mp4_align=0")
-            .Append("&use_os_player=0")
-            .Append("&video_platform=1024")
-            .Append("&source=0")
-            .Append("&from_video_id=")
-            .Append("&_rticket=")
-            .Append(ticketMs);
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// 通用分支 12 探测器：在内存中为指定 URL 工厂寻找满足 (iv &amp; 15 == 12) 的 _rticket。
-    /// 适用于 V5 POST 与 VideoTab GET 两个通道。
-    /// </summary>
-    internal static long FindTicketMsForBranch12(
-        Func<long, string> urlFactory,
-        ReadOnlySpan<byte> bodyMd5,
-        uint timestamp,
-        long startTicketMs
-    )
-    {
-        Span<byte> tsLe = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32LittleEndian(tsLe, timestamp);
-        Span<byte> querySm3 = stackalloc byte[32];
-
-        for (int offset = 0; offset < 1024; offset++)
-        {
-            long candidateTicket = startTicketMs + offset;
-            string fullUrl = urlFactory(candidateTicket);
-            int qIdx = fullUrl.IndexOf('?');
-            string query = qIdx >= 0 ? fullUrl[(qIdx + 1)..] : fullUrl;
-            byte[] queryBytes = Encoding.UTF8.GetBytes(query);
-            PhoenixReadRequestSigner.Sm3(queryBytes, querySm3);
-
-            uint iv = GetIV(0x20230928u, querySm3);
-            iv = GetIV(iv, bodyMd5);
-            iv = GetIV(iv, tsLe);
-            if ((iv & 15) == 12)
-            {
-                return candidateTicket;
-            }
-        }
-        return startTicketMs;
-    }
-
-    /// <summary>
-    /// 在内存中寻找满足 V5 算法分支 12 (iv &amp; 15 == 12) 的最小 _rticket。
-    /// </summary>
-    internal static long FindTicketMsForBranch12Full(
-        string baseUri,
-        string deviceId,
-        string installId,
-        string cdid,
-        ReadOnlySpan<byte> bodyMd5,
-        uint timestamp,
-        long startTicketMs
-    ) =>
-        FindTicketMsForBranch12(
-            ticket => BuildPlaybackV5Url(baseUri, deviceId, installId, cdid, ticket),
-            bodyMd5,
-            timestamp,
-            startTicketMs
-        );
-
-    internal static string BuildPlaybackUrl(
-        string baseUri,
-        string deviceId,
-        string iid,
-        string cdid,
-        long ticketMs
-    ) => $"{BuildPlaybackUrlPrefix(baseUri, deviceId, iid, cdid)}{ticketMs}";
+    ) => $"{BuildVideoTabUrlPrefix(baseUri, episodeId, deviceId, installId, cdid, klinkEgdi)}{ticketMs}";
 
     internal static uint GetIV(uint iv, ReadOnlySpan<byte> data)
     {
@@ -307,11 +163,13 @@ internal static class PhoenixReadPlaybackSigner
     }
 
     /// <summary>
-    /// 在内存中寻找满足 V5 算法分支 12 (iv &amp; 15 == 12) 的最小 _rticket。
+    /// 通用分支 12 探测器：在内存中为指定 URL 查找满足 (iv &amp; 15 == 12) 的 _rticket。
+    /// 预先编码 URL 前缀和后缀，在 1024 轮探测中实现 0 堆内存分配与超高速 SM3 碰撞。
     /// 官方服务端严格校验分支 ID；命中分支 12 仅需单次 HTTP 请求即可成功，无需在网络上重试。
     /// </summary>
     internal static long FindTicketMsForBranch12(
         string urlPrefix,
+        string? urlSuffix,
         ReadOnlySpan<byte> bodyMd5,
         uint timestamp,
         long startTicketMs
@@ -322,25 +180,59 @@ internal static class PhoenixReadPlaybackSigner
 
         int qIdx = urlPrefix.IndexOf('?');
         string prefixQuery = qIdx >= 0 ? urlPrefix[(qIdx + 1)..] : urlPrefix;
+        string suffixQuery = urlSuffix ?? string.Empty;
 
-        Span<byte> querySm3 = stackalloc byte[32];
-        for (int offset = 0; offset < 1024; offset++)
+        int prefixByteCount = Encoding.UTF8.GetByteCount(prefixQuery);
+        int suffixByteCount = Encoding.UTF8.GetByteCount(suffixQuery);
+
+        int maxQueryLen = prefixByteCount + 32 + suffixByteCount;
+        byte[]? rented = null;
+        Span<byte> buffer = maxQueryLen <= 2048
+            ? stackalloc byte[maxQueryLen]
+            : (rented = ArrayPool<byte>.Shared.Rent(maxQueryLen));
+
+        try
         {
-            long candidateTicket = startTicketMs + offset;
-            string query = $"{prefixQuery}{candidateTicket}";
-            int byteCount = Encoding.UTF8.GetByteCount(query);
-            byte[] queryBytes = Encoding.UTF8.GetBytes(query);
-            PhoenixReadRequestSigner.Sm3(queryBytes, querySm3);
-
-            uint iv = GetIV(0x20230928u, querySm3);
-            iv = GetIV(iv, bodyMd5);
-            iv = GetIV(iv, tsLe);
-            if ((iv & 15) == 12)
+            Encoding.UTF8.GetBytes(prefixQuery, buffer);
+            Span<byte> suffixSpan = stackalloc byte[suffixByteCount];
+            if (suffixByteCount > 0)
             {
-                return candidateTicket;
+                Encoding.UTF8.GetBytes(suffixQuery, suffixSpan);
+            }
+
+            Span<byte> querySm3 = stackalloc byte[32];
+
+            for (int offset = 0; offset < 1024; offset++)
+            {
+                long candidateTicket = startTicketMs + offset;
+                Utf8Formatter.TryFormat(candidateTicket, buffer[prefixByteCount..], out int ticketBytesWritten);
+
+                if (suffixByteCount > 0)
+                {
+                    suffixSpan.CopyTo(buffer.Slice(prefixByteCount + ticketBytesWritten));
+                }
+
+                int totalLen = prefixByteCount + ticketBytesWritten + suffixByteCount;
+                PhoenixReadRequestSigner.Sm3(buffer.Slice(0, totalLen), querySm3);
+
+                uint iv = GetIV(0x20230928u, querySm3);
+                iv = GetIV(iv, bodyMd5);
+                iv = GetIV(iv, tsLe);
+                if ((iv & 15) == 12)
+                {
+                    return candidateTicket;
+                }
+            }
+
+            return startTicketMs;
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
             }
         }
-        return startTicketMs;
     }
 
     internal static (
@@ -358,7 +250,8 @@ internal static class PhoenixReadPlaybackSigner
         string deviceId,
         string? installId = null,
         string? osVersion = null,
-        string? deviceType = null
+        string? deviceType = null,
+        byte[]? precomputedBodyMd5 = null
     )
     {
         string khronos = XKhronosSigner.Format(timestamp);
@@ -377,8 +270,8 @@ internal static class PhoenixReadPlaybackSigner
         );
 
         string effectiveInstallId = string.IsNullOrWhiteSpace(installId) ? deviceId : installId;
-        string aid = PhoenixReadDeviceProfile.Aid.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        byte[] bodyMd5 = body.Length > 0 ? MD5.HashData(body) : [];
+        string aid = PhoenixReadDeviceProfile.AidString;
+        byte[] bodyMd5 = precomputedBodyMd5 ?? (body.Length > 0 ? MD5.HashData(body) : []);
         uint nonceArgus = (uint)RandomNumberGenerator.GetInt32(0, int.MaxValue);
         uint nonceLadon = (uint)RandomNumberGenerator.GetInt32(0, int.MaxValue);
         string argus = XArgusSigner.SignPlayback(
@@ -392,7 +285,7 @@ internal static class PhoenixReadPlaybackSigner
         );
         string ladon = XLadonSigner.SignPlayback(timestamp, nonceLadon, aid);
 
-        string stub = Convert.ToHexString(body.Length > 0 ? bodyMd5 : MD5.HashData([]));
+        string stub = Convert.ToHexString(bodyMd5.Length > 0 ? bodyMd5 : MD5.HashData([]));
         return (khronos, gorgon, helios, medusa, argus, ladon, stub);
     }
 

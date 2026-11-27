@@ -12,8 +12,7 @@ namespace PhoenixReadApi.Internal.Infrastructure.Crypto;
 internal static class XMedusaSigner
 {
     private const string V5License = "646637794";
-    private static readonly string AppId =
-        PhoenixReadDeviceProfile.Aid.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    private const string AppId = PhoenixReadDeviceProfile.AidString;
 
     private static readonly byte[] V5Magic = Convert.FromHexString(
         "2d4b4fca49750d433fb5ae2c226dcc56"
@@ -22,6 +21,18 @@ internal static class XMedusaSigner
     private static readonly byte[] V5SignKey = Convert.FromHexString(
         "b23c2a470a20d105dc3f8c4438f8272ed46d6c89ffdcdedd5108698d26e9489d"
     );
+
+    private static readonly byte[] StaticEncKey = MD5.HashData(V5SignKey.AsSpan(0, 16));
+    private static readonly byte[] StaticEncIv = MD5.HashData(V5SignKey.AsSpan(16, 16));
+    private static readonly byte[] StaticFlags = Convert.FromHexString("0405000000000000");
+
+    private static readonly byte[] StaticBugfixStr = "v04.10.03.04-bugfix"u8.ToArray();
+    private static readonly byte[] StaticVersionMlStr = "v04.10.03-ml-android"u8.ToArray();
+    private static readonly byte[] StaticNoneStr = "none"u8.ToArray();
+    private static readonly byte[] StaticAppIdBytes = Encoding.UTF8.GetBytes(AppId);
+    private static readonly byte[] StaticV5LicenseBytes = Encoding.UTF8.GetBytes(V5License);
+    private static readonly byte[] StaticTag24Json =
+        "{\"cmr\":16777216,\"cmr2\":16777216,\"un_h\":2398682137,\"vpn\":0,\"sts\":27,\"kd\":0,\"fkd\":1963693275,\"pd\":1442983616,\"lp\":\"2|520830913092|521433182354|2078052786776|1081701896\",\"fl\":\"0|0|2523408538|2586339478|997724116|0|0|0|0|606600138\",\"dyn\":\"\",\"do\":0,\"tk\":true}"u8.ToArray();
 
     private static readonly byte[] V5Sbox = Convert.FromHexString(
         "53290fe9e51f316f90f74a7e034d367784ab49237cd0135cdc632c322fd3be0e"
@@ -241,7 +252,7 @@ internal static class XMedusaSigner
         byte[] bodyMd5 = gzipBody.Length > 0 ? MD5.HashData(gzipBody) : new byte[16];
         byte[] f13 = HashF13V5(querySm3, bodyMd5, timestamp);
 
-        byte[] flags = Convert.FromHexString("0405000000000000");
+        byte[] flags = StaticFlags;
         long started = startMs <= 0 ? ProcessStartMs : startMs;
         long nowMs = (long)timestamp * 1000 + (msgRandom % 1000);
         long uptime = Math.Max(1L, (long)timestamp - (started / 1000L));
@@ -259,7 +270,7 @@ internal static class XMedusaSigner
         // Protobuf env
         byte[] env = EncodeProto(
             (1, ProtoVal.Sint(uptime)),
-            (6, ProtoVal.Str("v04.10.03.04-bugfix")),
+            (6, ProtoVal.Bytes(StaticBugfixStr)),
             (7, ProtoVal.Sint(s_pid)),
             (8, ProtoVal.Str(effectiveChannel)),
             (12, ProtoVal.Bytes(deviceInfo)),
@@ -284,11 +295,11 @@ internal static class XMedusaSigner
             (1, ProtoVal.Bytes(V5Magic)),
             (2, ProtoVal.Sint(5)),
             (3, ProtoVal.Sint(msgRandom)),
-            (4, ProtoVal.Str(AppId)),
+            (4, ProtoVal.Bytes(StaticAppIdBytes)),
             (5, ProtoVal.Str(effectiveDeviceId)),
-            (6, ProtoVal.Str(V5License)),
+            (6, ProtoVal.Bytes(StaticV5LicenseBytes)),
             (7, ProtoVal.Str(effectiveVersion)),
-            (8, ProtoVal.Str("v04.10.03-ml-android")),
+            (8, ProtoVal.Bytes(StaticVersionMlStr)),
             (9, ProtoVal.Sint(0x040A0300)),
             (10, ProtoVal.Bytes(flags)),
             (12, ProtoVal.Sint(timestamp)),
@@ -296,31 +307,26 @@ internal static class XMedusaSigner
             (14, ProtoVal.Bytes(querySm3[..6])),
             (15, ProtoVal.Bytes(sub15)),
             (17, ProtoVal.Sint(timestamp)),
-            (20, ProtoVal.Str("none")),
+            (20, ProtoVal.Bytes(StaticNoneStr)),
             (21, ProtoVal.Sint(369)),
             (23, ProtoVal.Bytes(env)),
-            (
-                24,
-                ProtoVal.Str(
-                    "{\"cmr\":16777216,\"cmr2\":16777216,\"un_h\":2398682137,\"vpn\":0,\"sts\":27,\"kd\":0,\"fkd\":1963693275,\"pd\":1442983616,\"lp\":\"2|520830913092|521433182354|2078052786776|1081701896\",\"fl\":\"0|0|2523408538|2586339478|997724116|0|0|0|0|606600138\",\"dyn\":\"\",\"do\":0,\"tk\":true}"
-                )
-            )
+            (24, ProtoVal.Bytes(StaticTag24Json))
         );
 
-        byte[] nonceLe = new byte[4];
+        Span<byte> nonceLe = stackalloc byte[4];
         BinaryPrimitives.WriteUInt32LittleEndian(nonceLe, nonce);
 
-        byte[] sm3KeyInput = new byte[V5SignKey.Length + 4 + V5SignKey.Length];
-        V5SignKey.CopyTo(sm3KeyInput, 0);
-        nonceLe.CopyTo(sm3KeyInput, V5SignKey.Length);
-        V5SignKey.CopyTo(sm3KeyInput, V5SignKey.Length + 4);
+        Span<byte> sm3KeyInput = stackalloc byte[V5SignKey.Length + 4 + V5SignKey.Length];
+        V5SignKey.CopyTo(sm3KeyInput);
+        nonceLe.CopyTo(sm3KeyInput[V5SignKey.Length..]);
+        V5SignKey.CopyTo(sm3KeyInput[(V5SignKey.Length + 4)..]);
 
-        byte[] keySm3 = new byte[32];
+        Span<byte> keySm3 = stackalloc byte[32];
         PhoenixReadRequestSigner.Sm3(sm3KeyInput, keySm3);
 
         uint high = (nonce >> 16) & 255;
         uint seedVal = ~(((high << 11) | (nonce >> 24)) ^ (high >> 5) ^ high);
-        byte[] seedBytes = new byte[4];
+        Span<byte> seedBytes = stackalloc byte[4];
         BinaryPrimitives.WriteUInt32LittleEndian(seedBytes, seedVal);
 
         byte[] xorTransformed = XmXor(message, keySm3);
@@ -344,9 +350,7 @@ internal static class XMedusaSigner
         packed[^2] = (byte)((nonce >> 16) & 0xFF);
         packed[^1] = (byte)((nonce >> 24) & 0xFF);
 
-        byte[] encKey = MD5.HashData(V5SignKey.AsSpan(0, 16));
-        byte[] encIv = MD5.HashData(V5SignKey.AsSpan(16, 16));
-        byte[] encrypted = AesV3Encrypt(packed, encKey, encIv, timestamp);
+        byte[] encrypted = AesV3Encrypt(packed, StaticEncKey, StaticEncIv, timestamp);
 
         byte[] prefix = new byte[4 + V5Magic.Length];
         BinaryPrimitives.WriteUInt32LittleEndian(prefix.AsSpan(0, 4), 5);
@@ -501,33 +505,39 @@ internal static class XMedusaSigner
         uint countV1 = (ivV1 + timestamp + 1) & 255;
         uint countV2 = ivV1 + timestamp;
 
-        uint[] tt = new uint[HashTable.Length];
-        for (int i = 0; i < HashTable.Length; i++)
+        Span<uint> tt = stackalloc uint[64];
+        for (int i = 0; i < 64; i++)
         {
             tt[i] = BitOperations.RotateRight(HashTable[i], (int)countV1);
         }
 
         int shift = (int)((countV2 + 2) & 7);
-        byte[] pad =
-        [
+        Span<byte> pad = stackalloc byte[4]
+        {
             (byte)(((0xFA | (0xFA << 8)) >> shift) & 0xFF),
             (byte)(((0x45 | (0x45 << 8)) >> shift) & 0xFF),
             (byte)(((0x61 | (0x61 << 8)) >> shift) & 0xFF),
             (byte)(((0xD7 | (0xD7 << 8)) >> shift) & 0xFF),
-        ];
+        };
 
-        byte[] data = new byte[32 + 16 + 4 + 4 + 8];
-        querySm3[..32].CopyTo(data.AsSpan(0, 32));
-        bodyMd5[..16].CopyTo(data.AsSpan(32, 16));
-        BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(48, 4), timestamp);
-        pad.CopyTo(data, 52);
-        Convert.FromHexString("00000000000001a0").CopyTo(data, 56);
+        Span<byte> data = stackalloc byte[64];
+        querySm3[..32].CopyTo(data[..32]);
+        bodyMd5[..16].CopyTo(data.Slice(32, 16));
+        BinaryPrimitives.WriteUInt32LittleEndian(data.Slice(48, 4), timestamp);
+        pad.CopyTo(data[52..]);
+        data[56] = 0;
+        data[57] = 0;
+        data[58] = 0;
+        data[59] = 0;
+        data[60] = 0;
+        data[61] = 0;
+        data[62] = 0x01;
+        data[63] = 0xa0;
 
-        int diCount = data.Length / 4 + 112;
-        uint[] di = new uint[diCount];
-        for (int i = 0; i < data.Length / 4; i++)
+        Span<uint> di = stackalloc uint[128];
+        for (int i = 0; i < 16; i++)
         {
-            di[i] = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(i * 4, 4));
+            di[i] = BinaryPrimitives.ReadUInt32BigEndian(data.Slice(i * 4, 4));
         }
 
         for (int i = 0; i < 112; i++)
@@ -541,13 +551,14 @@ internal static class XMedusaSigner
             di[16 + i] = di[i] + di[i + 9] + xRot + yRot;
         }
 
-        uint[] initial = new uint[8];
+        Span<uint> initial = stackalloc uint[8];
         for (int i = 0; i < 8; i++)
         {
             initial[i] = BitOperations.RotateRight(V5Initials[i], (int)(countV2 & 31));
         }
 
-        uint[] d = (uint[])initial.Clone();
+        Span<uint> d = stackalloc uint[8];
+        initial.CopyTo(d);
         for (int i = 0; i < V5Chosen[0]; i++)
         {
             int b = unchecked((int)ivV1) + i;
@@ -578,26 +589,24 @@ internal static class XMedusaSigner
             d[V5Chosen[8]] = unchecked((uint)((int)old + (int)n4));
         }
 
-        byte[] ret = new byte[32];
+        Span<byte> ret = stackalloc byte[32];
         for (int i = 0; i < 8; i++)
         {
-            BinaryPrimitives.WriteUInt32BigEndian(ret.AsSpan(i * 4, 4), d[i] + initial[i]);
+            BinaryPrimitives.WriteUInt32BigEndian(ret.Slice(i * 4, 4), d[i] + initial[i]);
         }
 
-        byte[] folded = new byte[16];
+        byte[] f13Result = new byte[20];
+        Span<byte> folded = f13Result.AsSpan(0, 16);
         for (int i = 0; i < 16; i++)
         {
             folded[i] = (byte)(ret[i] ^ ret[16 + i]);
         }
 
-        byte[] f13Result = new byte[20];
-        folded.CopyTo(f13Result, 0);
-        byte[] tail = HashF13Tail(folded);
-        tail.CopyTo(f13Result, 16);
+        HashF13Tail(folded, f13Result.AsSpan(16, 4));
         return f13Result;
     }
 
-    internal static byte[] HashF13Tail(ReadOnlySpan<byte> head)
+    internal static void HashF13Tail(ReadOnlySpan<byte> head, Span<byte> destination)
     {
         uint hash = 0x20220420u;
         for (int i = 0; i < 8; i++)
@@ -611,14 +620,19 @@ internal static class XMedusaSigner
                 hash = ~(((hash << 11) | head[i]) ^ (hash >> 5) ^ hash);
             }
         }
+        BinaryPrimitives.WriteUInt32LittleEndian(destination, hash);
+        destination[0] &= 0xdb;
+        destination[3] ^= 1;
+    }
+
+    internal static byte[] HashF13Tail(ReadOnlySpan<byte> head)
+    {
         byte[] tail = new byte[4];
-        BinaryPrimitives.WriteUInt32LittleEndian(tail, hash);
-        tail[0] &= 0xdb;
-        tail[3] ^= 1;
+        HashF13Tail(head, tail);
         return tail;
     }
 
-    internal static byte[] XmXor(byte[] data, byte[] key)
+    internal static byte[] XmXor(byte[] data, ReadOnlySpan<byte> key)
     {
         int n = data.Length;
         byte[] encoded = new byte[n];
@@ -665,13 +679,13 @@ internal static class XMedusaSigner
     internal static byte[] AesV3Encrypt(byte[] source, byte[] key, byte[] iv, uint timestamp)
     {
         int word = (int)(timestamp & 3);
-        byte[] box = [.. V5Sbox.AsSpan(word * 256, 256)];
+        ReadOnlySpan<byte> box = V5Sbox.AsSpan(word * 256, 256);
         int[] con = Con[word];
         int[] order = Order[word];
         uint initial = InitialWords[word];
 
-        byte[] expanded = new byte[80];
-        byte[] leInit = new byte[4];
+        Span<byte> expanded = stackalloc byte[80];
+        Span<byte> leInit = stackalloc byte[4];
         BinaryPrimitives.WriteUInt32LittleEndian(leInit, initial);
         for (int i = 0; i < 16; i++)
         {
@@ -702,174 +716,154 @@ internal static class XMedusaSigner
             expanded[at + 7] = (byte)(d ^ expanded[at - 9]);
         }
 
-        byte[][] keys = new byte[12][];
-        for (int i = 0; i < 12; i++)
-        {
-            keys[i] = [.. expanded.AsSpan(i * 4, 4)];
-        }
-
-        byte[] Block(byte[] value)
-        {
-            byte[,] rows = new byte[4, 4];
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    rows[i, j] = value[i * 4 + j];
-                }
-            }
-
-            void AddCon(int off)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < 4; j++)
-                    {
-                        rows[i, j] ^= keys[off + i][con[j]];
-                    }
-                }
-            }
-
-            AddCon(0);
-            for (int rnd = 1; rnd <= 2; rnd++)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < 4; j++)
-                    {
-                        rows[i, j] = box[rows[i, j]];
-                    }
-                }
-
-                byte[,] before = (byte[,])rows.Clone();
-                for (int i = 0; i < 4; i++)
-                {
-                    int ci = con[i];
-                    for (int j = 0; j < 4; j++)
-                    {
-                        rows[i, j] = before[ci, j];
-                    }
-                }
-
-                byte[] flat = new byte[16];
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < 4; j++)
-                    {
-                        flat[i * 4 + j] = rows[i, j];
-                    }
-                }
-
-                for (int i = 0; i < 16; i++)
-                {
-                    rows[i / 4, i % 4] = flat[order[i]];
-                }
-
-                if (rnd == 1)
-                {
-                    byte[,] old = (byte[,])rows.Clone();
-                    for (int i = 0; i < 4; i++)
-                    {
-                        for (int j = 0; j < 4; j++)
-                        {
-                            rows[i, j] = old[i, con[j]];
-                        }
-                    }
-
-                    static byte Xt(byte x) =>
-                        (byte)(((x << 1) ^ ((x & 128) != 0 ? 0x1B : 0)) & 255);
-
-                    for (int i = 0; i < 4; i++)
-                    {
-                        byte t = (byte)(rows[0, i] ^ rows[1, i] ^ rows[2, i] ^ rows[3, i]);
-                        byte u = rows[0, i];
-                        rows[0, i] ^= (byte)(t ^ Xt((byte)(rows[0, i] ^ rows[1, i])));
-                        rows[1, i] ^= (byte)(t ^ Xt((byte)(rows[1, i] ^ rows[2, i])));
-                        rows[2, i] ^= (byte)(t ^ Xt((byte)(rows[2, i] ^ rows[3, i])));
-                        rows[3, i] ^= (byte)(t ^ Xt((byte)(rows[3, i] ^ u)));
-                    }
-                }
-
-                AddCon(rnd * 4);
-            }
-
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    rows[i, j] ^= keys[4 + i][j];
-                }
-            }
-
-            byte[] res = new byte[16];
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    res[i * 4 + j] = rows[i, j];
-                }
-            }
-            return res;
-        }
-
-        byte Src(byte[] data, int at) => at >= 0 && at < data.Length ? data[at] : (byte)0;
-        void Put(byte[] outArr, int at, byte val)
-        {
-            if (at >= 0 && at < outArr.Length)
-            {
-                outArr[at] = val;
-            }
-        }
-
-        byte[] pt = new byte[32];
-        for (int i = 0; i < 31; i++)
-        {
-            for (int j = 0; j < 8; j++)
-            {
-                int bit = (Src(source, i * 8 + j) >> Wire[j]) & 1;
-                pt[i] |= (byte)(bit << Compact[j]);
-            }
-        }
-        pt[31] = 1;
-
-        byte[] firstBlockInput = new byte[16];
-        for (int i = 0; i < 16; i++)
-        {
-            firstBlockInput[i] = (byte)(pt[i] ^ iv[i]);
-        }
-
-        byte[] first = Block(firstBlockInput);
-
-        byte[] secondBlockInput = new byte[16];
-        for (int i = 0; i < 16; i++)
-        {
-            secondBlockInput[i] = (byte)(pt[16 + i] ^ first[i]);
-        }
-
-        byte[] second = Block(secondBlockInput);
-
-        byte[] fullKey = new byte[32];
-        first.CopyTo(fullKey, 0);
-        second.CopyTo(fullKey, 16);
-
-        byte[] result = (byte[])source.Clone();
+        Span<byte> pt = stackalloc byte[32];
+        pt.Clear();
         for (int i = 0; i < 31; i++)
         {
             for (int j = 0; j < 8; j++)
             {
                 int at = i * 8 + j;
-                byte cur = Src(result, at);
-                byte v = (byte)(
-                    (cur & (~(1 << Wire[j]) & 0xFF)) | (((fullKey[i] >> Compact[j]) & 1) << Wire[j])
-                );
-                Put(result, at, v);
+                byte srcByte = (uint)at < (uint)source.Length ? source[at] : (byte)0;
+                int bit = (srcByte >> Wire[j]) & 1;
+                pt[i] |= (byte)(bit << Compact[j]);
+            }
+        }
+        pt[31] = 1;
+
+        Span<byte> fullKey = stackalloc byte[32];
+        Span<byte> firstBlockInput = stackalloc byte[16];
+        for (int i = 0; i < 16; i++)
+        {
+            firstBlockInput[i] = (byte)(pt[i] ^ iv[i]);
+        }
+        AesV3Block(firstBlockInput, fullKey.Slice(0, 16), expanded, box, con, order);
+
+        Span<byte> secondBlockInput = stackalloc byte[16];
+        for (int i = 0; i < 16; i++)
+        {
+            secondBlockInput[i] = (byte)(pt[16 + i] ^ fullKey[i]);
+        }
+        AesV3Block(secondBlockInput, fullKey.Slice(16, 16), expanded, box, con, order);
+
+        byte[] finalBytes = new byte[1 + source.Length];
+        finalBytes[0] = fullKey[31];
+        source.CopyTo(finalBytes.AsSpan(1));
+        Span<byte> result = finalBytes.AsSpan(1);
+
+        for (int i = 0; i < 31; i++)
+        {
+            for (int j = 0; j < 8; j++)
+            {
+                int at = i * 8 + j;
+                if ((uint)at < (uint)result.Length)
+                {
+                    byte cur = result[at];
+                    result[at] = (byte)(
+                        (cur & (~(1 << Wire[j]) & 0xFF)) | (((fullKey[i] >> Compact[j]) & 1) << Wire[j])
+                    );
+                }
             }
         }
 
-        byte[] finalBytes = new byte[1 + result.Length];
-        finalBytes[0] = fullKey[31];
-        result.CopyTo(finalBytes, 1);
         return finalBytes;
+    }
+
+    private static void AesV3Block(
+        ReadOnlySpan<byte> value,
+        Span<byte> output,
+        ReadOnlySpan<byte> expanded,
+        ReadOnlySpan<byte> box,
+        int[] con,
+        int[] order
+    )
+    {
+        Span<byte> rows = stackalloc byte[16];
+        value.CopyTo(rows);
+
+        for (int i = 0; i < 4; i++)
+        {
+            int rowIdx = i * 4;
+            int keyIdx = i * 4;
+            for (int j = 0; j < 4; j++)
+            {
+                rows[rowIdx + j] ^= expanded[keyIdx + con[j]];
+            }
+        }
+
+        Span<byte> before = stackalloc byte[16];
+
+        for (int rnd = 1; rnd <= 2; rnd++)
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                rows[i] = box[rows[i]];
+            }
+
+            rows.CopyTo(before);
+            for (int i = 0; i < 4; i++)
+            {
+                int ci = con[i];
+                for (int j = 0; j < 4; j++)
+                {
+                    rows[i * 4 + j] = before[ci * 4 + j];
+                }
+            }
+
+            rows.CopyTo(before);
+            for (int i = 0; i < 16; i++)
+            {
+                rows[i] = before[order[i]];
+            }
+
+            if (rnd == 1)
+            {
+                rows.CopyTo(before);
+                for (int i = 0; i < 4; i++)
+                {
+                    int rowIdx = i * 4;
+                    for (int j = 0; j < 4; j++)
+                    {
+                        rows[rowIdx + j] = before[rowIdx + con[j]];
+                    }
+                }
+
+                static byte Xt(byte x) =>
+                    (byte)(((x << 1) ^ ((x & 128) != 0 ? 0x1B : 0)) & 255);
+
+                for (int i = 0; i < 4; i++)
+                {
+                    byte t = (byte)(rows[i] ^ rows[4 + i] ^ rows[8 + i] ^ rows[12 + i]);
+                    byte u = rows[i];
+                    rows[i] ^= (byte)(t ^ Xt((byte)(rows[i] ^ rows[4 + i])));
+                    rows[4 + i] ^= (byte)(t ^ Xt((byte)(rows[4 + i] ^ rows[8 + i])));
+                    rows[8 + i] ^= (byte)(t ^ Xt((byte)(rows[8 + i] ^ rows[12 + i])));
+                    rows[12 + i] ^= (byte)(t ^ Xt((byte)(rows[12 + i] ^ u)));
+                }
+            }
+
+            int off = rnd * 4;
+            for (int i = 0; i < 4; i++)
+            {
+                int rowIdx = i * 4;
+                int keyIdx = (off + i) * 4;
+                for (int j = 0; j < 4; j++)
+                {
+                    rows[rowIdx + j] ^= expanded[keyIdx + con[j]];
+                }
+            }
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            int rowIdx = i * 4;
+            int keyIdx = (4 + i) * 4;
+            for (int j = 0; j < 4; j++)
+            {
+                rows[rowIdx + j] ^= expanded[keyIdx + j];
+            }
+        }
+
+        rows.CopyTo(output);
     }
 
     private readonly record struct ProtoVal(int Type, long IntVal, byte[]? ByteVal)

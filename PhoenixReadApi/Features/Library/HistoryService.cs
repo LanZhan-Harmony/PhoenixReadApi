@@ -220,7 +220,7 @@ internal sealed class HistoryService : LibraryServiceBase
             )
             .ConfigureAwait(false);
         AppHistoryData data = response.Data ?? new();
-        List<HistoryItem<T>> items = [];
+        List<HistoryItem<T>> items = data.Items.Count > 0 ? new(data.Items.Count) : [];
         foreach (AppHistoryItem raw in data.Items)
         {
             if (raw is null)

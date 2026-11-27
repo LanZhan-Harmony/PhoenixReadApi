@@ -897,7 +897,16 @@ internal sealed partial class DramaService : PhoenixFeatureService
             )
             .ConfigureAwait(false);
 
-        DramaDto? first = plan.Data.SelectMany(static c => c.EffectiveItems).FirstOrDefault();
+        DramaDto? first = null;
+        foreach (AppPlanCellDto cell in plan.Data)
+        {
+            IReadOnlyList<DramaDto> items = cell.EffectiveItems;
+            if (items.Count > 0)
+            {
+                first = items[0];
+                break;
+            }
+        }
         if (first is null)
         {
             return null;
@@ -964,7 +973,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
 
         IReadOnlyList<string> tags = string.IsNullOrWhiteSpace(book.Tags)
             ? []
-            : [.. book.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+            : book.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         return new Novel
         {
