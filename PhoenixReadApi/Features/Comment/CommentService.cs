@@ -24,8 +24,10 @@ internal sealed class CommentService : PhoenixFeatureService
         string cursor,
         CommentSortOrder sort,
         CancellationToken cancellationToken
-    ) =>
-        target.Kind switch
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Kind switch
         {
             CommentTargetKind.Episode => GetEpisodeCommentsAsync(
                 target.PrimaryId,
@@ -55,6 +57,7 @@ internal sealed class CommentService : PhoenixFeatureService
             ),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
         };
+    }
 
     internal Task<CommentReplyPage> GetCommentRepliesAsync(
         CommentTarget target,
@@ -62,8 +65,10 @@ internal sealed class CommentService : PhoenixFeatureService
         int count,
         string cursor,
         CancellationToken cancellationToken
-    ) =>
-        target.Kind switch
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Kind switch
         {
             CommentTargetKind.DramaReview => GetDramaReviewRepliesAsync(
                 commentId,
@@ -96,13 +101,16 @@ internal sealed class CommentService : PhoenixFeatureService
             ),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
         };
+    }
 
     internal Task<PhoenixOperationResult> SendCommentAsync(
         CommentTarget target,
         string text,
         CancellationToken cancellationToken
-    ) =>
-        target.Kind switch
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Kind switch
         {
             CommentTargetKind.Episode => SendCommentAsync(
                 target.PrimaryId,
@@ -126,6 +134,7 @@ internal sealed class CommentService : PhoenixFeatureService
             ),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
         };
+    }
 
     internal Task<PhoenixOperationResult> SendCommentReplyAsync(
         CommentTarget target,
@@ -133,8 +142,10 @@ internal sealed class CommentService : PhoenixFeatureService
         string text,
         string replyToUserId,
         CancellationToken cancellationToken
-    ) =>
-        target.Kind switch
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Kind switch
         {
             CommentTargetKind.DramaReview => SendDramaReviewReplyAsync(
                 commentId,
@@ -167,14 +178,17 @@ internal sealed class CommentService : PhoenixFeatureService
             ),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
         };
+    }
 
     internal Task<PhoenixOperationResult> SetCommentLikeAsync(
         CommentTarget target,
         string commentId,
         bool active,
         CancellationToken cancellationToken
-    ) =>
-        target.Kind switch
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Kind switch
         {
             CommentTargetKind.DramaReview => LikeCommentAsync(
                 commentId,
@@ -204,14 +218,17 @@ internal sealed class CommentService : PhoenixFeatureService
             ),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
         };
+    }
 
     internal Task<PhoenixOperationResult> SetReplyLikeAsync(
         CommentTarget target,
         string replyId,
         bool active,
         CancellationToken cancellationToken
-    ) =>
-        target.Kind switch
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Kind switch
         {
             CommentTargetKind.DramaReview => LikeCommentAsync(
                 replyId,
@@ -243,13 +260,16 @@ internal sealed class CommentService : PhoenixFeatureService
             ),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
         };
+    }
 
     internal Task<PhoenixOperationResult> DeleteCommentAsync(
         CommentTarget target,
         string commentId,
         CancellationToken cancellationToken
-    ) =>
-        target.Kind switch
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Kind switch
         {
             CommentTargetKind.DramaReview => DeleteCommentAsync(
                 commentId,
@@ -276,13 +296,16 @@ internal sealed class CommentService : PhoenixFeatureService
             ),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
         };
+    }
 
     internal Task<PhoenixOperationResult> DeleteReplyAsync(
         CommentTarget target,
         string replyId,
         CancellationToken cancellationToken
-    ) =>
-        target.Kind switch
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Kind switch
         {
             CommentTargetKind.DramaReview or CommentTargetKind.Episode => DeleteReplyAsync(
                 replyId,
@@ -292,6 +315,7 @@ internal sealed class CommentService : PhoenixFeatureService
             CommentTargetKind.Post => DeletePostReplyAsync(replyId, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
         };
+    }
 
     internal Task<DramaReviewPage> GetDramaReviewsAsync(
         string dramaId,

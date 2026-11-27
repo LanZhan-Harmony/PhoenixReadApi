@@ -97,7 +97,6 @@ internal static class ValueNormalizer
             540 => MediaDefinition.P540,
             720 => MediaDefinition.P720,
             1080 => MediaDefinition.P1080,
-            2160 => MediaDefinition.P2160,
             _ => MediaDefinition.Unknown,
         };
     }

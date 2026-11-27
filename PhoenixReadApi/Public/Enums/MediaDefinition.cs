@@ -20,7 +20,4 @@ public enum MediaDefinition
 
     /// <summary>超清 1080p 流。</summary>
     P1080 = 1080,
-
-    /// <summary>4K 2160p 流。</summary>
-    P2160 = 2160,
 }

@@ -28,12 +28,6 @@ public sealed class EnumCoverageTests
         await Assert
             .That(ValueNormalizer.ParseDefinition(1080, "1080p"))
             .IsEqualTo(MediaDefinition.P1080);
-        await Assert
-            .That(ValueNormalizer.ParseDefinition(2160, "2160p"))
-            .IsEqualTo(MediaDefinition.P2160);
-        await Assert
-            .That(ValueNormalizer.ParseDefinition(2160, ""))
-            .IsEqualTo(MediaDefinition.P2160);
 
         // 校验异常/空值解析为 Unknown
         await Assert

@@ -1,7 +1,7 @@
 namespace PhoenixReadApi;
 
 /// <summary>评论或回复操作的目标定位信息。</summary>
-public readonly record struct CommentTarget
+public sealed class CommentTarget
 {
     /// <summary>目标内容类型。</summary>
     public CommentTargetKind Kind { get; }
