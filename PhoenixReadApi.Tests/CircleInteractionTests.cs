@@ -87,18 +87,16 @@ public sealed class CircleInteractionTests
         );
 
         // 2. 测试 Library 领域获取自己的收藏（书架/私有资产同步）
-        DramaPage favorites = await authClient.GetFavoritesAsync(
-            count: 10,
-            offset: 0,
+        IReadOnlyList<Drama> favorites = await authClient.GetDramaFavoritesAsync(
             cancellationToken: timeout.Token
         );
         TestContext.Current?.OutputWriter.WriteLine(
-            $"Library Favorites: Count={favorites.Items.Count}, Total={favorites.Total}, HasMore={favorites.HasMore}"
+            $"Library Drama Favorites: Count={favorites.Count}"
         );
-        foreach (var item in favorites.Items)
+        foreach (Drama item in favorites)
         {
             TestContext.Current?.OutputWriter.WriteLine(
-                $"Fav Item: Id={item.Id}, Title={item.Title}, Cover={item.CoverUrl}, Eps={item.EpisodeCount}"
+                $"Fav Drama: Id={item.Id}, Title={item.Title}, Cover={item.CoverUrl}, Eps={item.EpisodeCount}"
             );
         }
 
@@ -186,8 +184,9 @@ public sealed class CircleInteractionTests
             return;
         }
 
-        CommentPage comments = await authClient.GetPostCommentsAsync(
-            postItem.Id,
+        CommentTarget postTarget = CommentTarget.FromPost(postItem.Id);
+        CommentPage comments = await authClient.GetCommentsAsync(
+            postTarget,
             count: 5,
             cancellationToken: timeout.Token
         );
@@ -202,9 +201,9 @@ public sealed class CircleInteractionTests
         CommentReplyPage? replies = null;
         try
         {
-            replies = await authClient.GetPostCommentRepliesAsync(
+            replies = await authClient.GetCommentRepliesAsync(
+                postTarget,
                 commentId,
-                postItem.Id,
                 count: 5,
                 cancellationToken: timeout.Token
             );
@@ -212,7 +211,7 @@ public sealed class CircleInteractionTests
         catch (PhoenixReadApiException ex)
         {
             TestContext.Current?.OutputWriter.WriteLine(
-                $"GetPostCommentRepliesAsync: {ex.Message}"
+                $"GetCommentRepliesAsync: {ex.Message}"
             );
         }
 
@@ -222,18 +221,18 @@ public sealed class CircleInteractionTests
         }
 
         // 2. 测试红果圈图文评论点赞接口
-        PhoenixOperationResult likeResult = await authClient.SetPostCommentLikeAsync(
+        PhoenixOperationResult likeResult = await authClient.SetCommentLikeAsync(
+            postTarget,
             commentId,
-            postItem.Id,
             active: true,
             cancellationToken: timeout.Token
         );
         await Assert.That(likeResult.Succeeded).IsTrue();
 
         // 3. 测试完后立即取消点赞（撤销写入内容，恢复原状）
-        PhoenixOperationResult unlikeResult = await authClient.SetPostCommentLikeAsync(
+        PhoenixOperationResult unlikeResult = await authClient.SetCommentLikeAsync(
+            postTarget,
             commentId,
-            postItem.Id,
             active: false,
             cancellationToken: timeout.Token
         );

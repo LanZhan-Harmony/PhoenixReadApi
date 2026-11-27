@@ -34,18 +34,13 @@ public sealed class LibraryTests
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
 
-        DramaPage favorites = await SharedScenario.Client.GetFavoritesAsync(
-            count: 10,
-            offset: 0,
+        IReadOnlyList<Drama> favorites = await SharedScenario.Client.GetDramaFavoritesAsync(
             cancellationToken: timeout.Token
         );
 
         await Assert.That(favorites).IsNotNull();
-        await Assert.That(favorites.Items).IsNotNull();
-        await Assert.That(favorites.NextOffset >= 0).IsTrue();
-        await Assert.That(favorites.Total >= 0).IsTrue();
 
-        foreach (Drama drama in favorites.Items)
+        foreach (Drama drama in favorites)
         {
             await SharedScenario.AssertValidDrama(drama, allowSparse: true);
         }
@@ -56,7 +51,7 @@ public sealed class LibraryTests
     {
         using CancellationTokenSource timeout = SharedScenario.CreateTimeout();
 
-        DramaPage likes = await SharedScenario.Client.GetLikesAsync(
+        DramaPage likes = await SharedScenario.Client.GetDramaLikesAsync(
             count: 10,
             offset: 0,
             cancellationToken: timeout.Token

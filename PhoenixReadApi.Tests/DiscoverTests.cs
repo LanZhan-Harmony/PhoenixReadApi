@@ -158,13 +158,10 @@ public sealed class DiscoverTests
         await Assert.That(first.FollowCount).IsEqualTo(577833);
         await Assert.That(first.Heat).IsEqualTo("1345万热搜");
         await Assert.That(first.ReleaseStatus).IsEqualTo(DramaReleaseStatus.Finished);
-        await Assert.That(first.IsMultiSeason).IsTrue();
-        await Assert.That(first.AlbumId).IsEqualTo("7710935414118304830");
 
         Drama second = page.Dramas[1];
         await SharedScenario.AssertValidDrama(second);
         await Assert.That(second.Score).IsEqualTo("9.3");
-        await Assert.That(second.SeasonIndex).IsEqualTo(3);
         await Assert.That(second.Heat).IsEqualTo("398万热搜");
         await Assert.That(second.OnlineDate).IsEqualTo("2026-11-05");
         await Assert.That(second.Credits.Count).IsEqualTo(1);
@@ -173,8 +170,7 @@ public sealed class DiscoverTests
         await Assert.That(second.Tags.Contains("打脸反派")).IsTrue();
 
         Drama third = page.Dramas[2];
-        await Assert.That(third.IsMultiSeason).IsFalse();
-        await Assert.That(third.AlbumId).IsEqualTo(string.Empty);
+        await SharedScenario.AssertValidDrama(third);
     }
 
     [Test]

@@ -12,6 +12,10 @@ internal sealed class AppShelfItem
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string SeriesId { get; init; } = string.Empty;
 
+    [JsonPropertyName("book_type")]
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int BookType { get; init; }
+
     [JsonPropertyName("vid")]
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string VideoId { get; init; } = string.Empty;

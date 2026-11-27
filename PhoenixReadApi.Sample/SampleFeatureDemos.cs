@@ -222,19 +222,31 @@ internal static partial class SampleSteps
                 }
             }
 
-            DramaRecommendations? related = await TryAsync("GetDramaRecommendationsAsync", () =>
-                client.GetDramaRecommendationsAsync(sampleDrama.Id, cancellationToken)
+            IReadOnlyList<RelatedWorkItem>? related = await TryAsync("GetDramaRelatedWorksAsync", () =>
+                client.GetDramaRelatedWorksAsync(sampleDrama.Id, cancellationToken)
             );
-            PrintCount("  单剧专属关联推荐短剧数", related?.Items.Count);
-            if (related?.Items.Count > 0)
+            PrintCount("  相关作品数", related?.Count);
+            if (related?.Count > 0)
             {
-                foreach (Drama drama in related.Items.Take(3))
+                foreach (RelatedWorkItem item in related.Take(3))
                 {
-                    Console.WriteLine(
-                        $"     - 推荐: 《{drama.Title}》 ({drama.EpisodeCount}集) - 评分: {drama.Score}"
-                    );
+                    if (item.Value is Drama drama)
+                    {
+                        Console.WriteLine(
+                            $"     - 相关短剧: 《{drama.Title}》 ({drama.EpisodeCount}集) - 评分: {drama.Score}"
+                        );
+                    }
+                    else if (item.Value is Novel novel)
+                    {
+                        Console.WriteLine($"     - 原著小说: 《{novel.Title}》 - 作者: {novel.Author}");
+                    }
                 }
             }
+
+            RecommendationFeedPage? guessYouLike = await TryAsync("GetDramaGuessYouLikeAsync", () =>
+                client.GetDramaGuessYouLikeAsync(sampleDrama.Id, cancellationToken: cancellationToken)
+            );
+            PrintCount("  猜你喜欢数", guessYouLike?.Items.Count);
         }
 
         // ==========================================

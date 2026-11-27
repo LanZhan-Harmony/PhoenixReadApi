@@ -54,6 +54,73 @@ internal sealed class LikeService : LibraryServiceBase
         return Succeeded(response.Message);
     }
 
+    internal async Task<PhoenixOperationResult> SetShortVideoLikeAsync(
+        string videoId,
+        bool active,
+        CancellationToken cancellationToken
+    )
+    {
+        videoId = NormalizeVideoId(videoId);
+        AppResponse<AppOperationResponse> response = await _appTransport
+            .PostAsync<AppArticleActionPayload, AppOperationResponse>(
+                "/novel/articleapi/do_action/v1/",
+                new AppArticleActionPayload
+                {
+                    ObjectId = videoId,
+                    ObjectType = 10,
+                    ActionType = active ? 3 : 4,
+                    ActionCategory = 1,
+                    ActionReasonRemark = active ? "like_click" : "cancel_like",
+                    BusinessParameter = new AppArticleActionBusinessParameter
+                    {
+                        BookId = 0,
+                        VideoId = string.Empty,
+                        HasAigcContent = false,
+                        ModifyCount = 0,
+                        SharkParameter = new AppSharkParameter(),
+                    },
+                },
+                commentRequest: false,
+                cancellationToken,
+                retryMode: AppRequestRetryMode.NoRetry
+            )
+            .ConfigureAwait(false);
+        return Succeeded(response.Message);
+    }
+
+    internal async Task<PhoenixOperationResult> SetPostLikeAsync(
+        string postId,
+        bool active,
+        CancellationToken cancellationToken
+    )
+    {
+        postId = NormalizeVideoId(postId);
+        AppResponse<AppOperationResponse> response = await _appTransport
+            .PostAsync<AppArticleActionPayload, AppOperationResponse>(
+                "/novel/articleapi/do_action/v1/",
+                new AppArticleActionPayload
+                {
+                    ObjectId = postId,
+                    ObjectType = 16,
+                    ActionType = active ? 3 : 4,
+                    ActionCategory = 1,
+                    ActionReasonRemark = active ? "like_click" : "cancel_like",
+                    BusinessParameter = new AppArticleActionBusinessParameter
+                    {
+                        BookId = 0,
+                        HasAigcContent = false,
+                        ModifyCount = 0,
+                        SharkParameter = new AppSharkParameter(),
+                    },
+                },
+                commentRequest: false,
+                cancellationToken,
+                retryMode: AppRequestRetryMode.NoRetry
+            )
+            .ConfigureAwait(false);
+        return Succeeded(response.Message);
+    }
+
     internal async Task<DramaPage> GetLikesAsync(
         int count,
         int offset,

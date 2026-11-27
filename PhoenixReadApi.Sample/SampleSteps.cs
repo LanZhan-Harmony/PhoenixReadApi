@@ -285,13 +285,12 @@ internal static partial class SampleSteps
         PrintReviews("  剧评", context.Reviews);
 
         context.EpisodeComments = await TryWhenIdsAsync(
-            "GetEpisodeCommentsAsync(ids)",
+            "GetCommentsAsync(Episode)",
             context.DramaId,
             context.VideoId,
             (drama, video) =>
-                client.GetEpisodeCommentsAsync(
-                    drama,
-                    video,
+                client.GetCommentsAsync(
+                    CommentTarget.FromEpisode(drama, video),
                     10,
                     cancellationToken: cancellationToken
                 )
@@ -307,21 +306,14 @@ internal static partial class SampleSteps
 
         context.Replies = context.SampleComment is null
             ? null
-            : await TryAsync(
-                isEpisodeComment ? "GetEpisodeCommentRepliesAsync" : "GetDramaReviewRepliesAsync",
-                () =>
+            : await TryAsync("GetCommentRepliesAsync", () =>
+                client.GetCommentRepliesAsync(
                     isEpisodeComment
-                        ? client.GetEpisodeCommentRepliesAsync(
-                            context.SampleComment.Id,
-                            context.DramaId,
-                            context.VideoId,
-                            cancellationToken: cancellationToken
-                        )
-                        : client.GetDramaReviewRepliesAsync(
-                            context.SampleComment.Id,
-                            context.DramaId,
-                            cancellationToken: cancellationToken
-                        )
+                        ? CommentTarget.FromEpisode(context.DramaId, context.VideoId)
+                        : CommentTarget.FromDramaReview(context.DramaId),
+                    context.SampleComment.Id,
+                    cancellationToken: cancellationToken
+                )
             );
         PrintCount("  评论回复", context.Replies?.Items.Count);
 
@@ -405,13 +397,13 @@ internal static partial class SampleSteps
         );
         PrintCount("  历史", context.History?.Items.Count);
 
-        context.Favorites = await TryAsync("GetFavoritesAsync", () =>
-            client.GetFavoritesAsync(cancellationToken: cancellationToken)
+        context.Favorites = await TryAsync("GetDramaFavoritesAsync", () =>
+            client.GetDramaFavoritesAsync(cancellationToken)
         );
-        PrintCount("  收藏", context.Favorites?.Items.Count);
+        PrintCount("  短剧收藏", context.Favorites?.Count);
 
         context.Likes = await TryAsync("GetLikesAsync", () =>
-            client.GetLikesAsync(cancellationToken: cancellationToken)
+            client.GetDramaLikesAsync(cancellationToken: cancellationToken)
         );
         PrintCount("  点赞剧集", context.Likes?.Items.Count);
 

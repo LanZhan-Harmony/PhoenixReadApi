@@ -10,7 +10,7 @@ public sealed class DramaDetails
     public IReadOnlyList<Episode> Episodes { get; init; } = [];
 
     /// <summary>关联的多季合集 ID（若该短剧属于多季作品）。</summary>
-    public string RelatedAlbumId { get; init; } = string.Empty;
+    public string AlbumId { get; init; } = string.Empty;
 
     /// <summary>该剧是否为多季短剧之一。</summary>
     public bool IsMultiSeason { get; init; }

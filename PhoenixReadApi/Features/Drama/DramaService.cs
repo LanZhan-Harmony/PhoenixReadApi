@@ -4,8 +4,10 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Drama;
+using PhoenixReadApi.Internal.Contracts.App.Search;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Drama;
+using PhoenixReadApi.Internal.Features.Search;
 using PhoenixReadApi.Internal.Features.Shared;
 using PhoenixReadApi.Internal.Infrastructure.Runtime;
 using PhoenixReadApi.Internal.Infrastructure.Web;
@@ -14,6 +16,7 @@ using PhoenixReadApi.Internal.Serialization;
 namespace PhoenixReadApi.Internal.Features.Drama;
 
 using Drama = PhoenixReadApi.Drama;
+using Post = PhoenixReadApi.Post;
 
 /// <summary>加载详情、校验分集归属，并缓存已完成的结果。</summary>
 internal sealed partial class DramaService : PhoenixFeatureService
@@ -172,7 +175,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
         {
             Drama = drama,
             Episodes = episodes,
-            RelatedAlbumId = detail.EffectiveAlbumId,
+            AlbumId = detail.EffectiveAlbumId,
             IsMultiSeason = detail.IsMultiSeason,
             SeasonIndex = detail.SeasonIndex > 0 ? detail.SeasonIndex : 1,
             SourceNovel = MapSourceNovel(detail.RelateBook),
@@ -694,7 +697,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
                     seasons.Sort(static (a, b) => a.Index.CompareTo(b.Index));
                     return new DramaAlbum
                     {
-                        Id = details.RelatedAlbumId,
+                        Id = details.AlbumId,
                         Title = ExtractBaseTitle(details.Drama.Title),
                         SeasonCount = seasons.Count,
                         Seasons = seasons,
@@ -708,11 +711,11 @@ internal sealed partial class DramaService : PhoenixFeatureService
         }
 
         // 2. 如果存在合集 ID，尝试请求合集接口
-        if (!string.IsNullOrWhiteSpace(details.RelatedAlbumId))
+        if (!string.IsNullOrWhiteSpace(details.AlbumId))
         {
             try
             {
-                DramaAlbum album = await GetAlbumAsync(details.RelatedAlbumId, cancellationToken)
+                DramaAlbum album = await GetAlbumAsync(details.AlbumId, cancellationToken)
                     .ConfigureAwait(false);
                 if (album.Seasons.Count > 0)
                 {
@@ -729,7 +732,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
         string baseTitle = ExtractBaseTitle(details.Drama.Title);
         return new DramaAlbum
         {
-            Id = details.RelatedAlbumId,
+            Id = details.AlbumId,
             Title = baseTitle,
             Description = details.Drama.Description,
             CoverUrl = details.Drama.CoverUrl,
@@ -749,7 +752,7 @@ internal sealed partial class DramaService : PhoenixFeatureService
         };
     }
 
-    internal async Task<DramaRecommendations> GetDramaRecommendationsAsync(
+    internal async Task<IReadOnlyList<RelatedWorkItem>> GetDramaRelatedWorksAsync(
         string dramaId,
         CancellationToken cancellationToken
     )
@@ -760,47 +763,220 @@ internal sealed partial class DramaService : PhoenixFeatureService
                 "/reading/bookapi/plan/v1/",
                 [
                     new("book_id", dramaId),
-                    new("from", "select_panel_recommend"),
+                    new("from", "detail_page_more_related"),
                     new("scene", "10"),
-                    new("session_uuid", Guid.NewGuid().ToString("N")),
+                    new("session_uuid", Guid.NewGuid().ToString("D")),
                     new("user_is_login", UserIsLogin),
                 ],
                 cancellationToken
             )
             .ConfigureAwait(false);
 
-        AppPlanCellDto? targetCell = plan.Data.FirstOrDefault(static c =>
-            c is { ShowType: 160, EffectiveItems.Count: > 0 }
-        ) ?? plan.Data.FirstOrDefault(static c => c.EffectiveItems.Count > 0);
-
-        if (targetCell is null || targetCell.EffectiveItems.Count == 0)
+        AppPlanCellDto? relatedCell = plan.Data.FirstOrDefault(static c => c.ShowType == 547);
+        List<RelatedWorkItem> relatedWorks = [];
+        HashSet<string> seenRelated = [with(StringComparer.Ordinal)];
+        if (relatedCell is not null)
         {
-            throw new PhoenixReadApiResponseException("暂无该剧的关联推荐内容。", "recommend");
-        }
-
-        List<Drama> items = [];
-        HashSet<string> seen = [with(StringComparer.Ordinal)];
-        foreach (DramaDto dto in targetCell.EffectiveItems)
-        {
-            Drama drama = DramaMapper.FromDto(dto, "短剧");
-            if (drama.Id.Length > 0 && seen.Add(drama.Id))
+            foreach (DramaDto dto in relatedCell.VideoData)
             {
-                items.Add(drama);
+                Drama drama = DramaMapper.FromDto(dto, "短剧");
+                if (drama.Id.Length > 0 && seenRelated.Add("d:" + drama.Id))
+                {
+                    relatedWorks.Add(drama);
+                }
+            }
+
+            foreach (AppPlanBookDto book in relatedCell.BookData)
+            {
+                Novel novel = MapPlanBook(book);
+                if (novel.Id.Length > 0 && seenRelated.Add("n:" + novel.Id))
+                {
+                    relatedWorks.Add(novel);
+                }
             }
         }
 
-        string cellTitle = !string.IsNullOrWhiteSpace(targetCell.CellName)
-            ? targetCell.CellName
-            : "更多好剧";
-        string sessionId = !string.IsNullOrWhiteSpace(targetCell.SessionId)
-            ? targetCell.SessionId
-            : plan.SessionId;
+        return relatedWorks;
+    }
 
-        return new DramaRecommendations
+    internal async Task<RecommendationFeedPage> GetDramaGuessYouLikeAsync(
+        string dramaId,
+        int offset,
+        string cellId,
+        string sessionId,
+        int limit,
+        CancellationToken cancellationToken
+    )
+    {
+        dramaId = NormalizeDramaId(dramaId);
+        if (offset < 0)
         {
-            Title = cellTitle,
+            throw new ArgumentOutOfRangeException(nameof(offset), "偏移量不能为负数。");
+        }
+        if (limit is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), "每页数量必须在 1 到 50 之间。");
+        }
+
+        if (offset == 0 && string.IsNullOrWhiteSpace(cellId))
+        {
+            AppPlanResponse plan = await _appTransport
+                .GetRootAsync<AppPlanResponse>(
+                    "/reading/bookapi/plan/v1/",
+                    [
+                        new("book_id", dramaId),
+                        new("from", "detail_page_more_related"),
+                        new("scene", "10"),
+                        new("session_uuid", Guid.NewGuid().ToString("D")),
+                        new("user_is_login", UserIsLogin),
+                    ],
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            AppPlanCellDto? guessCell = plan.Data.FirstOrDefault(static c => c.ShowType == 506);
+            string resolvedSessionId = ValueNormalizer.First(
+                guessCell?.SessionId,
+                plan.SessionId
+            );
+            return guessCell is not null
+                ? MapFeedPage(guessCell, guessCell.NextOffset, guessCell.HasMore, resolvedSessionId)
+                : new RecommendationFeedPage { Title = "猜你喜欢", SessionId = resolvedSessionId };
+        }
+
+        cellId = NormalizeVideoId(cellId);
+        List<KeyValuePair<string, string>> query =
+        [
+            new("cell_id", cellId),
+            new("client_req_type", "2"),
+            new("limit", limit.ToString(CultureInfo.InvariantCulture)),
+            new("offset", offset.ToString(CultureInfo.InvariantCulture)),
+            new("related_book_id", dramaId),
+            new("session_uuid", Guid.NewGuid().ToString("D")),
+        ];
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            query.Add(new("session_id", sessionId.Trim()));
+        }
+
+        AppResponse<AppPlanCellChangeData> response = await _appTransport
+            .GetAsync<AppPlanCellChangeData>(
+                "/reading/bookapi/bookmall/cell/change/v1/",
+                query,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        AppPlanCellChangeData data = response.Data ?? new();
+        AppPlanCellDto cell = data.CellView ?? new();
+        return MapFeedPage(
+            cell,
+            data.NextOffset,
+            data.HasMore,
+            !string.IsNullOrWhiteSpace(data.SessionId) ? data.SessionId : sessionId
+        );
+    }
+
+    internal async Task<Drama?> GetPlaybackEndRecommendationAsync(
+        string id,
+        bool isAlbum,
+        CancellationToken cancellationToken
+    )
+    {
+        id = NormalizeDramaId(id);
+        AppPlanResponse plan = await _appTransport
+            .GetRootAsync<AppPlanResponse>(
+                "/reading/bookapi/plan/v1/",
+                [
+                    new("book_id", id),
+                    new("filter_ids", id),
+                    new("from", isAlbum ? "series_end_recommend" : "series_end_bottom_bar"),
+                    new("scene", "10"),
+                    new("user_is_login", UserIsLogin),
+                ],
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        DramaDto? first = plan.Data.SelectMany(static c => c.EffectiveItems).FirstOrDefault();
+        if (first is null)
+        {
+            return null;
+        }
+
+        Drama drama = DramaMapper.FromDto(first, "短剧");
+        return drama.Id.Length > 0 ? drama : null;
+    }
+
+    private static RecommendationFeedPage MapFeedPage(
+        AppPlanCellDto cell,
+        int nextOffset,
+        bool hasMore,
+        string sessionId
+    )
+    {
+        List<RecommendationFeedItem> items = [];
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
+        foreach (AppPlanFeedCellDto card in cell.CellData)
+        {
+            if (card.ShowType == 557 || card.PostData.Count > 0)
+            {
+                foreach (AppSearchPostDto postDto in card.PostData)
+                {
+                    Post post = SearchService.MapSearchPost(postDto);
+                    if (post.Id.Length > 0 && seen.Add("p:" + post.Id))
+                    {
+                        items.Add(post);
+                    }
+                }
+            }
+            else if (card.VideoData.Count > 0)
+            {
+                foreach (DramaDto dramaDto in card.VideoData)
+                {
+                    Drama drama = DramaMapper.FromDto(dramaDto, "短剧");
+                    if (drama.Id.Length > 0 && seen.Add("d:" + drama.Id))
+                    {
+                        items.Add(drama);
+                    }
+                }
+            }
+        }
+
+        return new RecommendationFeedPage
+        {
+            Title = !string.IsNullOrWhiteSpace(cell.CellName) ? cell.CellName : "猜你喜欢",
+            CellId = cell.EffectiveCellId,
             SessionId = sessionId,
+            NextOffset = nextOffset,
+            HasMore = hasMore,
             Items = items,
+        };
+    }
+
+    private static Novel MapPlanBook(AppPlanBookDto book)
+    {
+        NovelCreationStatus status = book.CreationStatus switch
+        {
+            "1" => NovelCreationStatus.Ongoing,
+            "2" => NovelCreationStatus.Completed,
+            _ => NovelCreationStatus.Unknown,
+        };
+
+        IReadOnlyList<string> tags = string.IsNullOrWhiteSpace(book.Tags)
+            ? []
+            : [.. book.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+
+        return new Novel
+        {
+            Id = book.BookId,
+            Title = book.BookName,
+            Author = book.Author,
+            Description = book.Abstract,
+            Status = status,
+            CoverUrl = book.ThumbUrl,
+            ReadCount = book.ReadCount,
+            SerialCount = book.SerialCount,
+            Tags = tags,
         };
     }
 

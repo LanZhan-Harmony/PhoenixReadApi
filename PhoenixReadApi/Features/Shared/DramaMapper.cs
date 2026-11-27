@@ -148,15 +148,6 @@ internal static class DramaMapper
             playCount = parsedPlay;
         }
 
-        DramaRelateBookInfoDto? relateBook = !string.IsNullOrWhiteSpace(value.RelateBook?.BookInfo?.BookId)
-            ? value.RelateBook.BookInfo
-            : detail?.RelateBook?.BookInfo;
-        string novelId = relateBook?.BookId ?? string.Empty;
-        string novelTitle = ValueNormalizer.First(
-            relateBook?.BookName,
-            relateBook?.BookShortName
-        );
-
         IReadOnlyList<DramaCreatorUserDto> creators = value.MainCreatorUsers is { Count: > 0 }
             ? value.MainCreatorUsers
             : detail?.MainCreatorUsers ?? [];
@@ -164,20 +155,6 @@ internal static class DramaMapper
             ? value.Celebrities
             : detail?.Celebrities ?? [];
 
-        string albumId = ValueNormalizer.First(
-            value.EffectiveAlbumId,
-            detail?.EffectiveAlbumId,
-            albumInfo?.EffectiveAlbumId
-        );
-        if (albumId == "0")
-        {
-            albumId = string.Empty;
-        }
-        bool isMultiSeason =
-            value.IsMultiSeason
-            || (detail?.IsMultiSeason ?? false)
-            || !string.IsNullOrWhiteSpace(albumId);
-        int seasonIndex = ResolveSeasonIndex(value, detail);
         long followCount =
             value.FollowedCount > 0 ? value.FollowedCount
             : (detail?.FollowedCount ?? 0) > 0 ? detail!.FollowedCount
@@ -200,11 +177,6 @@ internal static class DramaMapper
             Heat = DtoHeat(value),
             OnlineDate = DtoOnlineDate(value, now ?? DateTimeOffset.Now),
             Credits = DtoCredits(creators, celebrities),
-            IsMultiSeason = isMultiSeason,
-            SeasonIndex = seasonIndex,
-            AlbumId = albumId,
-            NovelId = novelId,
-            NovelTitle = novelTitle,
             PlayCount = playCount,
             FollowCount = followCount,
             LikeCount = likeCount,

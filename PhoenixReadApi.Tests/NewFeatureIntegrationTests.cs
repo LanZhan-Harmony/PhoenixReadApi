@@ -44,14 +44,20 @@ public sealed class NewFeatureIntegrationTests
 
         try
         {
-            DramaRecommendations rec = await SharedScenario.Client.GetDramaRecommendationsAsync(
+            IReadOnlyList<RelatedWorkItem> related = await SharedScenario.Client.GetDramaRelatedWorksAsync(
                 scenario.DramaId,
                 timeout.Token
             );
 
-            await Assert.That(rec).IsNotNull();
-            await Assert.That(rec.Items).IsNotNull();
-            await Assert.That(rec.Title).IsNotNull();
+            await Assert.That(related).IsNotNull();
+
+            RecommendationFeedPage guess = await SharedScenario.Client.GetDramaGuessYouLikeAsync(
+                scenario.DramaId,
+                cancellationToken: timeout.Token
+            );
+
+            await Assert.That(guess).IsNotNull();
+            await Assert.That(guess.Items).IsNotNull();
         }
         catch (PhoenixReadApiResponseException)
         {

@@ -25,7 +25,7 @@ internal sealed class SampleContext
     public CommentPage? EpisodeComments { get; set; }
     public Comment? SampleComment { get; set; }
     public CommentReplyPage? Replies { get; set; }
-    public DramaPage? Favorites { get; set; }
+    public IReadOnlyList<Drama>? Favorites { get; set; }
     public DramaPage? Likes { get; set; }
     public HistoryPage<Drama>? History { get; set; }
     public ReservationPage? UpcomingReservations { get; set; }

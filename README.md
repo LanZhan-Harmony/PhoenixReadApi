@@ -95,7 +95,7 @@ Install-Package PhoenixReadApi
 ### PackageReference
 
 ```xml
-<PackageReference Include="PhoenixReadApi" Version="0.4.0" />
+<PackageReference Include="PhoenixReadApi" Version="*" />
 ```
 
 ---
@@ -345,12 +345,25 @@ foreach (DramaSeason season in seasonsAlbum.Seasons)
     Console.WriteLine($"  - 第 {season.Index} 季: 《{season.Title}》 ({season.EpisodeCount}集)");
 }
 
-// 单剧专属关联推荐（播放器/选集面板“更多好剧”推荐）
-DramaRecommendations related = await client.GetDramaRecommendationsAsync("74123456789", cts.Token);
-foreach (Drama drama in related.Items)
+// 详情页“相关作品”（同系列其他季、同 IP 短剧或原著小说）与“猜你喜欢”信息流
+IReadOnlyList<RelatedWorkItem> relatedWorks = await client.GetDramaRelatedWorksAsync("74123456789", cts.Token);
+foreach (RelatedWorkItem work in relatedWorks)
 {
-    Console.WriteLine($"  - 相关好剧: 《{drama.Title}》 评分: {drama.Score}");
+    if (work.Value is Drama drama)
+    {
+        Console.WriteLine($"  - 相关短剧: 《{drama.Title}》 评分: {drama.Score}");
+    }
+    else if (work.Value is Novel novel)
+    {
+        Console.WriteLine($"  - 原著小说: 《{novel.Title}》 作者: {novel.Author}");
+    }
 }
+
+RecommendationFeedPage guessPage = await client.GetDramaGuessYouLikeAsync("74123456789", cancellationToken: cts.Token);
+Console.WriteLine($"猜你喜欢返回 {guessPage.Items.Count} 条，HasMore: {guessPage.HasMore}");
+
+// 单剧或合集播放完毕后的系列/相关推荐
+Drama? nextDrama = await client.GetPlaybackEndRecommendationAsync("74123456789", isAlbum: false, cts.Token);
 
 // 批量获取多部剧集基础信息（单次最多 50 部）
 IReadOnlyList<Drama> batchDramas = await client.GetBatchDramaDetailsAsync(
@@ -434,40 +447,39 @@ foreach (DanmakuItem item in danmaku.Items.Take(5))
 
 ```csharp
 // 分页获取剧评（支持最热/最新排序）
-CommentPage reviews = await client.GetDramaReviewsAsync(
+DramaReviewPage reviews = await client.GetDramaReviewsAsync(
     dramaId,
     count: 10,
     sort: CommentSortOrder.Hot,
     cancellationToken: cts.Token
 );
 
-// 获取分集评论
-CommentPage episodeComments = await client.GetEpisodeCommentsAsync(
-    dramaId,
-    videoId,
+// 使用 CommentTarget 统一获取分集、短视频或图文帖子的评论
+CommentTarget episodeTarget = CommentTarget.FromEpisode(dramaId, videoId);
+CommentPage episodeComments = await client.GetCommentsAsync(
+    episodeTarget,
     count: 10,
     sort: CommentSortOrder.Hot,
     cancellationToken: cts.Token
 );
 
-// 获取某条评论的二级回复
+// 获取某条评论或剧评的二级回复
 if (reviews.Items.FirstOrDefault() is { } topComment && topComment.ReplyCount > 0)
 {
-    CommentReplyPage replies = await client.GetDramaReviewRepliesAsync(
+    CommentReplyPage replies = await client.GetCommentRepliesAsync(
+        CommentTarget.FromDramaReview(dramaId),
         topComment.Id,
-        dramaId,
         count: 10,
         cancellationToken: cts.Token
     );
     Console.WriteLine($"评论《{topComment.Text}》共有 {replies.Items.Count} 条回复，附图数：{topComment.Images.Count}");
 }
 
-// 互动操作（需在登录状态下调用）
-await client.SendEpisodeCommentAsync(dramaId, videoId, "剧情太紧凑了！", cts.Token);
-if (reviews.Items.FirstOrDefault() is { } topComment)
+// 互动操作（需在登录状态下调用，支持分集、剧评、短视频与图文帖子）
+await client.SendCommentAsync(episodeTarget, "剧情太紧凑了！", cts.Token);
+if (reviews.Items.FirstOrDefault() is { } firstReview)
 {
-    // 对剧评点赞（亦可使用通用的 SetCommentLikeAsync(topComment.Id, dramaId, active: true, cts.Token)）
-    await client.SetReviewLikeAsync(topComment.Id, dramaId, active: true, cts.Token);
+    await client.SetCommentLikeAsync(CommentTarget.FromDramaReview(dramaId), firstReview.Id, active: true, cts.Token);
 }
 ```
 
@@ -476,8 +488,8 @@ if (reviews.Items.FirstOrDefault() is { } topComment)
 ### 6. 书架、阅读历史与播放进度
 
 ```csharp
-// 查询个人短剧观看历史（另有 GetAlbumHistoryAsync / GetShortVideoHistoryAsync / GetPostHistoryAsync）
-ReadHistoryPage<Drama> history = await client.GetDramaHistoryAsync(cancellationToken: cts.Token);
+// 查询个人短剧观看历史（另有 GetAlbumHistoryAsync / GetShortVideoHistoryAsync / GetPostHistoryAsync / GetNovelHistoryAsync / GetAudiobookHistoryAsync）
+HistoryPage<Drama> history = await client.GetDramaHistoryAsync(cancellationToken: cts.Token);
 
 // 上报当前分集的播放进度（也会同步写入观看历史）
 await client.ReportProgressAsync(new ProgressUpdate
@@ -489,14 +501,19 @@ await client.ReportProgressAsync(new ProgressUpdate
     DurationMs = 120_000
 }, cts.Token);
 
-// 收藏短剧（亦可使用 RemoveFavoriteAsync 取消收藏）
+// 收藏或取消收藏（传入 active: false 即可取消；另有 SetShortVideoFavoriteAsync / SetDramaAlbumFavoriteAsync / SetPostFavoriteAsync）
 await client.SetFavoriteAsync(dramaId, videoId, active: true, cancellationToken: cts.Token);
 
-// 点赞当前分集
+// 点赞或取消点赞（另有 SetShortVideoLikeAsync / SetPostLikeAsync）
 await client.SetDramaEpisodeLikeAsync(dramaId, videoId, active: true, cancellationToken: cts.Token);
 
-// 查询收藏夹列表
-DramaPage favorites = await client.GetFavoritesAsync(cancellationToken: cts.Token);
+// 分别查询各类型的收藏列表
+IReadOnlyList<Drama> dramaFavorites = await client.GetDramaFavoritesAsync(cts.Token);
+IReadOnlyList<DramaAlbum> albumFavorites = await client.GetAlbumFavoritesAsync(cts.Token);
+IReadOnlyList<ShortVideo> shortVideoFavorites = await client.GetShortVideoFavoritesAsync(cts.Token);
+IReadOnlyList<Novel> novelFavorites = await client.GetNovelFavoritesAsync(cts.Token);
+IReadOnlyList<Audiobook> audiobookFavorites = await client.GetAudiobookFavoritesAsync(cts.Token);
+PostFavoritePage postFavorites = await client.GetPostFavoritesAsync(count: 20, cancellationToken: cts.Token);
 ```
 
 ---
@@ -653,13 +670,13 @@ foreach (CircleItem item in circle.Items)
 // 获取红果圈图文帖子正文详情（含高清图集与 #话题）与评论
 Post post = await client.GetCirclePostAsync("7699803166862688830", cts.Token);
 Console.WriteLine($"图文正文: {post.PureText}, 配图数: {post.Images.Count}, 话题: {string.Join(", ", post.Topics)}");
-CommentPage postComments = await client.GetPostCommentsAsync("7699803166862688830", count: 20, cancellationToken: cts.Token);
+CommentPage postComments = await client.GetCommentsAsync(CommentTarget.FromPost("7699803166862688830"), count: 20, cancellationToken: cts.Token);
 
 // 获取红果圈短视频详情、播放链接与评论
 ShortVideo video = await client.GetCircleVideoAsync("7696233443998305342", cts.Token);
 IReadOnlyList<PlaybackMedia> videoMedias = await client.ResolveShortVideoMediaAsync(video, cts.Token);
 Console.WriteLine($"视频标题: {video.Title}, 时长: {video.DurationSeconds}秒, 首选播放链接: {videoMedias[0].Url}");
-CommentPage videoComments = await client.GetShortVideoCommentsAsync("7696233443998305342", count: 20, cancellationToken: cts.Token);
+CommentPage videoComments = await client.GetCommentsAsync(CommentTarget.FromShortVideo("7696233443998305342"), count: 20, cancellationToken: cts.Token);
 ```
 
 ---

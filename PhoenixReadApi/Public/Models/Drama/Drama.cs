@@ -49,21 +49,6 @@ public sealed class Drama
     /// </remarks>
     public IReadOnlyList<DramaCredit> Credits { get; init; } = [];
 
-    /// <summary>是否属于多季合集短剧。</summary>
-    public bool IsMultiSeason { get; init; }
-
-    /// <summary>在多季合集中的季序号（从 1 开始）。</summary>
-    public int SeasonIndex { get; init; } = 1;
-
-    /// <summary>多季合集 ID（若属于系列剧）。</summary>
-    public string AlbumId { get; init; } = string.Empty;
-
-    /// <summary>改编的原著小说 ID（若有）。</summary>
-    public string NovelId { get; init; } = string.Empty;
-
-    /// <summary>改编的原著小说标题（若有）。</summary>
-    public string NovelTitle { get; init; } = string.Empty;
-
     /// <summary>总播放量数值。</summary>
     public long PlayCount { get; init; }
 

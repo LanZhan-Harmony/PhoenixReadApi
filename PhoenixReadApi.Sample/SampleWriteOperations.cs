@@ -15,7 +15,7 @@ internal static partial class SampleSteps
         string userId = context.CreditUserId;
 
         HashSet<string> favoriteDramaIds = context
-            .Favorites?.Items.Select(static item => item.Id)
+            .Favorites?.Select(static item => item.Id)
             .Where(static id => id.Length > 0)
             .ToHashSet(StringComparer.Ordinal)
             ?? [];
@@ -76,10 +76,12 @@ internal static partial class SampleSteps
                 client.SetDramaEpisodeLikeAsync(dramaId, videoId, false, cancellationToken)
             );
 
+            CommentTarget episodeTarget = CommentTarget.FromEpisode(dramaId, videoId);
             // 1. 发表分集评论
             string commentText = $"分集评论_{marker}";
-            PhoenixOperationResult? commentResult = await TryAsync("SendEpisodeCommentAsync", () =>
-                client.SendEpisodeCommentAsync(dramaId, videoId, commentText, cancellationToken)
+            PhoenixOperationResult? commentResult = await TryAsync(
+                "SendCommentAsync(Episode)",
+                () => client.SendCommentAsync(episodeTarget, commentText, cancellationToken)
             );
             string createdCommentId = commentResult?.Id ?? string.Empty;
             if (string.IsNullOrWhiteSpace(createdCommentId))
@@ -95,10 +97,9 @@ internal static partial class SampleSteps
                 PhoenixOperationResult? replyResult = await TryAsync(
                     "SendCommentReplyAsync(on self comment)",
                     () =>
-                        client.SendEpisodeCommentReplyAsync(
+                        client.SendCommentReplyAsync(
+                            episodeTarget,
                             createdCommentId,
-                            dramaId,
-                            videoId,
                             replyText,
                             "",
                             cancellationToken
@@ -109,21 +110,31 @@ internal static partial class SampleSteps
                 {
                     // 3. 对自建回复进行点赞与取消点赞
                     await TryAsync("SetReplyLikeAsync(created)", () =>
-                        client.SetReplyLikeAsync(createdReplyId, videoId, true, cancellationToken)
+                        client.SetReplyLikeAsync(
+                            episodeTarget,
+                            createdReplyId,
+                            true,
+                            cancellationToken
+                        )
                     );
                     await TryAsync("SetReplyLikeAsync(created,false)", () =>
-                        client.SetReplyLikeAsync(createdReplyId, videoId, false, cancellationToken)
+                        client.SetReplyLikeAsync(
+                            episodeTarget,
+                            createdReplyId,
+                            false,
+                            cancellationToken
+                        )
                     );
 
                     // 4. 删除时先删回复！
                     await TryAsync("DeleteReplyAsync(created)", () =>
-                        client.DeleteReplyAsync(createdReplyId, cancellationToken)
+                        client.DeleteReplyAsync(episodeTarget, createdReplyId, cancellationToken)
                     );
                 }
 
                 // 5. 再删自己发的评论！
                 await TryAsync("DeleteCommentAsync(created)", () =>
-                    client.DeleteCommentAsync(createdCommentId, videoId, cancellationToken)
+                    client.DeleteCommentAsync(episodeTarget, createdCommentId, cancellationToken)
                 );
             }
 
@@ -199,8 +210,12 @@ internal static partial class SampleSteps
             else
             {
                 // 9. 删除剧评
-                await TryAsync("DeleteDramaReviewAsync(created)", () =>
-                    client.DeleteDramaReviewAsync(createdReviewId, reviewDramaId, cancellationToken)
+                await TryAsync("DeleteCommentAsync(DramaReview)", () =>
+                    client.DeleteCommentAsync(
+                        CommentTarget.FromDramaReview(reviewDramaId),
+                        createdReviewId,
+                        cancellationToken
+                    )
                 );
             }
 
@@ -221,17 +236,19 @@ internal static partial class SampleSteps
 
         if (comment is not null)
         {
+            CommentTarget epTarget = CommentTarget.FromEpisode(dramaId, videoId);
+            CommentTarget reviewTarget = CommentTarget.FromDramaReview(dramaId);
             await TryAsync("SetCommentLikeAsync", () =>
-                client.SetCommentLikeAsync(comment.Id, dramaId, true, cancellationToken)
+                client.SetCommentLikeAsync(epTarget, comment.Id, true, cancellationToken)
             );
             await TryAsync("SetCommentLikeAsync(false)", () =>
-                client.SetCommentLikeAsync(comment.Id, dramaId, false, cancellationToken)
+                client.SetCommentLikeAsync(epTarget, comment.Id, false, cancellationToken)
             );
             await TryAsync("SetReviewLikeAsync", () =>
-                client.SetDramaReviewLikeAsync(comment.Id, dramaId, true, cancellationToken)
+                client.SetCommentLikeAsync(reviewTarget, comment.Id, true, cancellationToken)
             );
             await TryAsync("SetReviewLikeAsync(false)", () =>
-                client.SetDramaReviewLikeAsync(comment.Id, dramaId, false, cancellationToken)
+                client.SetCommentLikeAsync(reviewTarget, comment.Id, false, cancellationToken)
             );
             string? sampleDanmakuId = context.Danmaku?.Items.FirstOrDefault()?.Id;
             if (!string.IsNullOrEmpty(sampleDanmakuId))

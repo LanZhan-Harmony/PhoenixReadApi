@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Serialization;
 

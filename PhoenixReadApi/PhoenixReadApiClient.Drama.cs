@@ -36,7 +36,7 @@ public sealed partial class PhoenixReadApiClient
     ) => _drama.GetBatchDramaDetailsWithEpisodesAsync(dramaIds, cancellationToken);
 
     /// <summary>根据合集 ID 获取短剧多季合集详情及各季列表。</summary>
-    /// <param name="albumId">多季合集 ID（可从 <see cref="DramaDetails.RelatedAlbumId"/> 获取）。</param>
+    /// <param name="albumId">多季合集 ID（可从 <see cref="DramaDetails.AlbumId"/> 获取）。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
     /// <returns>包含各季剧集元数据的 <see cref="DramaAlbum"/> 对象。</returns>
     public Task<DramaAlbum> GetAlbumAsync(
@@ -53,12 +53,40 @@ public sealed partial class PhoenixReadApiClient
         CancellationToken cancellationToken = default
     ) => _drama.GetDramaSeasonsAsync(dramaId, cancellationToken);
 
-    /// <summary>获取指定短剧的专属关联推荐好剧（播放器/详情页相关推荐）。</summary>
+    /// <summary>获取指定短剧详情页的“相关作品”列表（同系列其他季、同 IP 短剧及原著小说）。</summary>
     /// <param name="dramaId">短剧 ID。</param>
     /// <param name="cancellationToken">用于取消请求的令牌。</param>
-    /// <returns>包含推荐列表和推荐标题的 <see cref="DramaRecommendations"/> 对象。</returns>
-    public Task<DramaRecommendations> GetDramaRecommendationsAsync(
+    /// <returns>相关作品条目列表。</returns>
+    public Task<IReadOnlyList<RelatedWorkItem>> GetDramaRelatedWorksAsync(
         string dramaId,
         CancellationToken cancellationToken = default
-    ) => _drama.GetDramaRecommendationsAsync(dramaId, cancellationToken);
+    ) => _drama.GetDramaRelatedWorksAsync(dramaId, cancellationToken);
+
+    /// <summary>获取指定短剧详情页的“猜你喜欢”推荐信息流（支持首页拉取与后续翻页）。</summary>
+    /// <param name="dramaId">当前短剧 ID。</param>
+    /// <param name="offset">分页偏移量；首次请求传 0，后续传入上一页的 <see cref="RecommendationFeedPage.NextOffset"/>。</param>
+    /// <param name="cellId">“猜你喜欢”板块 ID；首次请求可传空字符串，翻页时传入上一页的 <see cref="RecommendationFeedPage.CellId"/>。</param>
+    /// <param name="sessionId">推荐会话标识；翻页时传入上一页的 <see cref="RecommendationFeedPage.SessionId"/>。</param>
+    /// <param name="limit">翻页时每页数量，范围为 1 到 50，默认为 10。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>“猜你喜欢”推荐分页结果（包含短剧与图文帖子）。</returns>
+    public Task<RecommendationFeedPage> GetDramaGuessYouLikeAsync(
+        string dramaId,
+        int offset = 0,
+        string cellId = "",
+        string sessionId = "",
+        int limit = 10,
+        CancellationToken cancellationToken = default
+    ) => _drama.GetDramaGuessYouLikeAsync(dramaId, offset, cellId, sessionId, limit, cancellationToken);
+
+    /// <summary>获取单部短剧或视频合集播放完毕后的系列/相关推荐短剧。</summary>
+    /// <param name="id">短剧 ID（当 <paramref name="isAlbum"/> 为 false）或合集 ID（当 <paramref name="isAlbum"/> 为 true）。</param>
+    /// <param name="isAlbum">true 表示合集播完推荐，false 表示单部短剧播完底部系列剧推荐。</param>
+    /// <param name="cancellationToken">用于取消请求的令牌。</param>
+    /// <returns>推荐的下一部短剧；若无推荐则返回 null。</returns>
+    public Task<Drama?> GetPlaybackEndRecommendationAsync(
+        string id,
+        bool isAlbum = false,
+        CancellationToken cancellationToken = default
+    ) => _drama.GetPlaybackEndRecommendationAsync(id, isAlbum, cancellationToken);
 }

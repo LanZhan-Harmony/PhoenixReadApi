@@ -1,4 +1,4 @@
-﻿using PhoenixReadApi.Tests.Common;
+using PhoenixReadApi.Tests.Common;
 
 namespace PhoenixReadApi.Tests;
 
@@ -136,19 +136,16 @@ public sealed class UserTests
             await SharedScenario.AssertValidCircleItem(item);
         }
 
-        Post? postItem = circlePage.Items
-            .Select(static x => x.Value as Post)
+        Post? postItem = circlePage
+            .Items.Select(static x => x.Value as Post)
             .FirstOrDefault(static x => x is not null);
         if (postItem is not null && postItem.Id.Length > 0)
         {
-            Post post = await SharedScenario.Client.GetCirclePostAsync(
-                postItem.Id,
-                timeout.Token
-            );
+            Post post = await SharedScenario.Client.GetCirclePostAsync(postItem.Id, timeout.Token);
             await SharedScenario.AssertValidCirclePost(post);
 
-            CommentPage postComments = await SharedScenario.Client.GetPostCommentsAsync(
-                postItem.Id,
+            CommentPage postComments = await SharedScenario.Client.GetCommentsAsync(
+                CommentTarget.FromPost(postItem.Id),
                 count: 5,
                 cancellationToken: timeout.Token
             );
@@ -165,8 +162,8 @@ public sealed class UserTests
             }
         }
 
-        ShortVideo? videoItem = circlePage.Items
-            .Select(static x => x.Value as ShortVideo)
+        ShortVideo? videoItem = circlePage
+            .Items.Select(static x => x.Value as ShortVideo)
             .FirstOrDefault(static x => x is not null);
         if (videoItem is not null && videoItem.Id.Length > 0)
         {
@@ -176,8 +173,8 @@ public sealed class UserTests
             );
             await SharedScenario.AssertValidShortVideo(video);
 
-            CommentPage videoComments = await SharedScenario.Client.GetShortVideoCommentsAsync(
-                videoItem.Id,
+            CommentPage videoComments = await SharedScenario.Client.GetCommentsAsync(
+                CommentTarget.FromShortVideo(videoItem.Id),
                 count: 5,
                 cancellationToken: timeout.Token
             );

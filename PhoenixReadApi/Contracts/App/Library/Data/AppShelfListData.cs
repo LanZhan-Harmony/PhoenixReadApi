@@ -21,4 +21,8 @@ internal sealed class AppShelfListData
     [JsonPropertyName("total")]
     [JsonConverter(typeof(FlexibleLongConverter))]
     public long Total { get; init; }
+
+    [JsonPropertyName("max_bookshelf_cnt")]
+    [JsonConverter(typeof(FlexibleLongConverter))]
+    public long MaxCount { get; init; }
 }

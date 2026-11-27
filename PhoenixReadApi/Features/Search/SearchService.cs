@@ -1,13 +1,11 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using PhoenixReadApi.Internal.Contracts.App;
 using PhoenixReadApi.Internal.Contracts.App.Circle;
-using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.Search;
-using PhoenixReadApi.Internal.Features.Circle;
 using PhoenixReadApi.Internal.Contracts.Shared.Drama;
 using PhoenixReadApi.Internal.Contracts.Web.Search;
 using PhoenixReadApi.Internal.Features.Shared;
@@ -97,7 +95,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
             && string.IsNullOrWhiteSpace(passback)
         )
         {
-            if (TryGetCache(_searchCache, query, out SearchPage<Drama>? cached) && cached is not null)
+            if (
+                TryGetCache(_searchCache, query, out SearchPage<Drama>? cached)
+                && cached is not null
+            )
             {
                 return cached;
             }
@@ -588,11 +589,7 @@ internal sealed partial class SearchService : PhoenixFeatureService
             pageError = exception;
         }
 
-        if (
-            cancellationToken.IsCancellationRequested
-            && names.Count == 0
-            && page.Items.Count == 0
-        )
+        if (cancellationToken.IsCancellationRequested && names.Count == 0 && page.Items.Count == 0)
         {
             throw new TimeoutException("搜索已到时限。");
         }
@@ -889,9 +886,10 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
     private static SearchPage<T> BuildSearchPage<T>(List<T> items, ParsedSearchTabData parsed)
     {
-        int nextOffset = parsed.NextOffset > 0
-            ? parsed.NextOffset
-            : (items.Count > 0 ? parsed.Offset + items.Count : 0);
+        int nextOffset =
+            parsed.NextOffset > 0
+                ? parsed.NextOffset
+                : (items.Count > 0 ? parsed.Offset + items.Count : 0);
 
         return new SearchPage<T>
         {
@@ -1441,9 +1439,21 @@ internal sealed partial class SearchService : PhoenixFeatureService
                         DramaAlbum album = new()
                         {
                             Id = albumId,
-                            Title = ValueNormalizer.First(video.AlbumInfo.Title, video.Title, string.Empty),
-                            Description = ValueNormalizer.First(video.AlbumInfo.Intro, video.Intro, string.Empty),
-                            CoverUrl = ValueNormalizer.First(video.AlbumInfo.Cover, video.SeriesCover, string.Empty),
+                            Title = ValueNormalizer.First(
+                                video.AlbumInfo.Title,
+                                video.Title,
+                                string.Empty
+                            ),
+                            Description = ValueNormalizer.First(
+                                video.AlbumInfo.Intro,
+                                video.Intro,
+                                string.Empty
+                            ),
+                            CoverUrl = ValueNormalizer.First(
+                                video.AlbumInfo.Cover,
+                                video.SeriesCover,
+                                string.Empty
+                            ),
                             SeasonCount = Math.Max(0, video.AlbumInfo.EpisodeCount),
                         };
                         result.Albums.Add(album);
@@ -1455,15 +1465,29 @@ internal sealed partial class SearchService : PhoenixFeatureService
 
                 if (video.ContentType == 1001)
                 {
-                    string vid = ValueNormalizer.First(video.SeriesId, video.SeriesIdNumber, string.Empty);
+                    string vid = ValueNormalizer.First(
+                        video.SeriesId,
+                        video.SeriesIdNumber,
+                        string.Empty
+                    );
                     if (vid.Length > 0 && seenShortVideos.Add(vid))
                     {
                         ShortVideo shortVideo = new()
                         {
                             Id = vid,
                             VideoId = vid,
-                            Title = ValueNormalizer.First(video.SeriesTitle, video.Title, video.SeriesName, string.Empty),
-                            Description = ValueNormalizer.First(video.SeriesIntro, video.VideoDescription, video.Intro, string.Empty),
+                            Title = ValueNormalizer.First(
+                                video.SeriesTitle,
+                                video.Title,
+                                video.SeriesName,
+                                string.Empty
+                            ),
+                            Description = ValueNormalizer.First(
+                                video.SeriesIntro,
+                                video.VideoDescription,
+                                video.Intro,
+                                string.Empty
+                            ),
                             CoverUrl = ValueNormalizer.First(video.SeriesCover, string.Empty),
                             DurationSeconds = Math.Max(0, video.DurationSeconds),
                         };
@@ -1537,8 +1561,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
                             SerialCount = book.SerialCount,
                             Tags =
                             [
-                                .. book.Tags
-                                    .Select(static t => t.Name)
+                                .. book
+                                    .Tags.Select(static t => t.Name)
                                     .Where(static s => !string.IsNullOrWhiteSpace(s)),
                             ],
                         };
@@ -1568,8 +1592,8 @@ internal sealed partial class SearchService : PhoenixFeatureService
                         ReadCount = book.ReadCount,
                         Tags =
                         [
-                            .. book.Tags
-                                .Select(static t => t.Name)
+                            .. book
+                                .Tags.Select(static t => t.Name)
                                 .Where(static s => !string.IsNullOrWhiteSpace(s)),
                         ],
                     };
@@ -1613,13 +1637,13 @@ internal sealed partial class SearchService : PhoenixFeatureService
         return result;
     }
 
-    private static Post MapSearchPost(AppSearchPostDto post)
+    internal static Post MapSearchPost(AppSearchPostDto post)
     {
         List<CircleImage> images = [];
         List<string> topics =
         [
-            .. post.Tags
-                .Select(static t => t.Name)
+            .. post
+                .Tags.Select(static t => t.Name)
                 .Where(static s => !string.IsNullOrWhiteSpace(s)),
         ];
 
@@ -1635,8 +1659,11 @@ internal sealed partial class SearchService : PhoenixFeatureService
                     foreach (AppCirclePostMaterial material in container.Materials)
                     {
                         if (
-                            string.Equals(material.Type, "img-list", StringComparison.OrdinalIgnoreCase)
-                            && material.Data?.Images is not null
+                            string.Equals(
+                                material.Type,
+                                "img-list",
+                                StringComparison.OrdinalIgnoreCase
+                            ) && material.Data?.Images is not null
                         )
                         {
                             foreach (AppCirclePostImageItem img in material.Data.Images)

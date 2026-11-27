@@ -1,6 +1,5 @@
 using System.Globalization;
 using PhoenixReadApi.Internal.Contracts.App;
-using PhoenixReadApi.Internal.Contracts.App.Circle;
 using PhoenixReadApi.Internal.Contracts.App.Comment;
 using PhoenixReadApi.Internal.Contracts.App.User;
 using PhoenixReadApi.Internal.Features.Circle;

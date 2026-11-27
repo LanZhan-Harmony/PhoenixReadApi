@@ -18,6 +18,281 @@ internal sealed class CommentService : PhoenixFeatureService
     internal CommentService(PhoenixReadClientRuntime runtime)
         : base(runtime) { }
 
+    internal Task<CommentPage> GetCommentsAsync(
+        CommentTarget target,
+        int count,
+        string cursor,
+        CommentSortOrder sort,
+        CancellationToken cancellationToken
+    ) =>
+        target.Kind switch
+        {
+            CommentTargetKind.Episode => GetEpisodeCommentsAsync(
+                target.PrimaryId,
+                target.SecondaryId,
+                count,
+                cursor,
+                cancellationToken,
+                sort
+            ),
+            CommentTargetKind.ShortVideo => GetShortVideoCommentsAsync(
+                target.PrimaryId,
+                count,
+                cursor,
+                cancellationToken,
+                sort
+            ),
+            CommentTargetKind.Post => GetPostCommentsAsync(
+                target.PrimaryId,
+                count,
+                cursor,
+                cancellationToken,
+                sort
+            ),
+            CommentTargetKind.DramaReview => throw new ArgumentException(
+                "获取剧评列表请调用 GetDramaReviewsAsync。",
+                nameof(target)
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+
+    internal Task<CommentReplyPage> GetCommentRepliesAsync(
+        CommentTarget target,
+        string commentId,
+        int count,
+        string cursor,
+        CancellationToken cancellationToken
+    ) =>
+        target.Kind switch
+        {
+            CommentTargetKind.DramaReview => GetDramaReviewRepliesAsync(
+                commentId,
+                target.PrimaryId,
+                count,
+                cursor,
+                cancellationToken
+            ),
+            CommentTargetKind.Episode => GetEpisodeCommentRepliesAsync(
+                commentId,
+                target.PrimaryId,
+                target.SecondaryId,
+                count,
+                cursor,
+                cancellationToken
+            ),
+            CommentTargetKind.ShortVideo => GetShortVideoCommentRepliesAsync(
+                commentId,
+                target.PrimaryId,
+                count,
+                cursor,
+                cancellationToken
+            ),
+            CommentTargetKind.Post => GetPostCommentRepliesAsync(
+                commentId,
+                target.PrimaryId,
+                count,
+                cursor,
+                cancellationToken
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+
+    internal Task<PhoenixOperationResult> SendCommentAsync(
+        CommentTarget target,
+        string text,
+        CancellationToken cancellationToken
+    ) =>
+        target.Kind switch
+        {
+            CommentTargetKind.Episode => SendCommentAsync(
+                target.PrimaryId,
+                target.SecondaryId,
+                text,
+                cancellationToken
+            ),
+            CommentTargetKind.ShortVideo => SendShortVideoCommentAsync(
+                target.PrimaryId,
+                text,
+                cancellationToken
+            ),
+            CommentTargetKind.Post => SendPostCommentAsync(
+                target.PrimaryId,
+                text,
+                cancellationToken
+            ),
+            CommentTargetKind.DramaReview => throw new ArgumentException(
+                "发表剧评请调用 SendDramaReviewAsync。",
+                nameof(target)
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+
+    internal Task<PhoenixOperationResult> SendCommentReplyAsync(
+        CommentTarget target,
+        string commentId,
+        string text,
+        string replyToUserId,
+        CancellationToken cancellationToken
+    ) =>
+        target.Kind switch
+        {
+            CommentTargetKind.DramaReview => SendDramaReviewReplyAsync(
+                commentId,
+                target.PrimaryId,
+                text,
+                replyToUserId,
+                cancellationToken
+            ),
+            CommentTargetKind.Episode => SendReplyAsync(
+                commentId,
+                target.PrimaryId,
+                target.SecondaryId,
+                text,
+                replyToUserId,
+                cancellationToken
+            ),
+            CommentTargetKind.ShortVideo => SendShortVideoReplyAsync(
+                commentId,
+                target.PrimaryId,
+                text,
+                replyToUserId,
+                cancellationToken
+            ),
+            CommentTargetKind.Post => SendPostReplyAsync(
+                commentId,
+                target.PrimaryId,
+                text,
+                replyToUserId,
+                cancellationToken
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+
+    internal Task<PhoenixOperationResult> SetCommentLikeAsync(
+        CommentTarget target,
+        string commentId,
+        bool active,
+        CancellationToken cancellationToken
+    ) =>
+        target.Kind switch
+        {
+            CommentTargetKind.DramaReview => LikeCommentAsync(
+                commentId,
+                target.PrimaryId,
+                active,
+                cancellationToken,
+                objectType: 2,
+                commentType: 4
+            ),
+            CommentTargetKind.Episode => LikeCommentAsync(
+                commentId,
+                target.SecondaryId,
+                active,
+                cancellationToken
+            ),
+            CommentTargetKind.ShortVideo => LikeShortVideoCommentAsync(
+                commentId,
+                target.PrimaryId,
+                active,
+                cancellationToken
+            ),
+            CommentTargetKind.Post => LikePostCommentAsync(
+                commentId,
+                target.PrimaryId,
+                active,
+                cancellationToken
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+
+    internal Task<PhoenixOperationResult> SetReplyLikeAsync(
+        CommentTarget target,
+        string replyId,
+        bool active,
+        CancellationToken cancellationToken
+    ) =>
+        target.Kind switch
+        {
+            CommentTargetKind.DramaReview => LikeCommentAsync(
+                replyId,
+                target.PrimaryId,
+                active,
+                cancellationToken,
+                objectType: 8,
+                commentType: 4
+            ),
+            CommentTargetKind.Episode => LikeCommentAsync(
+                replyId,
+                target.SecondaryId,
+                active,
+                cancellationToken,
+                objectType: 8,
+                commentType: 4
+            ),
+            CommentTargetKind.ShortVideo => LikeShortVideoReplyAsync(
+                replyId,
+                target.PrimaryId,
+                active,
+                cancellationToken
+            ),
+            CommentTargetKind.Post => LikePostReplyAsync(
+                replyId,
+                target.PrimaryId,
+                active,
+                cancellationToken
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+
+    internal Task<PhoenixOperationResult> DeleteCommentAsync(
+        CommentTarget target,
+        string commentId,
+        CancellationToken cancellationToken
+    ) =>
+        target.Kind switch
+        {
+            CommentTargetKind.DramaReview => DeleteCommentAsync(
+                commentId,
+                target.PrimaryId,
+                cancellationToken,
+                dataType: 4,
+                serviceId: 2,
+                groupType: 1
+            ),
+            CommentTargetKind.Episode => DeleteCommentAsync(
+                commentId,
+                target.SecondaryId,
+                cancellationToken
+            ),
+            CommentTargetKind.ShortVideo => DeleteShortVideoCommentAsync(
+                commentId,
+                target.PrimaryId,
+                cancellationToken
+            ),
+            CommentTargetKind.Post => DeletePostCommentAsync(
+                commentId,
+                target.PrimaryId,
+                cancellationToken
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+
+    internal Task<PhoenixOperationResult> DeleteReplyAsync(
+        CommentTarget target,
+        string replyId,
+        CancellationToken cancellationToken
+    ) =>
+        target.Kind switch
+        {
+            CommentTargetKind.DramaReview or CommentTargetKind.Episode => DeleteReplyAsync(
+                replyId,
+                cancellationToken
+            ),
+            CommentTargetKind.ShortVideo => DeleteShortVideoReplyAsync(replyId, cancellationToken),
+            CommentTargetKind.Post => DeletePostReplyAsync(replyId, cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+
     internal Task<DramaReviewPage> GetDramaReviewsAsync(
         string dramaId,
         int count,
